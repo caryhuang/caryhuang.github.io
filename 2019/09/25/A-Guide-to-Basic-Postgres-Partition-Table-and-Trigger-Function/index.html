@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html  lang="en">
+<head>
+    <meta charset="utf-8" />
+
+<meta name="generator" content="Hexo 4.2.0" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+
+<title>A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function - Hexo</title>
+
+
+    <meta name="description" content="1. OverviewTable partitioning is introduced after Postgres version 9.4 that provides several performance improvement under extreme loads. Partitioning refers to splitting one logically large table int">
+<meta property="og:type" content="article">
+<meta property="og:title" content="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function">
+<meta property="og:url" content="http://yoursite.com/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="1. OverviewTable partitioning is introduced after Postgres version 9.4 that provides several performance improvement under extreme loads. Partitioning refers to splitting one logically large table int">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://yoursite.com/images/og_image.png">
+<meta property="article:published_time" content="2019-09-26T05:32:25.000Z">
+<meta property="article:modified_time" content="2020-01-04T06:49:24.000Z">
+<meta property="article:author" content="John Doe">
+<meta property="article:tag" content="postgres">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/images/og_image.png">
+
+
+
+
+
+
+
+<link rel="icon" href="/images/favicon.svg">
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.7.2/css/bulma.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu:400,600|Source+Code+Pro">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css">
+
+
+    
+    
+<style>body>.footer,body>.navbar,body>.section{opacity:0}</style>
+
+    
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css">
+
+    
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.css">
+
+    
+    
+    
+    
+<link rel="stylesheet" href="/css/back-to-top.css">
+
+    
+    
+    
+    
+    
+    
+    
+    <link rel="stylesheet" href="/css/progressbar.css">
+<script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script>
+    
+    
+    
+
+
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="is-3-column">
+    <nav class="navbar navbar-main">
+    <div class="container">
+        <div class="navbar-brand is-flex-center">
+            <a class="navbar-item navbar-logo" href="/">
+            
+                <img src="/images/logo.svg" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function" height="28">
+            
+            </a>
+        </div>
+        <div class="navbar-menu">
+            
+            <div class="navbar-start">
+                
+                <a class="navbar-item"
+                href="/">Home</a>
+                
+                <a class="navbar-item"
+                href="/archives">Archives</a>
+                
+                <a class="navbar-item"
+                href="/categories">Categories</a>
+                
+                <a class="navbar-item"
+                href="/tags">Tags</a>
+                
+                <a class="navbar-item"
+                href="/about/me.html">About</a>
+                
+            </div>
+            
+            <div class="navbar-end">
+                
+                    
+                    <a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                    
+                
+                
+                
+                <a class="navbar-item search" title="Search" href="javascript:;">
+                    <i class="fas fa-search"></i>
+                </a>
+                
+            </div>
+        </div>
+    </div>
+</nav>
+    
+    <section class="section">
+        <div class="container">
+            <div class="columns">
+                <div class="column is-8-tablet is-8-desktop is-6-widescreen has-order-2 column-main">
+<div class="card">
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2019-09-26T05:32:25.000Z">2019-09-25</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    10 minutes read (About 1485 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function
+            
+        </h1>
+        <div class="content">
+            <h4 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h4><p>Table partitioning is introduced after Postgres version 9.4 that provides several performance improvement under extreme loads. Partitioning refers to splitting one logically large table into smaller pieces, which in turn distribute heavy loads across smaller pieces (also known as partitions).</p>
+<p>There are several ways to define a partition table, such as declarative partitioning and partitioning by inheritance. In this article we will focus on a simple form of declarative partitioning by value range.</p>
+<p>Later in this article, we will discuss how we can define a <code>TRIGGER</code> to work with a <code>FUNCTION</code> to make table updates more dynamic.</p>
+<h4 id="2-Creating-a-Table-Partition-by-Range"><a href="#2-Creating-a-Table-Partition-by-Range" class="headerlink" title="2. Creating a Table Partition by Range"></a>2. Creating a Table Partition by Range</h4><p>Let’s define a use case. Say we are a world famous IT consulting company and there is a database table called <code>salesman_performance</code>, which contains all the sales personnel world wide and their lifetime revenue of sales. Technically it is possible to have one table containing all sales personnel in the world but as entries get much larger, the query performance may be greatly reduced.</p>
+<p>Here, we would like to create 7 partitions, representing 7 different levels of sales (or ranks) like so:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE salesman_performance (</span><br><span class="line">        salesman_id int not NULL,</span><br><span class="line">        first_name varchar(45),</span><br><span class="line">        last_name varchar(45),</span><br><span class="line">        revenue numeric(11,2),</span><br><span class="line">        last_updated timestamp</span><br><span class="line">) PARTITION BY RANGE (revenue);</span><br></pre></td></tr></table></figure>
+
+<p>Please note that, we have to specify that it is a partition table by using keyword “PARTITION BY RANGE”. It is not possible to alter a already created table and make it a partition table.</p>
+<p>Now, let’s create 7 partitions based on revenue performance:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE salesman_performance_chief PARTITION OF salesman_performance</span><br><span class="line">        FOR VALUES FROM (100000000.00) TO (999999999.99);</span><br><span class="line"></span><br><span class="line">CREATE TABLE salesman_performance_elite PARTITION OF salesman_performance</span><br><span class="line">        FOR VALUES FROM (10000000.00) TO (99999999.99);</span><br><span class="line"></span><br><span class="line">CREATE TABLE salesman_performance_above_average PARTITION OF salesman_performance</span><br><span class="line">        FOR VALUES FROM (1000000.00) TO (9999999.99);</span><br><span class="line"></span><br><span class="line">CREATE TABLE salesman_performance_average PARTITION OF salesman_performance</span><br><span class="line">        FOR VALUES FROM (100000.00) TO (999999.99);</span><br><span class="line"></span><br><span class="line">CREATE TABLE salesman_performance_below_average PARTITION OF salesman_performance</span><br><span class="line">        FOR VALUES FROM (10000.00) TO (99999.99);</span><br><span class="line"></span><br><span class="line">CREATE TABLE salesman_performance_need_work PARTITION OF salesman_performance</span><br><span class="line">        FOR VALUES FROM (1000.00) TO (9999.99);</span><br><span class="line"></span><br><span class="line">CREATE TABLE salesman_performance_poor PARTITION OF salesman_performance</span><br><span class="line">        FOR VALUES FROM (0.00) TO (999.99);</span><br></pre></td></tr></table></figure>
+<p>Let’s insert some values into “salesman_performace” table with different users having different revenue performance:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">INSERT INTO salesman_performance VALUES( 1, &#39;Cary&#39;, &#39;Huang&#39;, 4458375.34, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 2, &#39;Nick&#39;, &#39;Wahlberg&#39;, 340.2, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 3, &#39;Ed&#39;, &#39;Chase&#39;, 764.34, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 4, &#39;Jennifer&#39;, &#39;Davis&#39;, 33750.12, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 5, &#39;Johnny&#39;, &#39;Lollobrigida&#39;, 4465.23, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 6, &#39;Bette&#39;, &#39;Nicholson&#39;, 600.44, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 7, &#39;Joe&#39;, &#39;Swank&#39;, 445237.34, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 8, &#39;Fred&#39;, &#39;Costner&#39;, 2456789.34, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 9, &#39;Karl&#39;, &#39;Berry&#39;, 4483758.34, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 10, &#39;Zero&#39;, &#39;Cage&#39;, 74638930.64, &#39;2019-09-20 16:00:00&#39;);</span><br><span class="line">INSERT INTO salesman_performance VALUES( 11, &#39;Matt&#39;, &#39;Johansson&#39;, 655837.34, &#39;2019-09-20 16:00:00&#39;);</span><br></pre></td></tr></table></figure>
+
+<p>Postgres will automatically distribute queries to the respective partition based on revenue range. </p>
+<p>You may run the \d+ command to see the table and its partitions</p>
+<p><img src="/images/partition-table.png" alt="partition-table"></p>
+<p>or examine just salesman_performance, which shows partition key and range</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">\d+ salesman-performance</span><br></pre></td></tr></table></figure>
+
+<p><img src="/images/partition-table-info.png" alt="partition-table"></p>
+<p>we can also use EXPLAIN ANALYZE query to see the query plan PG system makes to scan each partition. In the plan, it indicates how many rows of records exist in each partition</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN ANALYZE SELECT * FROM salesman_performance;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/partition-table-query-plan.png" alt="partition-table"></p>
+<p>There you have it. This ia a very basic partition table that distributes data by value range.</p>
+<p>One of the advantages of using partition table is that bulk loads and deletes can be done simply by adding or removing partitions (DROP TABLE). This is much faster and can entirely avoid VACUUM overhead caused by DELETE</p>
+<p>When you make a update to an entry. Say salesman_id 1 has reached the “Chief” level of sales rank from “Above Average” rank</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">UPDATE salesman_performance SET revenue &#x3D; 445837555.34 where salesman_id&#x3D;1;</span><br></pre></td></tr></table></figure>
+
+<p>You will see that Postgres automatically put salesman_id 1 into the “salesman_performance_chief” partition and removes from “salesman_performance_above_average”</p>
+<h4 id="3-Delete-and-Detach-Partition"><a href="#3-Delete-and-Detach-Partition" class="headerlink" title="3. Delete and Detach Partition"></a>3. Delete and Detach Partition</h4><p>A partition can be deleted completely simply by the “DROP TABLE [partition name]” command. This may not be desirable in some use cases.</p>
+<p>The more recommended approach is to use “DETACH PARTITION” queries, which removes the partition relationship but preserves the data.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ALTER TABLE salesman_performance DETACH PARTITION salesman_performance_chief;</span><br></pre></td></tr></table></figure>
+
+<p>If a partition range is missing, and the subsequent insertion has a range that no other partitions contain, the insertion will fail.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">INSERT INTO salesman_performance VALUES( 12, &#39;New&#39;, &#39;User&#39;, 755837555.34, current_timestamp);</span><br><span class="line"></span><br><span class="line">&#x3D;&gt; should result in failure because no partitions contain a range for this revenue &#x3D;  755837555.34</span><br></pre></td></tr></table></figure>
+<p>If we add back the partition for the missing range, then the above insertion will work:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ALTER TABLE salesman_performance ATTACH PARTITION salesman_performance_chief</span><br><span class="line">FOR VALUES FROM (100000000.00) TO (999999999.99);</span><br></pre></td></tr></table></figure>
+
+<h4 id="4-Create-Function-Using-Plpgsql-and-Define-a-Trigger"><a href="#4-Create-Function-Using-Plpgsql-and-Define-a-Trigger" class="headerlink" title="4. Create Function Using Plpgsql and Define a Trigger"></a>4. Create Function Using Plpgsql and Define a Trigger</h4><p>In this section, we will use an example of subscriber and coupon code redemption to illustrate the use of Plpgsql function and a trigger to correctly manage the distribution of available coupon codes.</p>
+<p>First we will have a table called “subscriber”, which store a list of users and a table called “coupon”, which stores a list of available coupons.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE subscriber (</span><br><span class="line">    sub_id int not NULL,</span><br><span class="line">    first_name varchar(45),</span><br><span class="line">    last_name varchar(45),</span><br><span class="line">    coupon_code_redeemed varchar(200),</span><br><span class="line">    last_updated timestamp</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line">CREATE TABLE coupon (</span><br><span class="line">    coupon_code varchar(45),</span><br><span class="line">    percent_off int CHECK (percent_off &gt;&#x3D; 0 AND percent_off&lt;&#x3D;100),</span><br><span class="line">    redeemed_by varchar(100),</span><br><span class="line">    time_redeemed timestamp</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>Let’s insert some records to the above tables:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">INSERT INTO subscriber (sub_id, first_name, last_name, last_updated) VALUES(1,&#39;Cary&#39;,&#39;Huang&#39;,current_timestamp);</span><br><span class="line">INSERT INTO subscriber  (sub_id, first_name, last_name, last_updated) VALUES(1,&#39;Nick&#39;,&#39;Wahlberg&#39;,current_timestamp);</span><br><span class="line">INSERT INTO subscriber  (sub_id, first_name, last_name, last_updated) VALUES(1,&#39;Johnny&#39;,&#39;Lollobrigida&#39;,current_timestamp);</span><br><span class="line">INSERT INTO subscriber  (sub_id, first_name, last_name, last_updated) VALUES(1,&#39;Joe&#39;,&#39;Swank&#39;,current_timestamp);</span><br><span class="line">INSERT INTO subscriber  (sub_id, first_name, last_name, last_updated) VALUES(1,&#39;Matt&#39;,&#39;Johansson&#39;,current_timestamp);</span><br><span class="line"></span><br><span class="line">INSERT INTO coupon (coupon_code, percent_off) VALUES(&#39;CXNEHD-746353&#39;,20);</span><br><span class="line">INSERT INTO coupon (coupon_code, percent_off)  VALUES(&#39;CXNEHD-653834&#39;,30);</span><br><span class="line">INSERT INTO coupon (coupon_code, percent_off)  VALUES(&#39;CXNEHD-538463&#39;,40);</span><br><span class="line">INSERT INTO coupon (coupon_code, percent_off)  VALUES(&#39;CXNEHD-493567&#39;,50);</span><br><span class="line">INSERT INTO coupon (coupon_code, percent_off)  VALUES(&#39;CXNEHD-384756&#39;,95);</span><br></pre></td></tr></table></figure>
+
+<p>The tables now look like:<br><img src="/images/coupon-and-subscriber.png" alt="trigger-function"></p>
+<p>Say one subscriber redeems a coupon code, we would need a <code>FUNCTION</code> to check if the redeemed coupon code is valid (ie. Exists in coupon table). If valid, we will update the subscriber table with the coupon code redeemed and at the same time update the coupon table to indicate which subscriber redeemed the coupon and at what time.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">CREATE OR REPLACE FUNCTION redeem_coupon() RETURNS trigger AS $redeem_coupon$</span><br><span class="line">    BEGIN</span><br><span class="line">    IF EXISTS ( SELECT 1 FROM coupon c where c.coupon_code &#x3D; NEW.coupon_code_redeemed ) THEN</span><br><span class="line">        UPDATE coupon SET redeemed_by&#x3D;OLD.first_name, time_redeemed&#x3D;&#39;2019-09-20 16:00:00&#39; where  coupon_code &#x3D; NEW.coupon_code_redeemed;</span><br><span class="line">    ELSE</span><br><span class="line">        RAISE EXCEPTION &#39;coupon code does not exist&#39;;</span><br><span class="line">    END IF;</span><br><span class="line">        RETURN NEW;</span><br><span class="line">    END;</span><br><span class="line">$redeem_coupon$ LANGUAGE plpgsql;</span><br></pre></td></tr></table></figure>
+
+<p>we need to define a <code>TRIGGER</code>, which is invoked BEFORE UPDATE, to check the validity of a given coupon code.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CREATE TRIGGER redeem_coupon_trigger</span><br><span class="line">  BEFORE UPDATE</span><br><span class="line">  ON subscriber</span><br><span class="line">  FOR EACH ROW</span><br><span class="line">  EXECUTE PROCEDURE redeem_coupon();</span><br></pre></td></tr></table></figure>
+
+<p>\d+ subscriber should look like this:</p>
+<p><img src="/images/trigger_table.png" alt="trigger-function"></p>
+<p>Let’s have some users redeem invalid coupon codes and as expected, an exception will be raised if coupon code is not valid.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">UPDATE subscriber set coupon_code_redeemed&#x3D;&#39;12345678&#39; where first_name&#x3D;&#39;Cary&#39;;</span><br><span class="line">UPDATE subscriber set coupon_code_redeemed&#x3D;&#39;87654321&#39; where first_name&#x3D;&#39;Nick&#39;;</span><br><span class="line">UPDATE subscriber set coupon_code_redeemed&#x3D;&#39;55555555&#39; where first_name&#x3D;&#39;Joe&#39;;</span><br></pre></td></tr></table></figure>
+
+<p><img src="/images/invalid-coupon.png" alt="trigger-function"></p>
+<p>Let’s correct the above and redeem only the valid coupon codes and there should not be any error.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">UPDATE subscriber set coupon_code_redeemed&#x3D;&#39;CXNEHD-493567&#39; where first_name&#x3D;&#39;Cary&#39;;</span><br><span class="line">UPDATE subscriber set coupon_code_redeemed&#x3D;&#39;CXNEHD-653834&#39; where first_name&#x3D;&#39;Nick&#39;;</span><br><span class="line">UPDATE subscriber set coupon_code_redeemed&#x3D;&#39;CXNEHD-384756&#39; where first_name&#x3D;&#39;Joe&#39;;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/valid-coupon.png" alt="trigger-function"></p>
+<p>Now both table should look like this, and now both table have information cross-related.</p>
+<p><img src="/images/coupon-redeemed.png" alt="trigger-function"></p>
+<p>And there you have it, a basic trigger function executed before each update.</p>
+<h4 id="5-Summary"><a href="#5-Summary" class="headerlink" title="5. Summary"></a>5. Summary</h4><p>With the support of partitioned table defined by value range, we are able to define a condition for postgres to automatically split the load of a very large table across many smaller partitions. This has a lot of benefits in terms of performance boost and more efficient data management.</p>
+<p>Having postgres <code>FUNCTION</code>  and <code>TRIGGER</code> working together as a duo, we are able to make general queries and updates more dynamic and automatic to achieve more complex operations. As some of the complex logics can be defined and handled as <code>FUNCTION</code>, which is then invoked at appropriate moment defined by <code>TRIGGER</code>, the application integrated to Postgres will have much less logics to implement. </p>
+
+        </div>
+        
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/postgres/" rel="tag">postgres</a>
+                </div>
+            </div>
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+</div>
+                
+
+
+
+
+<div class="column is-4-tablet is-4-desktop is-3-widescreen  has-order-1 column-left ">
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <nav class="level">
+            <div class="level-item has-text-centered" style="flex-shrink: 1">
+                <div>
+                    
+                    <figure class="image is-128x128 has-mb-6">
+                        <img class="" src="/images/avatar.png" alt="Your name">
+                    </figure>
+                    
+                    <p class="is-size-4 is-block">
+                        Your name
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-block">
+                        Your title
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-flex is-flex-center has-text-grey">
+                        <i class="fas fa-map-marker-alt has-mr-7"></i>
+                        <span>Your location</span>
+                    </p>
+                    
+                </div>
+            </div>
+        </nav>
+        <nav class="level is-mobile">
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Post
+                    </p>
+                    <a href="/archives">
+                        <p class="title has-text-weight-normal">
+                            1
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Category
+                    </p>
+                    <a href="/categories">
+                        <p class="title has-text-weight-normal">
+                            1
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Tag
+                    </p>
+                    <a href="/tags">
+                        <p class="title has-text-weight-normal">
+                            1
+                        </p>
+                    </a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="level">
+            <a class="level-item button is-link is-rounded" href="https://github.com/ppoffice" target="_blank" rel="noopener">
+                Follow</a>
+        </div>
+        
+        
+        
+        <div class="level is-mobile">
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Github" href="https://github.com/ppoffice">
+                
+                <i class="fab fa-github"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Facebook" href="https://facebook.com">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Twitter" href="https://twitter.com">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Dribbble" href="https://dribbble.com">
+                
+                <i class="fab fa-dribbble"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="RSS" href="/">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+            
+        </div>
+        
+    </div>
+</div>
+    
+        
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Links
+        </h3>
+        <ul class="menu-list">
+        
+            <li>
+                <a class="level is-mobile" href="https://hexo.io" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Hexo</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">hexo.io</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://github.com/ppoffice" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">PPOffice</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">github.com</span>
+                    </span>
+                </a>
+            </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Categories
+            </h3>
+            <ul class="menu-list">
+            <li>
+        <a class="level is-marginless" href="/categories/Software-Development/">
+            <span class="level-start">
+                <span class="level-item">Software Development</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">1</span>
+            </span>
+        </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Tag Cloud
+        </h3>
+        <a href="/tags/postgres/" style="font-size: 10px;">postgres</a>
+    </div>
+</div>
+    
+    
+        <div class="column-right-shadow is-hidden-widescreen ">
+        
+            <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Recent
+        </h3>
+        
+        <article class="media">
+            
+            <a href="/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-26T05:32:25.000Z">2019-09-25</time></div>
+                    <a href="/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+    </div>
+</div>
+        
+            <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Archives
+        </h3>
+        <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+        
+            <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Tags
+            </h3>
+            <div class="field is-grouped is-grouped-multiline">
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgres/">
+                        <span class="tag">postgres</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+        
+        </div>
+    
+</div>
+
+                
+
+
+
+
+<div class="column is-4-tablet is-4-desktop is-3-widescreen is-hidden-touch is-hidden-desktop-only has-order-3 column-right ">
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Recent
+        </h3>
+        
+        <article class="media">
+            
+            <a href="/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-26T05:32:25.000Z">2019-09-25</time></div>
+                    <a href="/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Archives
+        </h3>
+        <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Tags
+            </h3>
+            <div class="field is-grouped is-grouped-multiline">
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgres/">
+                        <span class="tag">postgres</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+    
+    
+</div>
+
+            </div>
+        </div>
+    </section>
+    <footer class="footer">
+    <div class="container">
+        <div class="level">
+            <div class="level-start has-text-centered-mobile">
+                <a class="footer-logo is-block has-mb-6" href="/">
+                
+                    <img src="/images/logo.svg" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function" height="28">
+                
+                </a>
+                <p class="is-size-7">
+                &copy; 2020 John Doe&nbsp;
+                Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> & <a
+                        href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a>
+                
+                </p>
+            </div>
+            <div class="level-end">
+            
+                <div class="field has-addons is-flex-center-mobile has-mt-5-mobile is-flex-wrap is-flex-middle">
+                
+                <p class="control">
+                    <a class="button is-white is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/">
+                        
+                        <i class="fab fa-creative-commons"></i>
+                        
+                    </a>
+                </p>
+                
+                <p class="control">
+                    <a class="button is-white is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/">
+                        
+                        <i class="fab fa-creative-commons-by"></i>
+                        
+                    </a>
+                </p>
+                
+                <p class="control">
+                    <a class="button is-white is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                </p>
+                
+                </div>
+            
+            </div>
+        </div>
+    </div>
+</footer>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script>
+<script>moment.locale("en");</script>
+
+
+<script>
+var IcarusThemeSettings = {
+    site: {
+        url: 'http://yoursite.com',
+        external_link: {"enable":true,"exclude":[]}
+    },
+    article: {
+        highlight: {
+            clipboard: true,
+            fold: 'unfolded'
+        }
+    }
+};
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script>
+
+
+
+
+
+<script src="/js/animation.js"></script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script>
+<script src="/js/gallery.js" defer></script>
+
+
+
+<div id="outdated">
+    <h6>Your browser is out-of-date!</h6>
+    <p>Update your browser to view this website correctly. <a id="btnUpdateBrowser" href="http://outdatedbrowser.com/">Update
+            my browser now </a></p>
+    <p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">&times;</a></p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.js" defer></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        outdatedBrowser({
+            bgColor: '#f25648',
+            color: '#ffffff',
+            lowerThan: 'flex'
+        });
+    });
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.5/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    MathJax.Hub.Config({
+        'HTML-CSS': {
+            matchFontHeight: false
+        },
+        SVG: {
+            matchFontHeight: false
+        },
+        CommonHTML: {
+            matchFontHeight: false
+        },
+        tex2jax: {
+            inlineMath: [
+                ['$','$'],
+                ['\\(','\\)']
+            ]
+        }
+    });
+});
+</script>
+
+
+<a id="back-to-top" title="Back to Top" href="javascript:;">
+    <i class="fas fa-chevron-up"></i>
+</a>
+<script src="/js/back-to-top.js" defer></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="/js/main.js" defer></script>
+
+    
+    <div class="searchbox ins-search">
+    <div class="searchbox-container ins-search-container">
+        <div class="searchbox-input-wrapper">
+            <input type="text" class="searchbox-input ins-search-input" placeholder="Type something..." />
+            <span class="searchbox-close ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="searchbox-result-wrapper ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+    (function (window) {
+        var INSIGHT_CONFIG = {
+            TRANSLATION: {
+                POSTS: 'Posts',
+                PAGES: 'Pages',
+                CATEGORIES: 'Categories',
+                TAGS: 'Tags',
+                UNTITLED: '(Untitled)',
+            },
+            CONTENT_URL: '/content.json',
+        };
+        window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+    })(window);
+</script>
+<script src="/js/insight.js" defer></script>
+<link rel="stylesheet" href="/css/search.css">
+<link rel="stylesheet" href="/css/insight.css">
+    
+</body>
+</html>
