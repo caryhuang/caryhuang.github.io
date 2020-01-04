@@ -7,19 +7,23 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>Tags - Cary Huang</title>
+<title>Replication-Failover-with-pg_rewind-in-PG12 - Cary Huang</title>
 
 
-    <meta property="og:type" content="website">
-<meta property="og:title" content="Cary Huang">
-<meta property="og:url" content="http://yoursite.com/tags/index.html">
+    <meta name="description" content="1. OverviewIn the previous blog, we have discussed how to correctly set up streaming replication clusters between one master and one slave in Postgres version 12. In this blog, we will simulate a fail">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Replication-Failover-with-pg_rewind-in-PG12">
+<meta property="og:url" content="http://yoursite.com/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/index.html">
 <meta property="og:site_name" content="Cary Huang">
+<meta property="og:description" content="1. OverviewIn the previous blog, we have discussed how to correctly set up streaming replication clusters between one master and one slave in Postgres version 12. In this blog, we will simulate a fail">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/images/og_image.png">
+<meta property="og:image" content="http://yoursite.com/images/pg-thumbnail.png">
+<meta property="article:published_time" content="2019-09-28T06:36:52.000Z">
+<meta property="article:modified_time" content="2020-01-04T07:42:10.000Z">
 <meta property="article:author" content="Cary Huang">
 <meta property="article:tag" content="postgres">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/images/og_image.png">
+<meta name="twitter:image" content="http://yoursite.com/images/pg-thumbnail.png">
 
 
 
@@ -77,7 +81,7 @@
         <div class="navbar-brand is-flex-center">
             <a class="navbar-item navbar-logo" href="/">
             
-                <img src="/images/logo.svg" alt="Cary Huang" height="28">
+                <img src="/images/logo.svg" alt="Replication-Failover-with-pg_rewind-in-PG12" height="28">
             
             </a>
         </div>
@@ -94,7 +98,7 @@
                 <a class="navbar-item"
                 href="/categories">Categories</a>
                 
-                <a class="navbar-item is-active"
+                <a class="navbar-item"
                 href="/tags">Tags</a>
                 
                 <a class="navbar-item"
@@ -126,25 +130,142 @@
     <section class="section">
         <div class="container">
             <div class="columns">
-                <div class="column is-8-tablet is-8-desktop is-6-widescreen has-order-2 column-main"><div class="card widget">
-    <div class="card-content">
-        <div class="menu">
-            <h3 class="menu-label">
-                Tags
-            </h3>
-            <div class="field is-grouped is-grouped-multiline">
+                <div class="column is-8-tablet is-8-desktop is-6-widescreen has-order-2 column-main">
+<div class="card">
+    
+    <div class="card-image">
+        <span  class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-thumbnail.png" alt="Replication-Failover-with-pg_rewind-in-PG12">
+        </span>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2019-09-28T06:36:52.000Z">2019-09-27</time>
                 
-                <div class="control">
-                    <a class="tags has-addons" href="/tags/postgres/">
-                        <span class="tag">postgres</span>
-                        <span class="tag is-grey">5</span>
-                    </a>
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
                 </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    10 minutes read (About 1463 words)
+                </span>
+                
                 
             </div>
         </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                Replication-Failover-with-pg_rewind-in-PG12
+            
+        </h1>
+        <div class="content">
+            <h4 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h4><p>In the previous blog, we have discussed how to correctly set up streaming replication clusters between one master and one slave in Postgres version 12. In this blog, we will simulate a failover scenario on the master database, which causes the replica (or slave) database cluster to be promoted as new master and continue the operation. We will also simulate a failback scenario to reuse the old master cluster after the failover scenario with the help of pg_rewind. </p>
+<p>Normally it is quite easy to do a failback to the old master after slave gets promoted to master but if there is data written to the old master after slave promotion, we will have an out-of-sync case between them both and we will have to use the pg_rewind tool to synchronize the two data directories in order to bring the old master to match the state of the new master. Please note that the pg_rewind tool will remove transactions from the old master in order to match up with the new, so certain pre-caution is needed to use this tool.</p>
+<p>Here’s a brief overview of list of actions we are going to perform:</p>
+<ul>
+<li>simulate failover by promoting <code>slave</code> cluster, so it becomes a <code>new master</code></li>
+<li>simulate data insertion to <code>master</code> cluster, also referred as <code>old master</code> after promotion</li>
+<li>shutdown the <code>old master</code> cluster and set it up as a standby server</li>
+<li>run pg_rewind on <code>old master</code> to synchronize transaction states with <code>new master</code></li>
+<li>bring up <code>old master</code> as a standby server to synchronize with the <code>new master</code></li>
+</ul>
+<p>This blog assumes you already have streaming replication setup between one master and one slave from previous blog. If you have not checked out the previous blog titled “Streaming Replication Setup in PG12 - How to Do it Right”, it is recommended to give that a read first.</p>
+<p>The procedures illustrated in this blog is based on Postgres version 12 built from source running on Ubuntu 18.04</p>
+<h4 id="2-Simulate-a-Failover-Case"><a href="#2-Simulate-a-Failover-Case" class="headerlink" title="2. Simulate a Failover Case"></a>2. Simulate a Failover Case</h4><p>We will simply promote the slave database cluster to simulate a failover.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ pg_ctl promote -D db-slave</span><br><span class="line"></span><br><span class="line">2019-10-30 11:10:16.951 PDT [16643] LOG:  received promote request</span><br><span class="line">2019-10-30 11:10:16.951 PDT [16651] FATAL:  terminating walreceiver process due to administrator command</span><br><span class="line">2019-10-30 11:10:16.966 PDT [16643] LOG:  redo done at 0&#x2F;3003B60</span><br><span class="line">2019-10-30 11:10:16.991 PDT [16643] LOG:  selected new timeline ID: 2</span><br><span class="line">2019-10-30 11:10:17.030 PDT [16643] LOG:  archive recovery complete</span><br><span class="line">2019-10-30 11:10:17.051 PDT [16642] LOG:  database system is ready to accept connections</span><br></pre></td></tr></table></figure>
+
+<p>As seen above, After <code>slave</code> gets promoted, it switches to a new timeline for future data operations. At this point the <code>master</code> and <code>slave</code> are no longer streaming WAL files from each other and we essentialyl have two independent database clusters running. We will call them <code>old master</code> and <code>new master</code> in the following sections instead so it is clear.</p>
+<h4 id="3-Insert-Some-Data-to-the-Old-Master"><a href="#3-Insert-Some-Data-to-the-Old-Master" class="headerlink" title="3. Insert Some Data to the Old Master"></a>3. Insert Some Data to the Old Master</h4><p>We would like to create a data out-of-sync case by inserting some more data to the <code>old master</code> cluster.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ psql -d clusterdb -U cary -c &quot;INSERT INTO test_table(x) SELECT y FROM generate_series(1, 100) a(y);&quot; -p 5432</span><br><span class="line">INSERT 0 100</span><br></pre></td></tr></table></figure>
+
+<p>Check that both the <code>old master</code> and <code>new master</code> are clearly out of sync:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">## new master ##</span><br><span class="line">$ psql -d clusterdb -U cary -c &quot;SELECT count(*) from test_table&quot; -p 5433</span><br><span class="line"> count </span><br><span class="line">-------</span><br><span class="line">   200</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line">## old master ##</span><br><span class="line">$ psql -d clusterdb -U cary -c &quot;SELECT count(*) from test_table&quot; -p 5432</span><br><span class="line"> count </span><br><span class="line">-------</span><br><span class="line">   300</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+
+<h4 id="4-Configure-the-Old-Master-as-Standby-Server-to-Sync-with-New-Master"><a href="#4-Configure-the-Old-Master-as-Standby-Server-to-Sync-with-New-Master" class="headerlink" title="4. Configure the Old Master as Standby Server to Sync with New Master"></a>4. Configure the Old Master as Standby Server to Sync with New Master</h4><p>Now we would like to attempt a failover to make the <code>old master</code> as a standy server to syncrhonize with the <code>new master</code>.</p>
+<p>Let’s shutdown the <code>old master</code> cluster.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ pg_ctl -D db-master stop</span><br><span class="line">waiting for server to shut down.... done</span><br><span class="line">server stopped</span><br></pre></td></tr></table></figure>
+
+<p>Let’s update postgresql.conf in the <code>old master</code>:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">############# db-master&#x2F;postgresql.conf #############</span><br><span class="line">recovery_target_timeline &#x3D; &#39;latest&#39;</span><br><span class="line">archive_cleanup_command &#x3D; &#39;pg_archivecleanup &#x2F;home&#x2F;caryh&#x2F;streaming-replication&#x2F;archivedir %r&#39;</span><br><span class="line">restore_command &#x3D; &#39;cp &#x2F;home&#x2F;caryh&#x2F;streaming-replication&#x2F;archivedir&#x2F;%f %p&#39;</span><br><span class="line">primary_slot_name &#x3D; &#39;main&#39;</span><br><span class="line">primary_conninfo &#x3D; &#39;user&#x3D;cary passfile&#x3D;&#39;&#39;&#x2F;home&#x2F;caryh&#x2F;.pgpass&#39;&#39; host&#x3D;127.0.0.1 port&#x3D;5433 sslmode&#x3D;prefer sslcompression&#x3D;0 gssencmode&#x3D;disable target_session_attrs&#x3D;any&#39;</span><br></pre></td></tr></table></figure>
+
+<p>the <code>primary_conninfo</code> tells the <code>old master</code> to stream WAL files from the <code>new master</code> located at 127.0.0.1:5433.</p>
+<p>Also, do not forget to touch the <code>standby.signal</code> file to tell the cluster to run in standby mode:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">touch db-master&#x2F;standby.signal</span><br></pre></td></tr></table></figure>
+
+<p>We specified in the <code>old master</code> to connect to <code>primary_slot_name</code> = <code>main</code>. Let’s create the matching replication slot on the <code>new master</code>.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">$ psql -d clusterdb -U cary -c &quot;select * from pg_create_physical_replication_slot(&#39;main&#39;);&quot; -p 5433</span><br><span class="line"> slot_name | lsn </span><br><span class="line">-----------+-----</span><br><span class="line"> main      | </span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line">$ psql -d clusterdb -U cary -c &quot;select * from pg_replication_slots;&quot; -p 5433 -x</span><br><span class="line">-[ RECORD 1 ]-------+---------</span><br><span class="line">slot_name           | main</span><br><span class="line">plugin              | </span><br><span class="line">slot_type           | physical</span><br><span class="line">datoid              | </span><br><span class="line">database            | </span><br><span class="line">temporary           | f</span><br><span class="line">active              | f</span><br><span class="line">active_pid          | </span><br><span class="line">xmin                | </span><br><span class="line">catalog_xmin        | </span><br><span class="line">restart_lsn         | </span><br><span class="line">confirmed_flush_lsn |</span><br></pre></td></tr></table></figure>
+
+<p>Now the <code>new master</code> has a matching replication slot called <code>main</code> and it is not active at the moment. Now we are ready to start the <code>old master</code> as standby server</p>
+<h4 id="5-Start-the-Old-Master-as-Standby-Server"><a href="#5-Start-the-Old-Master-as-Standby-Server" class="headerlink" title="5. Start the Old Master as Standby Server"></a>5. Start the Old Master as Standby Server</h4><p>Now, we are ready to start the <code>old master</code> as a standby:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ pg_ctl -D db-master start</span><br><span class="line"></span><br><span class="line">2019-10-30 11:30:04.071 PDT [1610] HINT:  Future log output will go to log destination &quot;syslog&quot;.</span><br><span class="line">2019-10-30 11:30:04.075 PDT [1611] LOG:  database system was shut down at 2019-10-30 11:29:13 PDT</span><br><span class="line">2019-10-30 11:30:04.079 PDT [1611] LOG:  restored log file &quot;00000002.history&quot; from archive</span><br><span class="line">2019-10-30 11:30:04.082 PDT [1611] LOG:  entering standby mode</span><br><span class="line">2019-10-30 11:30:04.084 PDT [1611] LOG:  restored log file &quot;00000002.history&quot; from archive</span><br><span class="line">2019-10-30 11:30:04.095 PDT [1611] FATAL:  requested timeline 2 is not a child of this server&#39;s history</span><br><span class="line">2019-10-30 11:30:04.095 PDT [1611] DETAIL:  Latest checkpoint is at 0&#x2F;4000028 on timeline 1, but in the history of the requested timeline, the server forked off from that timeline at 0&#x2F;3003B98.</span><br><span class="line">2019-10-30 11:30:04.096 PDT [1610] LOG:  startup process (PID 1611) exited with exit code 1</span><br><span class="line">2019-10-30 11:30:04.096 PDT [1610] LOG:  aborting startup due to startup process failure</span><br><span class="line">2019-10-30 11:30:04.098 PDT [1610] LOG:  database system is shut down</span><br></pre></td></tr></table></figure>
+
+<p>As you can see above, the <code>old master</code> refuses to start because there is a timeline difference between the <code>old master</code> and the <code>new master</code>. This is caused by the additional data insertions that happens to the <code>old master</code> after the promotion event in step number 3. </p>
+<p>This is where pg_rewind comes handy in situation like this, to synchronize the two clusters.</p>
+<h4 id="6-Use-pg-rewind-to-Synchronize-the-two-Clusters"><a href="#6-Use-pg-rewind-to-Synchronize-the-two-Clusters" class="headerlink" title="6. Use pg_rewind to Synchronize the two Clusters"></a>6. Use pg_rewind to Synchronize the two Clusters</h4><p>Now, let’s synchronize the two database clusters with pg_rewind.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ pg_rewind --target-pgdata&#x3D;db-master --source-server&#x3D;&quot;port&#x3D;5433 user&#x3D;cary dbname&#x3D;clusterdb&quot; --progress</span><br><span class="line">pg_rewind: connected to server</span><br><span class="line">pg_rewind: servers diverged at WAL location 0&#x2F;3003E58 on timeline 1</span><br><span class="line">pg_rewind: rewinding from last common checkpoint at 0&#x2F;2000060 on timeline 1</span><br><span class="line">pg_rewind: reading source file list</span><br><span class="line">pg_rewind: reading target file list</span><br><span class="line">pg_rewind: reading WAL in target</span><br><span class="line">pg_rewind: need to copy 53 MB (total source directory size is 78 MB)</span><br><span class="line">54363&#x2F;54363 kB (100%) copied</span><br><span class="line">pg_rewind: creating backup label and updating control file</span><br><span class="line">pg_rewind: syncing target data directory</span><br><span class="line">pg_rewind: Done!</span><br></pre></td></tr></table></figure>
+<p>After pg_rewind is finished, we will have to edit once more the configuration of the <code>old master</code> because the tool copies most of the configuration settings from the <code>new master</code> to the <code>old master</code> as a synchronization process. Let’s examine both <code>db-master/postgresql.auto.conf</code> and <code>db-master/postgresql.conf</code> and make sure of the followings again.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">############# db-master&#x2F;postgresql.conf #############</span><br><span class="line">primary_slot_name &#x3D; &#39;main&#39;</span><br><span class="line">recovery_target_timeline &#x3D; &#39;latest&#39;</span><br><span class="line">port &#x3D; 5432</span><br><span class="line"></span><br><span class="line">############# db-master&#x2F;postgresql.auto.conf #############</span><br><span class="line">primary_conninfo &#x3D; &#39;user&#x3D;cary passfile&#x3D;&#39;&#39;&#x2F;home&#x2F;caryh&#x2F;.pgpass&#39;&#39; host&#x3D;127.0.0.1 port&#x3D;5433 sslmode&#x3D;disable sslcompression&#x3D;0 gssencmode&#x3D;disable target_session_attrs&#x3D;any&#39;</span><br></pre></td></tr></table></figure>
+
+<p>and also, don’t forget about this:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">touch db-master&#x2F;standby.signal</span><br></pre></td></tr></table></figure>
+<p>Now, we should be ready to start the <code>old master</code> again.</p>
+<h4 id="7-Start-the-Old-Master-Agian-as-Standby-Server"><a href="#7-Start-the-Old-Master-Agian-as-Standby-Server" class="headerlink" title="7. Start the Old Master Agian as Standby Server"></a>7. Start the Old Master Agian as Standby Server</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ pg_ctl -D db-master start</span><br><span class="line"></span><br><span class="line">2019-10-30 12:27:28.140 PDT [5095] LOG:  restored log file &quot;000000010000000000000002&quot; from archive</span><br><span class="line">2019-10-30 12:27:28.167 PDT [5095] LOG:  redo starts at 0&#x2F;2000028</span><br><span class="line">2019-10-30 12:27:28.182 PDT [5095] LOG:  consistent recovery state reached at 0&#x2F;3027258</span><br><span class="line">2019-10-30 12:27:28.183 PDT [5095] LOG:  invalid record length at 0&#x2F;3027258: wanted 24, got 0</span><br><span class="line">2019-10-30 12:27:28.183 PDT [5095] LOG:  redo done at 0&#x2F;3027230</span><br><span class="line">2019-10-30 12:27:28.183 PDT [5095] LOG:  last completed transaction was at log time 2019-10-30 12:20:34.056723-07</span><br><span class="line">019-10-30 12:27:28.226 PDT [5094] LOG:  database system is ready to accept connections</span><br></pre></td></tr></table></figure>
+
+<p>The <code>old master</code> can now start as a streaming replication to the <code>new master</code> and we can observe that after using pg_rewind the additional data that was inserted to <code>old master</code> in step number 3 is now removed, as it has been <code>rewound</code> from 300 entries to 200 entries to match up with the <code>new master</code>.</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">## new master ##</span><br><span class="line">$ psql -d clusterdb -U cary -c &quot;SELECT count(*) from test_table&quot; -p 5433</span><br><span class="line"> count </span><br><span class="line">-------</span><br><span class="line">   200</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line">## old master ##</span><br><span class="line">$ psql -d clusterdb -U cary -c &quot;SELECT count(*) from test_table&quot; -p 5432</span><br><span class="line"> count </span><br><span class="line">-------</span><br><span class="line">   200</span><br><span class="line">(1 row)</span><br></pre></td></tr></table></figure>
+
+<h4 id="8-Summary"><a href="#8-Summary" class="headerlink" title="8. Summary"></a>8. Summary</h4><p>In this blog, we have simulated a failover case and observe the effect of promoting a standby <code>slave</code> server while more data insertions happening to the original <code>master</code> server. We have demonstrated how to use <code>pg_rewind</code> tool to synchronize both <code>master</code> and <code>slave</code> after the <code>slave</code> promotion. Though it results some data deletion at the original <code>master</code>, in the end, we are able to resolve the timeline conflict with <code>pg_rewind</code> and complete the database failover scenario.</p>
+
+        </div>
+        
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/postgres/" rel="tag">postgres</a>
+                </div>
+            </div>
+        </div>
+        
+        
+        
     </div>
-</div></div>
+</div>
+
+
+
+
+
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        <div class="level-start">
+            <a class="level level-item has-link-grey  article-nav-prev" href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/">
+                <i class="level-item fas fa-chevron-left"></i>
+                <span class="level-item">Steaming-Replication-Setup-in-PG12-How-to-do-it-right</span>
+            </a>
+        </div>
+        
+        
+        <div class="level-end">
+            <a class="level level-item has-link-grey  article-nav-next" href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/">
+                <span class="level-item">Trace-Postgres-query-processing-internals-with-debugger</span>
+                <i class="level-item fas fa-chevron-right"></i>
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+
+</div>
                 
 
 
@@ -682,7 +803,7 @@
             <div class="level-start has-text-centered-mobile">
                 <a class="footer-logo is-block has-mb-6" href="/">
                 
-                    <img src="/images/logo.svg" alt="Cary Huang" height="28">
+                    <img src="/images/logo.svg" alt="Replication-Failover-with-pg_rewind-in-PG12" height="28">
                 
                 </a>
                 <p class="is-size-7">
