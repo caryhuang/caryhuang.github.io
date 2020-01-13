@@ -17,13 +17,14 @@
 <meta property="og:site_name" content="Cary&#39;s Blog">
 <meta property="og:description" content="1. OverviewTable partitioning is introduced after Postgres version 9.4 that provides several performance improvement under extreme loads. Partitioning refers to splitting one logically large table int">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/images/pg-thumbnail.png">
+<meta property="og:image" content="http://yoursite.com/images/view6.jpg">
 <meta property="article:published_time" content="2019-09-26T05:32:25.000Z">
-<meta property="article:modified_time" content="2020-01-05T07:12:12.000Z">
+<meta property="article:modified_time" content="2020-01-13T23:40:06.000Z">
 <meta property="article:author" content="Cary Huang">
-<meta property="article:tag" content="postgres">
+<meta property="article:tag" content="partition">
+<meta property="article:tag" content="trigger">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/images/pg-thumbnail.png">
+<meta name="twitter:image" content="http://yoursite.com/images/view6.jpg">
 
 
 
@@ -135,7 +136,7 @@
     
     <div class="card-image">
         <span  class="image is-7by1">
-            <img class="thumbnail" src="/images/pg-thumbnail.png" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function">
+            <img class="thumbnail" src="/images/view6.jpg" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function">
         </span>
     </div>
     
@@ -146,14 +147,14 @@
                 <time class="level-item has-text-grey" datetime="2019-09-26T05:32:25.000Z">2019-09-25</time>
                 
                 <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                 </div>
                 
                 
                 <span class="level-item has-text-grey">
                     
                     
-                    10 minutes read (About 1500 words)
+                    10 minutes read (About 1501 words)
                 </span>
                 
                 
@@ -169,6 +170,7 @@
             <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>Table partitioning is introduced after Postgres version 9.4 that provides several performance improvement under extreme loads. Partitioning refers to splitting one logically large table into smaller pieces, which in turn distribute heavy loads across smaller pieces (also known as partitions).</p>
 <p>There are several ways to define a partition table, such as declarative partitioning and partitioning by inheritance. In this article we will focus on a simple form of declarative partitioning by value range.</p>
 <p>Later in this article, we will discuss how we can define a <code>TRIGGER</code> to work with a <code>FUNCTION</code> to make table updates more dynamic.</p>
+<a id="more"></a>
 <h3 id="2-Creating-a-Table-Partition-by-Range"><a href="#2-Creating-a-Table-Partition-by-Range" class="headerlink" title="2. Creating a Table Partition by Range"></a>2. Creating a Table Partition by Range</h3><p>Let’s define a use case. Say we are a world famous IT consulting company and there is a database table called <code>salesman_performance</code>, which contains all the sales personnel world wide and their lifetime revenue of sales. Technically it is possible to have one table containing all sales personnel in the world but as entries get much larger, the query performance may be greatly reduced.</p>
 <p>Here, we would like to create 7 partitions, representing 7 different levels of sales (or ranks) like so:</p>
 <figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance (</span><br><span class="line">        salesman_id <span class="built_in">int</span> <span class="keyword">not</span> <span class="literal">NULL</span>,</span><br><span class="line">        first_name <span class="built_in">varchar</span>(<span class="number">45</span>),</span><br><span class="line">        last_name <span class="built_in">varchar</span>(<span class="number">45</span>),</span><br><span class="line">        revenue <span class="built_in">numeric</span>(<span class="number">11</span>,<span class="number">2</span>),</span><br><span class="line">        last_updated <span class="built_in">timestamp</span></span><br><span class="line">) <span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span> (revenue);</span><br></pre></td></tr></table></figure>
@@ -239,7 +241,7 @@
             <div class="level-start">
                 <div class="level-item">
                     <span class="is-size-6 has-text-grey has-mr-7">#</span>
-                    <a class="has-link-grey -link" href="/tags/postgres/" rel="tag">postgres</a>
+                    <a class="has-link-grey -link" href="/tags/partition/" rel="tag">partition</a>, <a class="has-link-grey -link" href="/tags/trigger/" rel="tag">trigger</a>
                 </div>
             </div>
         </div>
@@ -275,6 +277,21 @@
 </div>
 
 
+
+<div class="card">
+    <div class="card-content">
+        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
+        <script>(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+<div class="fb-comments" data-width="100%" data-href="http://yoursite.com/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/" data-num-posts="5"></div>
+
+    </div>
+</div>
 </div>
                 
 
@@ -328,11 +345,11 @@
             <div class="level-item has-text-centered is-marginless">
                 <div>
                     <p class="heading">
-                        Category
+                        Categories
                     </p>
                     <a href="/categories">
                         <p class="title has-text-weight-normal">
-                            1
+                            2
                         </p>
                     </a>
                 </div>
@@ -344,7 +361,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            2
+                            13
                         </p>
                     </a>
                 </div>
@@ -458,12 +475,20 @@
             </h3>
             <ul class="menu-list">
             <li>
-        <a class="level is-marginless" href="/categories/Software-Development/">
+        <a class="level is-marginless" href="/categories/Netsnmp/">
             <span class="level-start">
-                <span class="level-item">Software Development</span>
+                <span class="level-item">Netsnmp</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">7</span>
+                <span class="level-item tag">1</span>
+            </span>
+        </a></li><li>
+        <a class="level is-marginless" href="/categories/PostgreSQL/">
+            <span class="level-start">
+                <span class="level-item">PostgreSQL</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">6</span>
             </span>
         </a></li>
             </ul>
@@ -476,7 +501,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/postgres/" style="font-size: 20px;">postgres</a> <a href="/tags/snmp-networking/" style="font-size: 10px;">snmp, networking</a>
+        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 20px;">replication</a> <a href="/tags/security/" style="font-size: 10px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
     </div>
 </div>
     
@@ -490,7 +515,7 @@
             
             <a href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/" class="media-left">
                 <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/security.png" alt="Understanding Security Features in PostgreSQL - Part 1">
+                    <img class="thumbnail" src="/images/view2.jpg" alt="Understanding Security Features in PostgreSQL - Part 1">
                 </p>
             </a>
             
@@ -499,7 +524,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-01-10T22:02:06.000Z">2020-01-10</time></div>
                     <a href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding Security Features in PostgreSQL - Part 1</a>
                     <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                     </p>
                 </div>
             </div>
@@ -509,7 +534,7 @@
             
             <a href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/" class="media-left">
                 <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/pg-thumbnail.png" alt="Steaming-Replication-Setup-in-PG12-How-to-do-it-right">
+                    <img class="thumbnail" src="/images/view3.jpg" alt="Steaming-Replication-Setup-in-PG12-How-to-do-it-right">
                 </p>
             </a>
             
@@ -518,7 +543,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-10-30T06:36:39.000Z">2019-10-29</time></div>
                     <a href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Steaming-Replication-Setup-in-PG12-How-to-do-it-right</a>
                     <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                     </p>
                 </div>
             </div>
@@ -528,7 +553,7 @@
             
             <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="media-left">
                 <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/pg-thumbnail.png" alt="Replication-Failover-with-pg_rewind-in-PG12">
+                    <img class="thumbnail" src="/images/view1.jpg" alt="Replication-Failover-with-pg_rewind-in-PG12">
                 </p>
             </a>
             
@@ -537,7 +562,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-28T06:36:52.000Z">2019-09-27</time></div>
                     <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Replication-Failover-with-pg_rewind-in-PG12</a>
                     <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                     </p>
                 </div>
             </div>
@@ -547,7 +572,7 @@
             
             <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="media-left">
                 <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/pg-thumbnail.png" alt="Trace-Postgres-query-processing-internals-with-debugger">
+                    <img class="thumbnail" src="/images/view4.jpg" alt="Trace-Postgres-query-processing-internals-with-debugger">
                 </p>
             </a>
             
@@ -556,7 +581,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-28T06:36:24.000Z">2019-09-27</time></div>
                     <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Trace-Postgres-query-processing-internals-with-debugger</a>
                     <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                     </p>
                 </div>
             </div>
@@ -566,7 +591,7 @@
             
             <a href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/" class="media-left">
                 <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/pg-thumbnail.png" alt="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres">
+                    <img class="thumbnail" src="/images/view5.jpg" alt="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres">
                 </p>
             </a>
             
@@ -575,7 +600,7 @@
                     <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-26T06:36:03.000Z">2019-09-25</time></div>
                     <a href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres</a>
                     <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                     </p>
                 </div>
             </div>
@@ -650,15 +675,92 @@
             <div class="field is-grouped is-grouped-multiline">
                 
                 <div class="control">
-                    <a class="tags has-addons" href="/tags/postgres/">
-                        <span class="tag">postgres</span>
-                        <span class="tag is-grey">6</span>
+                    <a class="tags has-addons" href="/tags/extension/">
+                        <span class="tag">extension</span>
+                        <span class="tag is-grey">1</span>
                     </a>
                 </div>
                 
                 <div class="control">
-                    <a class="tags has-addons" href="/tags/snmp-networking/">
-                        <span class="tag">snmp, networking</span>
+                    <a class="tags has-addons" href="/tags/failover/">
+                        <span class="tag">failover</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/gdb/">
+                        <span class="tag">gdb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/networking/">
+                        <span class="tag">networking</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/oid/">
+                        <span class="tag">oid</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/partition/">
+                        <span class="tag">partition</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pg-rewind/">
+                        <span class="tag">pg_rewind</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/query-processing/">
+                        <span class="tag">query processing</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/replication/">
+                        <span class="tag">replication</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/security/">
+                        <span class="tag">security</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/snmp/">
+                        <span class="tag">snmp</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/trace/">
+                        <span class="tag">trace</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/trigger/">
+                        <span class="tag">trigger</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
