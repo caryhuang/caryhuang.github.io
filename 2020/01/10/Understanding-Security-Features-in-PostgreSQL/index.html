@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html  lang="en">
+<head>
+    <meta charset="utf-8" />
+
+<meta name="generator" content="Hexo 4.2.0" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+
+<title>Understanding Security Features in PostgreSQL - Part 1 - Cary&#39;s Blog</title>
+
+
+    <meta name="description" content="1. IntroductionPostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word Security is a very broad conc">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Understanding Security Features in PostgreSQL - Part 1">
+<meta property="og:url" content="http://yoursite.com/2020/01/10/Understanding-Security-Features-in-PostgreSQL/index.html">
+<meta property="og:site_name" content="Cary&#39;s Blog">
+<meta property="og:description" content="1. IntroductionPostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word Security is a very broad conc">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://yoursite.com/images/security.png">
+<meta property="article:published_time" content="2020-01-10T22:02:06.000Z">
+<meta property="article:modified_time" content="2020-01-13T22:32:06.000Z">
+<meta property="article:author" content="Cary Huang">
+<meta property="article:tag" content="postgres">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/images/security.png">
+
+
+
+
+
+
+
+<link rel="icon" href="/images/favicon.svg">
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.7.2/css/bulma.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu:400,600|Source+Code+Pro">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css">
+
+
+    
+    
+<style>body>.footer,body>.navbar,body>.section{opacity:0}</style>
+
+    
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css">
+
+    
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.css">
+
+    
+    
+    
+    
+<link rel="stylesheet" href="/css/back-to-top.css">
+
+    
+    
+    
+    
+    
+    
+    
+    <link rel="stylesheet" href="/css/progressbar.css">
+<script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script>
+    
+    
+    
+
+
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="is-2-column">
+    <nav class="navbar navbar-main">
+    <div class="container">
+        <div class="navbar-brand is-flex-center">
+            <a class="navbar-item navbar-logo" href="/">
+            
+                <img src="/images/mini4more.png" alt="Understanding Security Features in PostgreSQL - Part 1" height="28">
+            
+            </a>
+        </div>
+        <div class="navbar-menu">
+            
+            <div class="navbar-start">
+                
+                <a class="navbar-item"
+                href="/">Home</a>
+                
+                <a class="navbar-item"
+                href="/archives">Archives</a>
+                
+                <a class="navbar-item"
+                href="/categories">Categories</a>
+                
+                <a class="navbar-item"
+                href="/tags">Tags</a>
+                
+                <a class="navbar-item"
+                href="/about/me.html">About</a>
+                
+            </div>
+            
+            <div class="navbar-end">
+                
+                    
+                    <a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                    
+                
+                
+                
+                <a class="navbar-item search" title="Search" href="javascript:;">
+                    <i class="fas fa-search"></i>
+                </a>
+                
+            </div>
+        </div>
+    </div>
+</nav>
+    
+    <section class="section">
+        <div class="container">
+            <div class="columns">
+                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
+<div class="card">
+    
+    <div class="card-image">
+        <span  class="image is-7by1">
+            <img class="thumbnail" src="/images/security.png" alt="Understanding Security Features in PostgreSQL - Part 1">
+        </span>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-01-10T22:02:06.000Z">2020-01-10</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    14 minutes read (About 2033 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                Understanding Security Features in PostgreSQL - Part 1
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodolgy to achieve in different PostgreSQL components. This blog is divided into part 1 and 2 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. Below is an overview of the <code>security</code> topics that we will cover in both parts of the blog:</p>
+<p>Part 1:</p>
+<ul>
+<li>PostgreSQL Server Listen Address</li>
+<li>Host-Based Authentication</li>
+<li>Role-Based Access Control </li>
+<li>Assign and Column Level Privileges to Users</li>
+<li>Assign User Level Privileges as Roles</li>
+<li>Assign and Column Level Privileges via Roles</li>
+<li>Role Inheritance</li>
+</ul>
+<p>Part 2:</p>
+<ul>
+<li>Data Secruity - symetrical vs asynmetrical encryption</li>
+<li>Transport Layer Security (TLS)</li>
+<li>Certificate and Keys for TLS</li>
+<li>Transparent Data Encryption (TDE)</li>
+<li>Vulnerabilities</li>
+</ul>
+<h3 id="2-PostgreSQL-Server-Listen-Address"><a href="#2-PostgreSQL-Server-Listen-Address" class="headerlink" title="2. PostgreSQL Server Listen Address"></a>2. PostgreSQL Server Listen Address</h3><p>PostgreSQL server is a TCP server that by default listens on localhost at port 5432. The server listen address may seem very trivial at first in terms of security but it is actually very important because understanding how the PostgreSQL is serving the incoming connections is fundamental to building a more secured network environment.</p>
+<p>Connection settings are located in <code>postgresql.conf</code> </p>
+<p>The <code>listen_addresses</code> parameter tells PostgreSQL which addresses to listen on. This value should match the IP address of the network interface cards in the host machine. <code>ifconfig</code> on Unix-based systems (or <code>ipconfig</code> for Windows) is a handy command that lists all the network interfaces and their IP addresses. <code>listen_address</code> supports the less secured <code>*</code> configuration, which will listen to all the network interfaces available</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#listen_addresses &#x3D; &#39;localhost&#39;		# what IP address(es) to listen on;</span><br><span class="line">					                # comma-separated list of addresses;</span><br><span class="line">					                # defaults to &#39;localhost&#39;; use &#39;*&#39; for all</span><br><span class="line">					                # (change requires restart)</span><br></pre></td></tr></table></figure>
+
+<p>PostgreSQL uses default port numner 5432 for database connections. Changing it to a non-default value could make the server less likely to be discovered as database server.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#port &#x3D; 5432 	                    # (change requires restart)</span><br></pre></td></tr></table></figure>
+
+<p>Another important connection configuration is the maximum connections allowed. By default PostgreSQL allows 100 simultaneous connections to be active at a time with 3 connections reserved for super user. That is 97 connections for regular database users. These numbers should be configured accordingly depending on the usage case of the database server and we definitely don’t want too many unintentional connections to access the database</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">max_connections &#x3D; 100               # (change requires restart)</span><br><span class="line">superuser_reserved_connections &#x3D; 3  # (change requires restart)</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-Host-Based-Authentication"><a href="#3-Host-Based-Authentication" class="headerlink" title="3. Host-Based Authentication"></a>3. Host-Based Authentication</h3><p>Host-based authentication refers to the process of verifying the identity of a user connection based on the IP addresses of the connecting host. PostgreSQL supports host-based authentication by adding and removing desired entries in the <code>pg_hba.conf</code> file. This file works in a similar way as defining firewall rules. The official documentation on <code>pg_hba.conf</code> can be found here: <a href="https://www.postgresql.org/docs/current/auth-pg-hba-conf.html">https://www.postgresql.org/docs/current/auth-pg-hba-conf.html</a></p>
+<p>A simple example below defines the following rules:</p>
+<ul>
+<li>Allows connections from subnet 192.168.3.0/24 to access the database named “software_team”</li>
+<li>Allows connections from subnet 192.168.4.0/24 to access the database named “marketing_team”</li>
+<li>Allows connections from subnet 192.168.5.0/24 to access the database named “sales_team”</li>
+<li>Allows connections from subnet 192.168.6.0/24 to access the database named “management”</li>
+<li>The admin user has permission to access all the database given that the admin is connecting from localhost (both IPv4 and IPv6) or from a UNIX domain socket.</li>
+<li>Allows all user connections coming from subnet 192.168.7.0/24 to access the database named “production_team” and is able to do replication connection. Please note that the word “replication” is a special term reserved to allow replication connections rather than database name.</li>
+<li>Allows user from a unsecured network “172.16.30.0/24” to access the “sales_team” database only if the connection uses SSL (a.k.a TLS)</li>
+<li>Rejects all connections from 172.16.50.5</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment"># TYPE  DATABASE         USER            ADDRESS                 METHOD</span></span><br><span class="line"><span class="built_in">local</span>   all              admin                                   trust</span><br><span class="line"><span class="built_in">local</span>   all              admin           127.0.0.1/32            trust</span><br><span class="line"><span class="built_in">local</span>   all              admin           ::1/128                 trust</span><br><span class="line"></span><br><span class="line">host    software_team    all             192.168.3.0/24          trust</span><br><span class="line">host    marketing_team   all             192.168.4.0/24          trust</span><br><span class="line">host    sales_team       all             192.168.5.0/24          trust</span><br><span class="line">host    management       all             192.168.6.0/24          trust</span><br><span class="line">host    production_team  all             192.168.7.0/24          trust</span><br><span class="line">host    replication      all             192.168.7.0/24          trust</span><br><span class="line"></span><br><span class="line">host    all              all             172.16.50.5/32          reject</span><br><span class="line">hostssl sales_team       all             172.16.30.0/24          trust</span><br></pre></td></tr></table></figure>
+
+<p>The simple example above uses 2 basic methods to control the access, <code>trust</code> and <code>reject</code>. This will suffice in a small database server environment. However, depending on the infrastructure, the application’s nature and data security, stronger authentication methods are encourged, such as LDAP, GSSPI with Kerberos, SSPI, RADIUS SCRAM-SHA-256…etc. To explain these authentication methods and they are used would require another blog post for each. Generally speaking, most of these stronger authentication methods provide automatic “single-sign-on” authentications through means of shared secrets, token exchange, or user name mappings. These methods would normally require PostgreSQL to communicate with foreign authentication servers to complete the authentication process in a much more secured way. Please note that these stronger authentication methods may be secured during the authentication process, but the actual data communication will not be secured unless TLS is used. </p>
+<h3 id="4-Role-Based-Access-Control"><a href="#4-Role-Based-Access-Control" class="headerlink" title="4. Role-Based Access Control"></a>4. Role-Based Access Control</h3><p>Role-based access control refers to the process of verifying database access permissions based on the pre-defined roles and user privileges. PostgreSQL supports role-based access in several levels, such as table, function, procedural language and user levels. I will explain the concept in table and user level access control that follow the general guidelines below:</p>
+<ul>
+<li>A user with super user privilege can do any activities in the database</li>
+<li>A user who creates a table owns the table and can set its permission</li>
+<li>A user needs to belong to a proper role to perform administrative operations such as create another user or role</li>
+<li>Other users need proper permissions to view or operate on a table created by another user.</li>
+</ul>
+<p>When a PostgreSQL database cluster has been initialized, a super user will be created by default that equals to the system user that initializes the cluster. This super user is the starting point to define other role and other users and privileges to ensure proper database access.</p>
+<h3 id="5-Assign-Table-and-Column-Level-Privileges-to-Users"><a href="#5-Assign-Table-and-Column-Level-Privileges-to-Users" class="headerlink" title="5 Assign Table and Column Level Privileges to Users"></a>5 Assign Table and Column Level Privileges to Users</h3><p>The <code>GRANT</code> clause supported in PostgreSQL is used to configure the access privileges (official documentation here: <a href="https://www.postgresql.org/docs/current/sql-grant.html">https://www.postgresql.org/docs/current/sql-grant.html</a>). <code>GRANT</code> is a very univeral clause that can be used to add access privileges to tables, databases, roles, table spaces…etc. The opposite of <code>GRANT</code> is <code>REVOKE</code>, which removes privileges (official documentation here: <a href="https://www.postgresql.org/docs/current/sql-revoke.html">https://www.postgresql.org/docs/current/sql-revoke.html</a>). In this blog, I will use <code>GRANT</code> on table and role level. When a table is created, it is assigned an owner. The owner is normally the user that executed the creation statement. The initial state is that only the owner (or a superuser) can do anything with the table. To allow other users to use it, privileges must be granted.</p>
+<p>There are many types of privileges that can be granted to a table or a table column. The image below is taken directly from the official PostgreSQL documentation that lists all the available privileges and their applicable objects.</p>
+<p><img src="/images/table5.1.PNG" alt="privilege_table"></p>
+<p>Consider a simple SQL command example below that assigns table and column access privileges to other users</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">SELECT</span> <span class="keyword">ON</span> table1 <span class="keyword">TO</span> userA;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">SELECT</span> <span class="keyword">ON</span> table2 <span class="keyword">TO</span> userA;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">SELECT</span> <span class="keyword">ON</span> table3 <span class="keyword">TO</span> userA;</span><br><span class="line"></span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">UPDATE</span> <span class="keyword">ON</span> table1 <span class="keyword">TO</span> userB;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">INSERT</span> <span class="keyword">ON</span> table2 <span class="keyword">TO</span> userB;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">INSERT</span> <span class="keyword">ON</span> table3 <span class="keyword">TO</span> userB;</span><br><span class="line"></span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">UPDATE</span> <span class="keyword">ON</span> table2 <span class="keyword">TO</span> userC;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">SELECT</span>(column1), <span class="keyword">UPDATE</span>(column3) <span class="keyword">ON</span> table3 <span class="keyword">TO</span> userC;</span><br></pre></td></tr></table></figure>
+<p>The above SQL commands can be illustrated as:</p>
+<p><img src="/images/user-priv.png" alt="user_privilege"></p>
+<h3 id="6-Assign-User-Level-Privileges-as-Roles"><a href="#6-Assign-User-Level-Privileges-as-Roles" class="headerlink" title="6 Assign User Level Privileges as Roles"></a>6 Assign User Level Privileges as Roles</h3><p>A <code>ROLE</code> is an entity that can own database objects and have database privileges; a role can be considered a “user”, a “group”, or both depending on how it is used.(official documentation here: <a href="https://www.postgresql.org/docs/current/sql-createrole.html">https://www.postgresql.org/docs/current/sql-createrole.html</a>). Similar to a table, a created role can be altered with the <code>ALTER</code> clause or deleted with the <code>DROP</code> clause. </p>
+<p>Please note that when a role is created initially, the permission to <code>LOGIN</code> is not allowed by default and has to be manually set such that the users belonging to this role can log in to the database server. The same can be done with <code>CREATE USER</code> clause, which allows <code>LOGIN</code> by default. So the following 2 commands are essentially the same</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">ROLE</span> username LOGIN;</span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">USER</span> username;</span><br></pre></td></tr></table></figure>
+
+<p>The following image is taken directly from the official PostgreSQL documentation that lists all the privileg keywords that can be associated to a role.</p>
+<p><img src="/images/role-synopsis.PNG" alt="role-synopsis"></p>
+<p>Consider the following simple example that creates 3 users and 4 different roles having different user level access privileges.</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Create 3 users */</span></span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">USER</span> userA;</span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">USER</span> userB;</span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">USER</span> userC;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Create 4 roles */</span></span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">ROLE</span> role1 LOGIN CREATEDB CREATEROLE;</span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">ROLE</span> role2 <span class="keyword">WITH</span> <span class="keyword">PASSWORD</span> <span class="string">'12345678'</span> LOGIN <span class="keyword">REPLICATION</span>;</span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">ROLE</span> role3 LOGIN CREATEDB INHERIT;</span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">ROLE</span> role4 LOGIN <span class="keyword">CONNECTION</span> <span class="keyword">LIMIT</span> <span class="number">5</span> ;</span><br></pre></td></tr></table></figure>
+
+<p>Use the <code>\du+</code> meta command to see all the roles that have been created with summary of the attributes associated with each role. To see the full list of attributes per role, use the SQL command <code>SELECT * FROM pg_roles;</code>.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">postgres&#x3D;# \du+</span><br><span class="line">                                          List of roles</span><br><span class="line"> Role name |                         Attributes                         | Member of | Description </span><br><span class="line">-----------+------------------------------------------------------------+-----------+-------------</span><br><span class="line"> postgres  | Superuser, Create role, Create DB, Replication, Bypass RLS | &#123;&#125;        | </span><br><span class="line"> userA     |                                                            | &#123;&#125;        | </span><br><span class="line"> userB     |                                                            | &#123;&#125;        | </span><br><span class="line"> userC     |                                                            | &#123;&#125;        | </span><br><span class="line"> role1     | Replication, Create DB, Create role                        | &#123;&#125;        | </span><br><span class="line"> role2     | Replication                                                | &#123;&#125;        | </span><br><span class="line"> role3     | Create DB                                                  | &#123;&#125;        | </span><br><span class="line"> role4     | 5 connections                                              | &#123;&#125;        |</span><br></pre></td></tr></table></figure>
+
+<h3 id="7-Assign-Table-Level-Privileges-via-Roles"><a href="#7-Assign-Table-Level-Privileges-via-Roles" class="headerlink" title="7 Assign Table Level Privileges via Roles"></a>7 Assign Table Level Privileges via Roles</h3><p>Section 3.1 illustrates privilege assignments directly to each individual users, which is desirable in smaller database servers. Imagine a larger database server where there could potentially be hundreds of users exist in the entire database cluster. Managing the table level privileges would get quite complicated and tedious. Luckily, PostgreSQL supports assigning users to roles for better privilege management </p>
+<p>Following the examples in section 3.2, we can use the <code>GRANT</code> command again to assign users to roles. Note that the <code>Member of</code> will display the relationship between users and roles after we have related them with <code>GRANT</code> clause.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ GRANT role1 TO userA;</span><br><span class="line">$ GRANT role1 TO userB;</span><br><span class="line">$ GRANT role3 TO userC;</span><br><span class="line">$ GRANT role4 TO userC;</span><br><span class="line"></span><br><span class="line">postgres&#x3D;# \du+</span><br><span class="line">                                          List of roles</span><br><span class="line"> Role name |                         Attributes                         | Member of      | Description </span><br><span class="line">-----------+------------------------------------------------------------+----------------+-------------</span><br><span class="line"> postgres  | Superuser, Create role, Create DB, Replication, Bypass RLS | &#123;&#125;             | </span><br><span class="line"> userA     |                                                            | &#123;role1&#125;        | </span><br><span class="line"> userB     |                                                            | &#123;role1&#125;        | </span><br><span class="line"> userC     |                                                            | &#123;role3, role4&#125; | </span><br><span class="line"> role1     | Replication, Create DB, Create role                        | &#123;&#125;             | </span><br><span class="line"> role2     | Replication                                                | &#123;&#125;             | </span><br><span class="line"> role3     | Create DB                                                  | &#123;&#125;             | </span><br><span class="line"> role4     | 5 connections                                              | &#123;&#125;             |</span><br></pre></td></tr></table></figure>
+
+<p>Following the examples in section 3.1, we can use the <code>GRANT</code> command again to assign table level privileges to roles that we have created instead of to users directly</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">SELECT</span> <span class="keyword">ON</span> table1 <span class="keyword">TO</span> role1;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">SELECT</span> <span class="keyword">ON</span> table2 <span class="keyword">TO</span> role1;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">SELECT</span> <span class="keyword">ON</span> table3 <span class="keyword">TO</span> role1;</span><br><span class="line"></span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">UPDATE</span> <span class="keyword">ON</span> table1 <span class="keyword">TO</span> role1;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">INSERT</span> <span class="keyword">ON</span> table2 <span class="keyword">TO</span> role1;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">INSERT</span> <span class="keyword">ON</span> table3 <span class="keyword">TO</span> role1;</span><br><span class="line"></span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">UPDATE</span> <span class="keyword">ON</span> table2 <span class="keyword">TO</span> role3;</span><br><span class="line">$ <span class="keyword">GRANT</span> <span class="keyword">SELECT</span>(column1), <span class="keyword">UPDATE</span>(column3) <span class="keyword">ON</span> table3 <span class="keyword">TO</span> role3;</span><br></pre></td></tr></table></figure>
+<p>The above SQL commands can be illustrated as:</p>
+<p><img src="/images/role-priv.png" alt="role-privilege"></p>
+<h3 id="8-Role-Inheritance"><a href="#8-Role-Inheritance" class="headerlink" title="8 Role Inheritance"></a>8 Role Inheritance</h3><p><code>INHERIT</code> and <code>NOINHERIT</code> are one of the special attributes that can be assigned to a role. When a role (say role 1) contains <code>INHERIT</code> attribute and is a member of another role (say role 2). All the attributes existing in both role 1 and role 2 will be applied to the user. </p>
+<p>Consider a simple example below:</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">ROLE</span> role1 LOGIN CREATEDB <span class="keyword">REPLICATION</span>;</span><br><span class="line">$ <span class="keyword">CREATE</span> <span class="keyword">ROLE</span> role2 LOGIN CREATEROLE INHERIT;</span><br><span class="line">$ <span class="keyword">GRANT</span> role1 <span class="keyword">TO</span> role2;</span><br><span class="line">$ <span class="keyword">GRANT</span> role2 <span class="keyword">TO</span> userA;</span><br></pre></td></tr></table></figure>
+
+<p>Which can be visualized as:</p>
+<p><img src="/images/inherit.png" alt="role-privilege"></p>
+<p>In this case, role2 is created with <code>INHERIT</code>, userA will be assigned the privileges defined in both role1 and role2. </p>
+<h3 id="9-Summary"><a href="#9-Summary" class="headerlink" title="9. Summary"></a>9. Summary</h3><p>In this blog, we went over several mechanisms in postgreSQL that allows a database administrator to configure the authentication of incoming user connections and the privilege configuration in table, column and user level via the concept of roles. PostgreSQL provides <code>pg_hba.conf</code> file that configures simple authentication and supports stronger authentication methods against remote authentication services such as GSSAPI, kerberos, RADIUS, and LDAP..etc. So far we have only talked about authentication and authorization (AA) in PostgreSQL terms, in part 2 of this blog, I will explain the general concept of data encryption, how to secure data communication between server and client with TLS and how to achieve encryption on storage devices.</p>
+
+        </div>
+        
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/postgres/" rel="tag">postgres</a>
+                </div>
+            </div>
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        
+        <div class="level-end">
+            <a class="level level-item has-link-grey  article-nav-next" href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/">
+                <span class="level-item">Steaming-Replication-Setup-in-PG12-How-to-do-it-right</span>
+                <i class="level-item fas fa-chevron-right"></i>
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+
+</div>
+                
+
+
+
+
+<div class="column is-4-tablet is-4-desktop is-4-widescreen  has-order-1 column-left ">
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <nav class="level">
+            <div class="level-item has-text-centered" style="flex-shrink: 1">
+                <div>
+                    
+                    <figure class="image is-128x128 has-mb-6">
+                        <img class="" src="/images/prof-img.jpg" alt="Cary Huang">
+                    </figure>
+                    
+                    <p class="is-size-4 is-block">
+                        Cary Huang
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-block">
+                        Multi-Displined Software Developer
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-flex is-flex-center has-text-grey">
+                        <i class="fas fa-map-marker-alt has-mr-7"></i>
+                        <span>Vancouver</span>
+                    </p>
+                    
+                </div>
+            </div>
+        </nav>
+        <nav class="level is-mobile">
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Posts
+                    </p>
+                    <a href="/archives">
+                        <p class="title has-text-weight-normal">
+                            7
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Category
+                    </p>
+                    <a href="/categories">
+                        <p class="title has-text-weight-normal">
+                            1
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Tags
+                    </p>
+                    <a href="/tags">
+                        <p class="title has-text-weight-normal">
+                            2
+                        </p>
+                    </a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="level">
+            <a class="level-item button is-link is-rounded" href="https://github.com/caryhuang" target="_blank" rel="noopener">
+                Follow</a>
+        </div>
+        
+        
+        
+        <div class="level is-mobile">
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Github" href="https://github.com/caryhuang">
+                
+                <i class="fab fa-github"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Facebook" href="https://www.facebook.com/cary.huang.35">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Twitter" href="https://twitter.com">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Dribbble" href="https://dribbble.com">
+                
+                <i class="fab fa-dribbble"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="RSS" href="/">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+            
+        </div>
+        
+    </div>
+</div>
+    
+        
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Links
+        </h3>
+        <ul class="menu-list">
+        
+            <li>
+                <a class="level is-mobile" href="https://hexo.io" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Hexo</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">hexo.io</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://www.etsy.com/ca/shop/ShokuninDesignCo" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Etsy Shop</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.etsy.com</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://www.amazon.com/s?me=A7PVGNIPUKPQW&marketplaceID=ATVPDKIKX0DER" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Amazon Store Front</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.amazon.com</span>
+                    </span>
+                </a>
+            </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Categories
+            </h3>
+            <ul class="menu-list">
+            <li>
+        <a class="level is-marginless" href="/categories/Software-Development/">
+            <span class="level-start">
+                <span class="level-item">Software Development</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">7</span>
+            </span>
+        </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Tag Cloud
+        </h3>
+        <a href="/tags/postgres/" style="font-size: 20px;">postgres</a> <a href="/tags/snmp-networking/" style="font-size: 10px;">snmp, networking</a>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Recent
+        </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/security.png" alt="Understanding Security Features in PostgreSQL - Part 1">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-01-10T22:02:06.000Z">2020-01-10</time></div>
+                    <a href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding Security Features in PostgreSQL - Part 1</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-thumbnail.png" alt="Steaming-Replication-Setup-in-PG12-How-to-do-it-right">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-10-30T06:36:39.000Z">2019-10-29</time></div>
+                    <a href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Steaming-Replication-Setup-in-PG12-How-to-do-it-right</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-thumbnail.png" alt="Replication-Failover-with-pg_rewind-in-PG12">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-28T06:36:52.000Z">2019-09-27</time></div>
+                    <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Replication-Failover-with-pg_rewind-in-PG12</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-thumbnail.png" alt="Trace-Postgres-query-processing-internals-with-debugger">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-28T06:36:24.000Z">2019-09-27</time></div>
+                    <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Trace-Postgres-query-processing-internals-with-debugger</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-thumbnail.png" alt="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-26T06:36:03.000Z">2019-09-25</time></div>
+                    <a href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/Software-Development/">Software Development</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Archives
+        </h3>
+        <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">4</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Tags
+            </h3>
+            <div class="field is-grouped is-grouped-multiline">
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgres/">
+                        <span class="tag">postgres</span>
+                        <span class="tag is-grey">6</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/snmp-networking/">
+                        <span class="tag">snmp, networking</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="column-right-shadow is-hidden-widescreen ">
+        
+        </div>
+    
+</div>
+
+                
+            </div>
+        </div>
+    </section>
+    <footer class="footer">
+    <div class="container">
+        <div class="level">
+            <div class="level-start has-text-centered-mobile">
+                <a class="footer-logo is-block has-mb-6" href="/">
+                
+                    <img src="/images/mini4more.png" alt="Understanding Security Features in PostgreSQL - Part 1" height="28">
+                
+                </a>
+                <p class="is-size-7">
+                &copy; 2020 Cary Huang&nbsp;
+                Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> & <a
+                        href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a>
+                
+                </p>
+            </div>
+            <div class="level-end">
+            
+                <div class="field has-addons is-flex-center-mobile has-mt-5-mobile is-flex-wrap is-flex-middle">
+                
+                <p class="control">
+                    <a class="button is-white is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                </p>
+                
+                </div>
+            
+            </div>
+        </div>
+    </div>
+</footer>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script>
+<script>moment.locale("en");</script>
+
+
+<script>
+var IcarusThemeSettings = {
+    site: {
+        url: 'http://yoursite.com',
+        external_link: {"enable":true,"exclude":[]}
+    },
+    article: {
+        highlight: {
+            clipboard: true,
+            fold: 'unfolded'
+        }
+    }
+};
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script>
+
+
+
+
+
+<script src="/js/animation.js"></script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script>
+<script src="/js/gallery.js" defer></script>
+
+
+
+<div id="outdated">
+    <h6>Your browser is out-of-date!</h6>
+    <p>Update your browser to view this website correctly. <a id="btnUpdateBrowser" href="http://outdatedbrowser.com/">Update
+            my browser now </a></p>
+    <p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">&times;</a></p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.js" defer></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        outdatedBrowser({
+            bgColor: '#f25648',
+            color: '#ffffff',
+            lowerThan: 'flex'
+        });
+    });
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.5/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    MathJax.Hub.Config({
+        'HTML-CSS': {
+            matchFontHeight: false
+        },
+        SVG: {
+            matchFontHeight: false
+        },
+        CommonHTML: {
+            matchFontHeight: false
+        },
+        tex2jax: {
+            inlineMath: [
+                ['$','$'],
+                ['\\(','\\)']
+            ]
+        }
+    });
+});
+</script>
+
+
+<a id="back-to-top" title="Back to Top" href="javascript:;">
+    <i class="fas fa-chevron-up"></i>
+</a>
+<script src="/js/back-to-top.js" defer></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="/js/main.js" defer></script>
+
+    
+    <div class="searchbox ins-search">
+    <div class="searchbox-container ins-search-container">
+        <div class="searchbox-input-wrapper">
+            <input type="text" class="searchbox-input ins-search-input" placeholder="Type something..." />
+            <span class="searchbox-close ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="searchbox-result-wrapper ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+    (function (window) {
+        var INSIGHT_CONFIG = {
+            TRANSLATION: {
+                POSTS: 'Posts',
+                PAGES: 'Pages',
+                CATEGORIES: 'Categories',
+                TAGS: 'Tags',
+                UNTITLED: '(Untitled)',
+            },
+            CONTENT_URL: '/content.json',
+        };
+        window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+    })(window);
+</script>
+<script src="/js/insight.js" defer></script>
+<link rel="stylesheet" href="/css/search.css">
+<link rel="stylesheet" href="/css/insight.css">
+    
+</body>
+</html>
