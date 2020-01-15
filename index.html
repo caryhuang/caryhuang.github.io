@@ -130,6 +130,77 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/" class="image is-7by1">
+            <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 2">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-01-13T23:58:47.000Z">2020-01-13</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    2 minutes read (About 246 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/">Understanding Security Features in PostgreSQL - Part 2</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodolgy to achieve in different PostgreSQL components. This blog is divided into part 1 and 2 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. Below is an overview of the <code>security</code> topics that we will cover in both parts of the blog:</p>
+<p>Part 1:</p>
+<ul>
+<li>PostgreSQL Server Listen Address</li>
+<li>Host-Based Authentication</li>
+<li>Role-Based Access Control </li>
+<li>Assign and Column Level Privileges to Users</li>
+<li>Assign User Level Privileges as Roles</li>
+<li>Assign and Column Level Privileges via Roles</li>
+<li>Role Inheritance</li>
+</ul>
+<p>Part 2:</p>
+<ul>
+<li>Data Secruity - symetrical vs asynmetrical encryption</li>
+<li>Transport Layer Security (TLS)</li>
+<li>Certificate and Keys for TLS</li>
+<li>Transparent Data Encryption (TDE)</li>
+<li>Vulnerabilities</li>
+</ul>
+<h3 id="2-Data-Secruity-symetrical-vs-asymmetrical-encryption"><a href="#2-Data-Secruity-symetrical-vs-asymmetrical-encryption" class="headerlink" title="2. Data Secruity - symetrical vs asymmetrical encryption"></a>2. Data Secruity - symetrical vs asymmetrical encryption</h3><p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. Before we jump into TLS, let’s talk about the basics of enycryption, symetrical vs asymmetrical encryptions.</p>
+<h3 id="3-Transport-Layer-Security-TLS"><a href="#3-Transport-Layer-Security-TLS" class="headerlink" title="3. Transport Layer Security (TLS)"></a>3. Transport Layer Security (TLS)</h3><h3 id="4-Certificate-and-Keys-for-TLS"><a href="#4-Certificate-and-Keys-for-TLS" class="headerlink" title="4. Certificate and Keys for TLS"></a>4. Certificate and Keys for TLS</h3><h3 id="5-Transparent-Data-Encryption-TDE"><a href="#5-Transparent-Data-Encryption-TDE" class="headerlink" title="5. Transparent Data Encryption (TDE)"></a>5. Transparent Data Encryption (TDE)</h3><h3 id="6-Vulnerabilities"><a href="#6-Vulnerabilities" class="headerlink" title="6. Vulnerabilities"></a>6. Vulnerabilities</h3>
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/" class="image is-7by1">
             <img class="thumbnail" src="/images/view2.jpg" alt="Understanding Security Features in PostgreSQL - Part 1">
         </a>
@@ -149,7 +220,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    14 minutes read (About 2034 words)
+                    14 minutes read (About 2035 words)
                 </span>
                 
                 
@@ -168,14 +239,14 @@
 <li>PostgreSQL Server Listen Address</li>
 <li>Host-Based Authentication</li>
 <li>Role-Based Access Control </li>
-<li>Assign and Column Level Privileges to Users</li>
+<li>Assign Table and Column Level Privileges to Users</li>
 <li>Assign User Level Privileges as Roles</li>
 <li>Assign and Column Level Privileges via Roles</li>
 <li>Role Inheritance</li>
 </ul>
 <p>Part 2:</p>
 <ul>
-<li>Data Secruity - symetrical vs asynmetrical encryption</li>
+<li>Data Secruity - Security Concepts around TLS</li>
 <li>Transport Layer Security (TLS)</li>
 <li>Certificate and Keys for TLS</li>
 <li>Transparent Data Encryption (TDE)</li>
@@ -621,7 +692,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            7
+                            8
                         </p>
                     </a>
                 </div>
@@ -744,6 +815,17 @@
                 </a>
             </li>
         
+            <li>
+                <a class="level is-mobile" href="https://www.highgo.ca/" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">HighGo Software Canada</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.highgo.ca</span>
+                    </span>
+                </a>
+            </li>
+        
         </ul>
         </div>
     </div>
@@ -772,7 +854,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">6</span>
+                <span class="level-item tag">7</span>
             </span>
         </a></li>
             </ul>
@@ -785,7 +867,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 20px;">replication</a> <a href="/tags/security/" style="font-size: 10px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
+        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 15px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
     </div>
 </div>
     
@@ -794,6 +876,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 2">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-01-13T23:58:47.000Z">2020-01-13</time></div>
+                    <a href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding Security Features in PostgreSQL - Part 2</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -871,25 +972,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/view5.jpg" alt="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-26T06:36:03.000Z">2019-09-25</time></div>
-                    <a href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -907,7 +989,7 @@
                     <span class="level-item">January 2020</span>
                 </span>
                 <span class="level-end">
-                    <span class="level-item tag">1</span>
+                    <span class="level-item tag">2</span>
                 </span>
             </a>
         </li>
@@ -982,7 +1064,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/networking/">
                         <span class="tag">networking</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
@@ -1024,7 +1106,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/security/">
                         <span class="tag">security</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 

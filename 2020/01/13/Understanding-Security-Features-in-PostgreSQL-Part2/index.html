@@ -7,18 +7,24 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>Tag: failover - Cary&#39;s Blog</title>
+<title>Understanding Security Features in PostgreSQL - Part 2 - Cary&#39;s Blog</title>
 
 
-    <meta property="og:type" content="website">
-<meta property="og:title" content="Cary&#39;s Blog">
-<meta property="og:url" content="http://yoursite.com/tags/failover/index.html">
+    <meta name="description" content="1. IntroductionPostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word Security is a very broad conc">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Understanding Security Features in PostgreSQL - Part 2">
+<meta property="og:url" content="http://yoursite.com/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
+<meta property="og:description" content="1. IntroductionPostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word Security is a very broad conc">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/images/og_image.png">
+<meta property="og:image" content="http://yoursite.com/images/view8.jpg">
+<meta property="article:published_time" content="2020-01-13T23:58:47.000Z">
+<meta property="article:modified_time" content="2020-01-15T07:26:20.000Z">
 <meta property="article:author" content="Cary Huang">
+<meta property="article:tag" content="networking">
+<meta property="article:tag" content="security">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/images/og_image.png">
+<meta name="twitter:image" content="http://yoursite.com/images/view8.jpg">
 
 
 
@@ -76,7 +82,7 @@
         <div class="navbar-brand is-flex-center">
             <a class="navbar-item navbar-logo" href="/">
             
-                <img src="/images/mini4more.png" alt="Cary&#39;s Blog" height="28">
+                <img src="/images/mini4more.png" alt="Understanding Security Features in PostgreSQL - Part 2" height="28">
             
             </a>
         </div>
@@ -125,31 +131,20 @@
     <section class="section">
         <div class="container">
             <div class="columns">
-                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main"><div class="card">
-    <div class="card-content">
-        <nav class="breadcrumb" aria-label="breadcrumbs">
-        <ul>
-            <li><a href="/tags">Tags</a></li>
-            <li class="is-active"><a href="#" aria-current="page">failover</a></li>
-        </ul>
-        </nav>
-    </div>
-</div>
-
-    
+                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
 <div class="card">
     
     <div class="card-image">
-        <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view1.jpg" alt="Replication-Failover-with-pg_rewind-in-PG12">
-        </a>
+        <span  class="image is-7by1">
+            <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 2">
+        </span>
     </div>
     
     <div class="card-content article ">
         
         <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
             <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-09-28T06:36:52.000Z">2019-09-27</time>
+                <time class="level-item has-text-grey" datetime="2020-01-13T23:58:47.000Z">2020-01-13</time>
                 
                 <div class="level-item">
                 <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
@@ -159,7 +154,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    10 minutes read (About 1481 words)
+                    2 minutes read (About 246 words)
                 </span>
                 
                 
@@ -168,32 +163,42 @@
         
         <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
             
-                <a class="has-link-black-ter" href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/">Replication-Failover-with-pg_rewind-in-PG12</a>
+                Understanding Security Features in PostgreSQL - Part 2
             
         </h1>
         <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>In the previous blog, we have discussed how to correctly set up streaming replication clusters between one master and one slave in Postgres version 12. In this blog, we will simulate a failover scenario on the master database, which causes the replica (or slave) database cluster to be promoted as new master and continue the operation. We will also simulate a failback scenario to reuse the old master cluster after the failover scenario with the help of pg_rewind. </p>
-<p>Normally it is quite easy to do a failback to the old master after slave gets promoted to master but if there is data written to the old master after slave promotion, we will have an out-of-sync case between them both and we will have to use the pg_rewind tool to synchronize the two data directories in order to bring the old master to match the state of the new master. Please note that the pg_rewind tool will remove transactions from the old master in order to match up with the new, so certain pre-caution is needed to use this tool.</p>
-<p>Here’s a brief overview of list of actions we are going to perform:</p>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodolgy to achieve in different PostgreSQL components. This blog is divided into part 1 and 2 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. Below is an overview of the <code>security</code> topics that we will cover in both parts of the blog:</p>
+<p>Part 1:</p>
 <ul>
-<li>simulate failover by promoting <code>slave</code> cluster, so it becomes a <code>new master</code></li>
-<li>simulate data insertion to <code>master</code> cluster, also referred as <code>old master</code> after promotion</li>
-<li>shutdown the <code>old master</code> cluster and set it up as a standby server</li>
-<li>run pg_rewind on <code>old master</code> to synchronize transaction states with <code>new master</code></li>
-<li>bring up <code>old master</code> as a standby server to synchronize with the <code>new master</code></li>
+<li>PostgreSQL Server Listen Address</li>
+<li>Host-Based Authentication</li>
+<li>Role-Based Access Control </li>
+<li>Assign and Column Level Privileges to Users</li>
+<li>Assign User Level Privileges as Roles</li>
+<li>Assign and Column Level Privileges via Roles</li>
+<li>Role Inheritance</li>
 </ul>
-<p>This blog assumes you already have streaming replication setup between one master and one slave from previous blog. If you have not checked out the previous blog titled “Streaming Replication Setup in PG12 - How to Do it Right”, it is recommended to give that a read first.</p>
-<p>The procedures illustrated in this blog is based on Postgres version 12 built from source running on Ubuntu 18.04</p>
+<p>Part 2:</p>
+<ul>
+<li>Data Secruity - symetrical vs asynmetrical encryption</li>
+<li>Transport Layer Security (TLS)</li>
+<li>Certificate and Keys for TLS</li>
+<li>Transparent Data Encryption (TDE)</li>
+<li>Vulnerabilities</li>
+</ul>
+<h3 id="2-Data-Secruity-symetrical-vs-asymmetrical-encryption"><a href="#2-Data-Secruity-symetrical-vs-asymmetrical-encryption" class="headerlink" title="2. Data Secruity - symetrical vs asymmetrical encryption"></a>2. Data Secruity - symetrical vs asymmetrical encryption</h3><p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. Before we jump into TLS, let’s talk about the basics of enycryption, symetrical vs asymmetrical encryptions.</p>
+<h3 id="3-Transport-Layer-Security-TLS"><a href="#3-Transport-Layer-Security-TLS" class="headerlink" title="3. Transport Layer Security (TLS)"></a>3. Transport Layer Security (TLS)</h3><h3 id="4-Certificate-and-Keys-for-TLS"><a href="#4-Certificate-and-Keys-for-TLS" class="headerlink" title="4. Certificate and Keys for TLS"></a>4. Certificate and Keys for TLS</h3><h3 id="5-Transparent-Data-Encryption-TDE"><a href="#5-Transparent-Data-Encryption-TDE" class="headerlink" title="5. Transparent Data Encryption (TDE)"></a>5. Transparent Data Encryption (TDE)</h3><h3 id="6-Vulnerabilities"><a href="#6-Vulnerabilities" class="headerlink" title="6. Vulnerabilities"></a>6. Vulnerabilities</h3>
         </div>
         
-        
-        <div class="level is-mobile">
+        <div class="level is-size-7 is-uppercase">
             <div class="level-start">
                 <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/#more">Read More</a>
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/networking/" rel="tag">networking</a>, <a class="has-link-grey -link" href="/tags/security/" rel="tag">security</a>
                 </div>
             </div>
         </div>
+        
         
         
     </div>
@@ -203,9 +208,36 @@
 
 
 
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        
+        <div class="level-end">
+            <a class="level level-item has-link-grey  article-nav-next" href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/">
+                <span class="level-item">Understanding Security Features in PostgreSQL - Part 1</span>
+                <i class="level-item fas fa-chevron-right"></i>
+            </a>
+        </div>
+        
+    </div>
+</div>
 
 
 
+<div class="card">
+    <div class="card-content">
+        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
+        <script>(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+<div class="fb-comments" data-width="100%" data-href="http://yoursite.com/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/" data-num-posts="5"></div>
+
+    </div>
+</div>
 </div>
                 
 
@@ -712,7 +744,7 @@
             <div class="level-start has-text-centered-mobile">
                 <a class="footer-logo is-block has-mb-6" href="/">
                 
-                    <img src="/images/mini4more.png" alt="Cary&#39;s Blog" height="28">
+                    <img src="/images/mini4more.png" alt="Understanding Security Features in PostgreSQL - Part 2" height="28">
                 
                 </a>
                 <p class="is-size-7">
