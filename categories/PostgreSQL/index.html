@@ -160,7 +160,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    2 minutes read (About 246 words)
+                    27 minutes read (About 4121 words)
                 </span>
                 
                 
@@ -173,29 +173,49 @@
             
         </h1>
         <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodolgy to achieve in different PostgreSQL components. This blog is divided into part 1 and 2 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. Below is an overview of the <code>security</code> topics that we will cover in both parts of the blog:</p>
-<p>Part 1:</p>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This is part 2 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing TLS in greater details. I will begin by going over some of the most important security concepts around TLS before jumping into enabling TLS on PostgreSQL server. I believe it is crucial to have sufficient background information on TLS before tweaking the TLS settings in both client and server sides.</p>
+<p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication between client and server will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. TLS is one of the least understood but commonly used security protocol that ensures the security of many HTTPS sites and other services. TLS is a big protocol and this blog will describe how it works and how to enable TLS in your PostgreSQL server.</p>
+<p>In the end, we will briefly talk about Transparent Data Encryption (TDE) that the PG community is currently working on and also security vulnerability.</p>
+<p>Here is the overview of the <code>security</code> topics that will be covered in both parts of the blog:</p>
+<p>Part 1:  </p>
 <ul>
 <li>PostgreSQL Server Listen Address</li>
 <li>Host-Based Authentication</li>
+<li>Authentication with LDAP Server</li>
+<li>Authentication with PAM</li>
 <li>Role-Based Access Control </li>
-<li>Assign and Column Level Privileges to Users</li>
+<li>Assign Table and Column Level Privileges to Users</li>
 <li>Assign User Level Privileges as Roles</li>
 <li>Assign and Column Level Privileges via Roles</li>
 <li>Role Inheritance</li>
 </ul>
 <p>Part 2:</p>
 <ul>
-<li>Data Secruity - symetrical vs asynmetrical encryption</li>
-<li>Transport Layer Security (TLS)</li>
-<li>Certificate and Keys for TLS</li>
-<li>Transparent Data Encryption (TDE)</li>
-<li>Vulnerabilities</li>
+<li>Security Concepts around TLS<ul>
+<li>Symmetrical Encryption</li>
+<li>Asymmetrical Encryption (a.k.a Public Key Cryptography)</li>
+<li>Block Cipher Mode of Operation (a.k.a Stream Cipher)</li>
+<li>Key Exchange Algorithm</li>
+<li>TLS Certificate and Chain of Trust</li>
+<li>Data Integrity Check / Data Authentication</li>
+<li>TLS Cipher Suite and TLS handshake</li>
+<li>TLS versions</li>
 </ul>
-<h3 id="2-Data-Secruity-symetrical-vs-asymmetrical-encryption"><a href="#2-Data-Secruity-symetrical-vs-asymmetrical-encryption" class="headerlink" title="2. Data Secruity - symetrical vs asymmetrical encryption"></a>2. Data Secruity - symetrical vs asymmetrical encryption</h3><p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. Before we jump into TLS, let’s talk about the basics of enycryption, symetrical vs asymmetrical encryptions.</p>
-<h3 id="3-Transport-Layer-Security-TLS"><a href="#3-Transport-Layer-Security-TLS" class="headerlink" title="3. Transport Layer Security (TLS)"></a>3. Transport Layer Security (TLS)</h3><h3 id="4-Certificate-and-Keys-for-TLS"><a href="#4-Certificate-and-Keys-for-TLS" class="headerlink" title="4. Certificate and Keys for TLS"></a>4. Certificate and Keys for TLS</h3><h3 id="5-Transparent-Data-Encryption-TDE"><a href="#5-Transparent-Data-Encryption-TDE" class="headerlink" title="5. Transparent Data Encryption (TDE)"></a>5. Transparent Data Encryption (TDE)</h3><h3 id="6-Vulnerabilities"><a href="#6-Vulnerabilities" class="headerlink" title="6. Vulnerabilities"></a>6. Vulnerabilities</h3>
+</li>
+<li>Transport Layer Security (TLS) in PostgreSQL Server</li>
+<li>Transparent Data Encryption (TDE)</li>
+<li>Security Vulnerability</li>
+</ul>
         </div>
         
+        
+        <div class="level is-mobile">
+            <div class="level-start">
+                <div class="level-item">
+                <a class="button is-size-7 is-light" href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/#more">Read More</a>
+                </div>
+            </div>
+        </div>
         
         
     </div>
@@ -231,7 +251,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    14 minutes read (About 2035 words)
+                    17 minutes read (About 2530 words)
                 </span>
                 
                 
@@ -244,11 +264,16 @@
             
         </h1>
         <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodolgy to achieve in different PostgreSQL components. This blog is divided into part 1 and 2 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. Below is an overview of the <code>security</code> topics that we will cover in both parts of the blog:</p>
-<p>Part 1:</p>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodology to achieve in different PostgreSQL components. This blog is divided into part 1 and 2 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. </p>
+<p>In Part 1 of the blog, I will be discussing the basic security features that exist in PostgreSQL with emphasis on Host-based authentication methods as well as user-based access control with the concept of roles. If done right, we could have a much more robust database server and potentially reduce the attack surface on the server, protecting it from attacks like SQL injections. I will also briefly discuss a few of the advanced authentication methods such as LDAP and PAM authentication. There are many more advanced authentication methods supported and we will be producing more articles in the near future to cover more of these methods.</p>
+<p>In Part 2 of the blog, I will be discussing TLS in greater detail, which I believe is crucial for a database administrator to understand first before enabling TLS in the PostgreSQL server. TLS is a fairly large and one of the least understood protocol today, which contains a lot of security components and methodology related to cryptography that could be quite confusing. We will briefly discuss Transparent Data Encryption that the PG community is currently working on and security vulnerability.</p>
+<p>Below is the overview of the <code>security</code> topics that will be covered in both parts of the blog:</p>
+<p>Part 1:  </p>
 <ul>
 <li>PostgreSQL Server Listen Address</li>
 <li>Host-Based Authentication</li>
+<li>Authentication with LDAP Server</li>
+<li>Authentication with PAM</li>
 <li>Role-Based Access Control </li>
 <li>Assign Table and Column Level Privileges to Users</li>
 <li>Assign User Level Privileges as Roles</li>
@@ -257,11 +282,20 @@
 </ul>
 <p>Part 2:</p>
 <ul>
-<li>Data Secruity - Security Concepts around TLS</li>
-<li>Transport Layer Security (TLS)</li>
-<li>Certificate and Keys for TLS</li>
+<li>Security Concepts around TLS<ul>
+<li>Symmetrical Encryption</li>
+<li>Asymmetrical Encryption (a.k.a Public Key Cryptography)</li>
+<li>Block Cipher Mode of Operation (a.k.a Stream Cipher)</li>
+<li>Key Exchange Algorithm</li>
+<li>TLS Certificate and Chain of Trust</li>
+<li>Data Integrity Check / Data Authentication</li>
+<li>TLS Cipher Suite and TLS handshake</li>
+<li>TLS versions</li>
+</ul>
+</li>
+<li>Transport Layer Security (TLS) in PostgreSQL Server</li>
 <li>Transparent Data Encryption (TDE)</li>
-<li>Vulnerabilities</li>
+<li>Security Vulnerability</li>
 </ul>
         </div>
         

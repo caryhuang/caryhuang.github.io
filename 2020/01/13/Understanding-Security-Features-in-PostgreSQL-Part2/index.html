@@ -10,16 +10,16 @@
 <title>Understanding Security Features in PostgreSQL - Part 2 - Cary&#39;s Blog</title>
 
 
-    <meta name="description" content="1. IntroductionPostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word Security is a very broad conc">
+    <meta name="description" content="1. IntroductionThis is part 2 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing TLS in greater details. I will begin by going over some of the most important s">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Understanding Security Features in PostgreSQL - Part 2">
 <meta property="og:url" content="http://yoursite.com/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
-<meta property="og:description" content="1. IntroductionPostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word Security is a very broad conc">
+<meta property="og:description" content="1. IntroductionThis is part 2 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing TLS in greater details. I will begin by going over some of the most important s">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/images/view8.jpg">
 <meta property="article:published_time" content="2020-01-13T23:58:47.000Z">
-<meta property="article:modified_time" content="2020-01-15T07:26:20.000Z">
+<meta property="article:modified_time" content="2020-01-17T00:34:28.000Z">
 <meta property="article:author" content="Cary Huang">
 <meta property="article:tag" content="networking">
 <meta property="article:tag" content="security">
@@ -154,7 +154,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    2 minutes read (About 246 words)
+                    27 minutes read (About 4121 words)
                 </span>
                 
                 
@@ -167,27 +167,177 @@
             
         </h1>
         <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodolgy to achieve in different PostgreSQL components. This blog is divided into part 1 and 2 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. Below is an overview of the <code>security</code> topics that we will cover in both parts of the blog:</p>
-<p>Part 1:</p>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This is part 2 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing TLS in greater details. I will begin by going over some of the most important security concepts around TLS before jumping into enabling TLS on PostgreSQL server. I believe it is crucial to have sufficient background information on TLS before tweaking the TLS settings in both client and server sides.</p>
+<p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication between client and server will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. TLS is one of the least understood but commonly used security protocol that ensures the security of many HTTPS sites and other services. TLS is a big protocol and this blog will describe how it works and how to enable TLS in your PostgreSQL server.</p>
+<p>In the end, we will briefly talk about Transparent Data Encryption (TDE) that the PG community is currently working on and also security vulnerability.</p>
+<p>Here is the overview of the <code>security</code> topics that will be covered in both parts of the blog:</p>
+<p>Part 1:  </p>
 <ul>
 <li>PostgreSQL Server Listen Address</li>
 <li>Host-Based Authentication</li>
+<li>Authentication with LDAP Server</li>
+<li>Authentication with PAM</li>
 <li>Role-Based Access Control </li>
-<li>Assign and Column Level Privileges to Users</li>
+<li>Assign Table and Column Level Privileges to Users</li>
 <li>Assign User Level Privileges as Roles</li>
 <li>Assign and Column Level Privileges via Roles</li>
 <li>Role Inheritance</li>
 </ul>
 <p>Part 2:</p>
 <ul>
-<li>Data Secruity - symetrical vs asynmetrical encryption</li>
-<li>Transport Layer Security (TLS)</li>
-<li>Certificate and Keys for TLS</li>
-<li>Transparent Data Encryption (TDE)</li>
-<li>Vulnerabilities</li>
+<li>Security Concepts around TLS<ul>
+<li>Symmetrical Encryption</li>
+<li>Asymmetrical Encryption (a.k.a Public Key Cryptography)</li>
+<li>Block Cipher Mode of Operation (a.k.a Stream Cipher)</li>
+<li>Key Exchange Algorithm</li>
+<li>TLS Certificate and Chain of Trust</li>
+<li>Data Integrity Check / Data Authentication</li>
+<li>TLS Cipher Suite and TLS handshake</li>
+<li>TLS versions</li>
 </ul>
-<h3 id="2-Data-Secruity-symetrical-vs-asymmetrical-encryption"><a href="#2-Data-Secruity-symetrical-vs-asymmetrical-encryption" class="headerlink" title="2. Data Secruity - symetrical vs asymmetrical encryption"></a>2. Data Secruity - symetrical vs asymmetrical encryption</h3><p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. Before we jump into TLS, let’s talk about the basics of enycryption, symetrical vs asymmetrical encryptions.</p>
-<h3 id="3-Transport-Layer-Security-TLS"><a href="#3-Transport-Layer-Security-TLS" class="headerlink" title="3. Transport Layer Security (TLS)"></a>3. Transport Layer Security (TLS)</h3><h3 id="4-Certificate-and-Keys-for-TLS"><a href="#4-Certificate-and-Keys-for-TLS" class="headerlink" title="4. Certificate and Keys for TLS"></a>4. Certificate and Keys for TLS</h3><h3 id="5-Transparent-Data-Encryption-TDE"><a href="#5-Transparent-Data-Encryption-TDE" class="headerlink" title="5. Transparent Data Encryption (TDE)"></a>5. Transparent Data Encryption (TDE)</h3><h3 id="6-Vulnerabilities"><a href="#6-Vulnerabilities" class="headerlink" title="6. Vulnerabilities"></a>6. Vulnerabilities</h3>
+</li>
+<li>Transport Layer Security (TLS) in PostgreSQL Server</li>
+<li>Transparent Data Encryption (TDE)</li>
+<li>Security Vulnerability</li>
+</ul>
+<a id="more"></a>
+
+<h3 id="2-Security-Concepts-around-TLS"><a href="#2-Security-Concepts-around-TLS" class="headerlink" title="2. Security Concepts around TLS"></a>2. Security Concepts around TLS</h3><p>Before we jump into configuring TLS in PostgreSQL. It is super important to have some background information on the following security topics build around TLS.</p>
+<h4 id="2-1-Symmetrical-Encryption"><a href="#2-1-Symmetrical-Encryption" class="headerlink" title="2.1 Symmetrical Encryption"></a>2.1 Symmetrical Encryption</h4><p>Symmetrical Encrytion is a type of encryption where only one secret key is used to encrypt and decrypt a message. In other words, the connecting client will use the secret key to encrypt the message and send to server, the server uses the same key to decrypt the ciphered message and obtain the original message. This is a very fast encryption operation and may sound simple, but the challenge here is how to securely share this one and only secret key between the client and server, how long should the secret key be used before next rotation? Should the secret key be pre-configured on both client and server sides? Should third-party key management software be integrated? These are some of the common challenges with symmetrical encryption.</p>
+<p><img src="/images/symetrical.png" alt="symmetrical encryption"></p>
+<p>The following is some of the most common symmetrical encryption algorithms today with the AES being the most popular: (reference: <a href="https://en.wikipedia.org/wiki/Symmetric-key_algorithm">https://en.wikipedia.org/wiki/Symmetric-key_algorithm</a>). Each algorithm supports key lengths having multiple sizes and normally is denoted after the encryption algorithm name, for example, AES-128, AES-256…etc.</p>
+<ul>
+<li>AES (Advanced Encryption Standard)</li>
+<li>DES (Data Encryption Standard)</li>
+<li>Triple DES</li>
+<li>Blowfish </li>
+</ul>
+<p>Symmetrical encryption is normally paired with a <code>Block Cipher Mode of Operation</code> to encrypt or decrypt a stream of data. Imagine there is a data stream of size 30GB that needs to be encrypted. Without Block Cipher Mode, we will have to load all 30GB of data into memory and encrypt it with (say AES128) and most likely we do not large enough memory to load all the data stream. This is where Block Cipher Mode of Operations come in handy, it encrypts the data stream block by block (most likely 16 byte block) until the entire block is encrypted. We basically can encrypt the 30GB data stream without having to have at least 30GB of memory. </p>
+<h4 id="2-2-Asymmetrical-Encryption-a-k-a-Public-Key-Cryptography"><a href="#2-2-Asymmetrical-Encryption-a-k-a-Public-Key-Cryptography" class="headerlink" title="2.2 Asymmetrical Encryption (a.k.a Public Key Cryptography)"></a>2.2 Asymmetrical Encryption (a.k.a Public Key Cryptography)</h4><p>Unlike symmetrical encryption, asymstrical encryption uses two distinct keys called public and private keys; Public key is used for encrytion and private key is used for decryption. Both keys are different but related by math and it is much slower than symmetrical encryptions. As name implies, public key can be distributed publicly while private key is to be kept private as it is the only key that is able to decrypt the messages encrypted by public key. This essentially forms a secured one-way communication. </p>
+<p>Generally, asymmetrical encryption is not desirable to be used as stream data encryption algorithm though it is more secured; it requires more computational power to perform encryption and decryption and this is a major drawback. Asymmetrical encryption is commonly used as authentication protocol for a client to verify that server is indeed valid. During a TLS handshake for example, server will present its TLS certificate, which contains a public key, to the client, client uses the public key to encrypt a message and asks the server to decrypt with its private key and send back the result. If message match, then client is sure that the server possess the private key and therefore is valid.</p>
+<p><img src="/images/asymmetrical.png" alt="asymmetrical encryption"></p>
+<p>The following is some of the most common asymmetrical encryption algorithms today with the RSA and Elliptic curve being the most popular: (reference: <a href="https://en.wikipedia.org/wiki/Public-key_cryptography">https://en.wikipedia.org/wiki/Public-key_cryptography</a>).</p>
+<ul>
+<li>RSA</li>
+<li>DSS</li>
+<li>Elliptic curve</li>
+</ul>
+<h4 id="2-3-Block-Cipher-Mode-of-Operation-a-k-a-Stream-Cipher"><a href="#2-3-Block-Cipher-Mode-of-Operation-a-k-a-Stream-Cipher" class="headerlink" title="2.3 Block Cipher Mode of Operation (a.k.a Stream Cipher)"></a>2.3 Block Cipher Mode of Operation (a.k.a Stream Cipher)</h4><p>Block Cipher Mode of Operation is normally used with Symmetrical encryption to encrypt or decrypt a stream of data block by block. There are several available modes of block cipher operations that have different strengths and weaknesses. Most modes require a complete block of 16 bytes to be able to encrypt. In the case where the input stream is not in multiple of 16, padding is normally use to fill the block. </p>
+<p>The following is some of the most common block cipher mode of operations today with the CBC and CTR being the most popular and ECB being the least secured: (reference: <a href="https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation">https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation</a>).</p>
+<ul>
+<li>Cipher Block Chaining (CBC)</li>
+<li>Counter (CTR)</li>
+<li>Cipher Feedback (CFB)</li>
+<li>Output Feedback (OFB)</li>
+<li>Electronic Codebook (ECB)</li>
+</ul>
+<p>The mode is normally denoted with the desired symmetrical encryption algorithm, for example, AES-128-CBC or AES-256-CTR are quite common.</p>
+<h4 id="2-4-Key-Exchange-Algorithm"><a href="#2-4-Key-Exchange-Algorithm" class="headerlink" title="2.4 Key Exchange Algorithm"></a>2.4 Key Exchange Algorithm</h4><p>Key exchange algorithm is a math algorithm designed to make both client and server agree on a secret key without actually sending the key to each other. This is done by pure math equations and require several steps of intermediate token exchange. In the end both client and server will end up with the same value, which is to be used as the secret key for <code>symmetrical encryption algorithms</code>. Key exchange algorithm is common used in many services such as SSH and TLS. Services like these normally have a <code>handshake</code> stage where both client and server have to agree on the subsequent algorithms to use for encryption and perform key exchange algorithm to get the secret key for symmetrical encryption. </p>
+<p>The following is some of the most common key exchange algorithms with diffie-hellman and elliptic curve diffie-hellman being the most popular (reference: <a href="https://en.wikipedia.org/wiki/Key_exchange">https://en.wikipedia.org/wiki/Key_exchange</a>).</p>
+<ul>
+<li>Diffie-Hellman (DH)</li>
+<li>Elliptic Curve Diffie-Hellman (ECDH)</li>
+<li>Ephemeral Diffie-Hellman (DHE)</li>
+<li>RSA </li>
+</ul>
+<h4 id="2-6-Data-Integrity-Check-Authentication"><a href="#2-6-Data-Integrity-Check-Authentication" class="headerlink" title="2.6 Data Integrity Check / Authentication"></a>2.6 Data Integrity Check / Authentication</h4><p>The data integrity authentication is not to be confused with host-based or role-based authentication mentioned in part 1. Data integrity authentication refers to the methods to ensure that the data stream has been received without being altered during transmission. Think of it as a data checksum. In addition to encryption, ensuring data integrity is also very important security measure to aboid man-in-the-middle attack. Please note that data integrity check and data encryption are 2 separate processes, meaning that you can have data authentication without encryption, or encryption without authentication. SNMPv3 is a good example that treasts data authentication and encryption separtely while TLS requires both at the same time.</p>
+<p>The following is some of the most common key exchange algorithms with SHA1 and MD5 being the most common (reference: <a href="https://en.wikipedia.org/wiki/Message_authentication">https://en.wikipedia.org/wiki/Message_authentication</a>).</p>
+<ul>
+<li>SHA1</li>
+<li>SHA2</li>
+<li>MD5</li>
+<li>BLAK2</li>
+</ul>
+<h4 id="2-5-TLS-Certificate-and-Chain-of-Trust"><a href="#2-5-TLS-Certificate-and-Chain-of-Trust" class="headerlink" title="2.5 TLS Certificate and Chain of Trust"></a>2.5 TLS Certificate and Chain of Trust</h4><p>TLS certificate and chain of trust are the core concepts in TLS to ensure maximum trust between a client and a server. The certificate used by PostgreSQL is X509 version 3 certificate, which has extension support to further refine the purpose of the certificate issued. </p>
+<p>The certificates are created and signed in hierarchy. The certificate created at the top hierarchy is called a <code>root CA</code> (root Certificate Authority) and is normally created by a trusted organization. This <code>root CA</code> is able to sign additional <code>Intermediate CA</code> that can be distributed to other organizations. The intermediate CA can then be used to create and sign individual certificates to be used by services like HTTPS, FTPS…etc.</p>
+<p>There are several types of TLS certificate and each has its own place in the certificate hierarchy and serve different purposes. A TLS certificate is a small data file that contains the public key, organization details, trustee’s digital signiture, extensions and validity dates. Normally a TLS certificate is generated with a private key. The key pair bounded with the certificate is important as they are required for authentication when a TLS client wishes to connect to the server.</p>
+<p>The following image illustrates the idea of certificate trust chain:</p>
+<p><img src="/images/cert_chain.png" alt="certificate chain"></p>
+<p>As you can see, the root CA is on top of hierarchy and is able to generate and sign additional <code>intermediate CA</code> and issue to several organizations. The organization then is able to take the intermediate CA and generate additional <code>regular certificates</code> and matching <code>private keys</code> to use in their services such as PostgreSQL server, FTPS and HTTPS server.</p>
+<p>A CA certificate can be purchased from a trusted organization or generated by oneself using openssl and java key tool. We would not be going over the procedure to generate certificates in this blog as it is a lengthy procedure. In this blog, we will be mainly focusing on the concept behind the security protocols.</p>
+<h4 id="2-7-TLS-versions"><a href="#2-7-TLS-versions" class="headerlink" title="2.7 TLS versions"></a>2.7 TLS versions</h4><p>TLS is a newer protocol that replaces its predecessor, Secured Sockets Layer (SSL). Below is a list of TLS versions that we should use as of today:</p>
+<ul>
+<li>TLSv1.0</li>
+<li>TLSv1.1</li>
+<li>TLSv1.2</li>
+<li>TLSv1.3</li>
+</ul>
+<p>TLSv1.3 is the newest TLS version that has significant improvement in the handshake process and introduces many more cipher suites specifically designed for TLSv1.3. The versions before v1.3 are still very commonly used with TLSv1.2 being the most popular TLS version deployed today. PostgreSQL server defaults to accept client connection that supports minimum TLS version to be TLSv1.2 and will reject any connection in the versions earlier than v1.2</p>
+<h4 id="2-8-TLS-Cipher-Suite-and-TLS-handshake"><a href="#2-8-TLS-Cipher-Suite-and-TLS-handshake" class="headerlink" title="2.8 TLS Cipher Suite and TLS handshake"></a>2.8 TLS Cipher Suite and TLS handshake</h4><p>TLS cipher suite refers to a set of algorithms that help secure a network connection. The suite of algorithms normally contains </p>
+<ul>
+<li>Key exchange algorithm</li>
+<li>Authentication algorithm</li>
+<li>Asymmetrical encryption algorithm</li>
+<li>Message authentication algorithm</li>
+</ul>
+<p>for example, a TLSv1.2 cipher suite TLS_DHE_RSA_WITH_AES_256_CBC_SHA256 indicates the following</p>
+<ul>
+<li>DHE - use Ephemeral Diffie-Hellman key exchange algorithm</li>
+<li>RSA - use RSA asymmetrical keys for authentication</li>
+<li>AES_256_CBC - use AES-256 symmetrical encryption with CBC block cipher mode</li>
+<li>SHA256 - use SHA-256 as message authentication algorithm to make sure exchanged messages are not tempered with.</li>
+</ul>
+<p>When a TLS client initiates a TLS connection to a server, a <code>TLS handshake</code> process takes place that roughly performs the following:</p>
+<ul>
+<li>Agree on the TLS version to use. Abort if version cannot be agreed </li>
+<li>Agree on the cipher suite to use. Abort if cipher suite cannot be agreed</li>
+<li>Certificate exchange</li>
+<li>Client authenticates the server using agreed algorithm</li>
+<li>perform key exchange using agreed algorithm</li>
+<li>ensure handshake message is not tempered with the agreed message authentication algorithm</li>
+<li>secured communication then begins.</li>
+</ul>
+<h3 id="3-Transport-Layer-Security-TLS-in-PostgreSQL-Server"><a href="#3-Transport-Layer-Security-TLS-in-PostgreSQL-Server" class="headerlink" title="3. Transport Layer Security (TLS) in PostgreSQL Server"></a>3. Transport Layer Security (TLS) in PostgreSQL Server</h3><p>PostgreSQL has native support for TLS to secure connection between client and server. The TLS support has to be enabled during build time and requires OpenSSL libraries. Depending on the versions of OpenSSL that the client or server is built with, TLS versions and ciphersuites may differ as well. This does not mean that both client and server must be linked with the same version of OpenSSL. It is possible that a client with older OpenSSL can connect to a server with newer OpenSSL if the server is configured to accept it. The TLS handshake process is initiated when a client first connects to the server in which they will evaluate TLS version used and negotiate ciphersuite that both ends are able to support. In this case, the server may use less secured ciphersuite and TLS version to communiate with the client, which may not be ideal.</p>
+<p>The TLS support for a PostgreSQL server can be enabled in postgresql.conf.</p>
+<figure class="highlight bash"><figcaption><span>postgresql.conf</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="comment"># - SSL -</span></span><br><span class="line"></span><br><span class="line">ssl = on</span><br><span class="line">ssl_ca_file = <span class="string">'/home/caryh/highgo/git/TDE/kms-v2/cert/root.crt'</span></span><br><span class="line">ssl_cert_file = <span class="string">'/home/caryh/highgo/git/TDE/kms-v2/cert/server.crt'</span></span><br><span class="line"><span class="comment">#ssl_crl_file = ''</span></span><br><span class="line">ssl_key_file = <span class="string">'/home/caryh/highgo/git/TDE/kms-v2/cert/server.key'</span></span><br><span class="line"><span class="comment">#ssl_ciphers = 'HIGH:MEDIUM:+3DES:!aNULL' # allowed SSL ciphers</span></span><br><span class="line"><span class="comment">#ssl_prefer_server_ciphers = on</span></span><br><span class="line"><span class="comment">#ssl_ecdh_curve = 'prime256v1'</span></span><br><span class="line"><span class="comment">#ssl_min_protocol_version = 'TLSv1.2'</span></span><br><span class="line"><span class="comment">#ssl_max_protocol_version = ''</span></span><br><span class="line"><span class="comment">#ssl_dh_params_file = ''</span></span><br><span class="line"><span class="comment">#ssl_passphrase_command = ''</span></span><br><span class="line"><span class="comment">#ssl_passphrase_command_supports_reload = off</span></span><br></pre></td></tr></table></figure>
+
+<p>Let’s examine the configuration parameters.</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">ssl = on</span><br></pre></td></tr></table></figure>
+<p>This line turns on the TLS support. Please note that even if TLS is turned on, the server will still be able to accept connections that do not use TLS. Normally, the client is the entity that decides if TLS should be used or not. The server can also enforce the incoming connections to use TLS by modifying the <code>pg_hba.conf</code> file like this, where the connections from 172.16.30.0/24 must be TLS, otherwise the server will deny.</p>
+<figure class="highlight bash"><figcaption><span>pg_hba.conf</span></figcaption><table><tr><td class="code"><pre><span class="line">hostssl sales_team       all             172.16.30.0/24          trust</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">ssl_ca_file = <span class="string">'~/cert/root.crt'</span></span><br><span class="line">ssl_cert_file = <span class="string">'~/cert/server.crt'</span></span><br><span class="line"><span class="comment">#ssl_crl_file = ''</span></span><br><span class="line">ssl_key_file = <span class="string">'~/cert/server.key'</span></span><br></pre></td></tr></table></figure>
+
+<p>These 4 lines tell PostgreSQL where to load the X509 certificate, the CA certificate, server private key and the certificate revokation list. These certificates must be pre-generated or purchased from a trusted organization. For TLS to work, <code>ssl_ca_file</code>, <code>ssl_cert_file</code> and <code>ssl_key_file</code> must be provided.</p>
+<p>The file pointed by <code>ssl_ca_file</code> will be used to determined if the certificate can be trusted by deriving the chain of trust.<br>The file pointed by <code>ssl_cert_file</code> will be sent to the connecting client during TLS handshake for authentication purposes.<br>The file pointed by <code>ssl_key_file</code> will be used for asymmetrical encryption during authentication </p>
+<p>All 3 of these files can be generated using OpenSSL command line tool for quick setup. Refer to section 2.5.</p>
+<p>The file pointed by <code>ssl_crl_file</code> is optional and it contains a list of certificates that cannot be trusted (or revoked). Distributing revoked certificates using this file is not the most ideal but still being practice today. It may have performance impact if the list is very large and it introduces a problem of when the list should be renewed and how often. Online Certificate Status Protocol (OCSP. ref:<a href="https://en.wikipedia.org/wiki/Online_Certificate_Status_Protocol">https://en.wikipedia.org/wiki/Online_Certificate_Status_Protocol</a>) is a newer protocol designed for Public Key Infrastructure (PKI) for querying certificate revokation status that addresses some of the issues with revokation file. Feel free to give a read on OCSP in the link above.</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment">#ssl_ciphers = 'HIGH:MEDIUM:+3DES:!aNULL' # allowed SSL ciphers</span></span><br><span class="line"><span class="comment">#ssl_prefer_server_ciphers = on</span></span><br><span class="line"><span class="comment">#ssl_ecdh_curve = 'prime256v1'</span></span><br></pre></td></tr></table></figure>
+<p>During TLS handshake, both client and server will present to each other a list of desired ciphersuites ordered by preference. Handshake process will go through both lists and find a common ciphersuite supported by both sides or abord if there is nothing in common. The <code>ssl_ciphers</code> configuration is used to configure the size of the ciphersuite lists to be presented to the client during handshake.</p>
+<p><code>ssl_ciphers</code> is a string list consisting of one or more <code>cipher strings</code> separated by colons ( ref: <a href="https://www.openssl.org/docs/man1.1.1/man1/ciphers.html">https://www.openssl.org/docs/man1.1.1/man1/ciphers.html</a>) and defaults to <code>HIGH:MEDIUM:+3DES:!aNULL</code> which translates to:</p>
+<ul>
+<li>allows high strength ciphersuites (HIGH)</li>
+<li>allows medium strength ciphersuites (MEDIUM)</li>
+<li>move any ciphersuite using 3DES algorithm to the end of the list (+3DES)</li>
+<li>remove any ciphersuite that does not have authentication algorithm (!aNULL)</li>
+</ul>
+<p>For example, “HIGH:!ADH:!MD5:!RC4:!SRP:!PSK:!DSS:!ECDHE:!ECDSA:!EDH:!DH:!ECDH:!CAMELLIA256” will use high strength ciphersuites while removing any ciphersuites containing ADH, MD5, RC4…etc. The cipher list will end up with a few ciphersuites using RSA as authentication method.</p>
+<p>Before applying the cipher string to PostgreSQL, it is adviced to check the potential output cipher list after tuning the cipher string using Openssl client tool.</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ openssl ciphers -v <span class="string">'HIGH:!ADH:!MD5:!RC4:!SRP:!PSK:!DSS:!ECDHE:!ECDSA:!EDH:!DH:!ECDH:!CAMELLIA256'</span></span><br><span class="line">TLS_AES_256_GCM_SHA384  TLSv1.3 Kx=any      Au=any  Enc=AESGCM(256) Mac=AEAD</span><br><span class="line">TLS_CHACHA20_POLY1305_SHA256 TLSv1.3 Kx=any      Au=any  Enc=CHACHA20/POLY1305(256) Mac=AEAD</span><br><span class="line">TLS_AES_128_GCM_SHA256  TLSv1.3 Kx=any      Au=any  Enc=AESGCM(128) Mac=AEAD</span><br><span class="line">AES256-GCM-SHA384       TLSv1.2 Kx=RSA      Au=RSA  Enc=AESGCM(256) Mac=AEAD</span><br><span class="line">AES256-CCM8             TLSv1.2 Kx=RSA      Au=RSA  Enc=AESCCM8(256) Mac=AEAD</span><br><span class="line">AES256-CCM              TLSv1.2 Kx=RSA      Au=RSA  Enc=AESCCM(256) Mac=AEAD</span><br><span class="line">ARIA256-GCM-SHA384      TLSv1.2 Kx=RSA      Au=RSA  Enc=ARIAGCM(256) Mac=AEAD</span><br><span class="line">AES128-GCM-SHA256       TLSv1.2 Kx=RSA      Au=RSA  Enc=AESGCM(128) Mac=AEAD</span><br><span class="line">AES128-CCM8             TLSv1.2 Kx=RSA      Au=RSA  Enc=AESCCM8(128) Mac=AEAD</span><br><span class="line">AES128-CCM              TLSv1.2 Kx=RSA      Au=RSA  Enc=AESCCM(128) Mac=AEAD</span><br><span class="line">ARIA128-GCM-SHA256      TLSv1.2 Kx=RSA      Au=RSA  Enc=ARIAGCM(128) Mac=AEAD</span><br><span class="line">AES256-SHA256           TLSv1.2 Kx=RSA      Au=RSA  Enc=AES(256)  Mac=SHA256</span><br><span class="line">AES128-SHA256           TLSv1.2 Kx=RSA      Au=RSA  Enc=AES(128)  Mac=SHA256</span><br><span class="line">CAMELLIA128-SHA256      TLSv1.2 Kx=RSA      Au=RSA  Enc=Camellia(128) Mac=SHA256</span><br><span class="line">AES256-SHA              SSLv3 Kx=RSA      Au=RSA  Enc=AES(256)  Mac=SHA1</span><br><span class="line">AES128-SHA              SSLv3 Kx=RSA      Au=RSA  Enc=AES(128)  Mac=SHA1</span><br><span class="line">CAMELLIA128-SHA         SSLv3 Kx=RSA      Au=RSA  Enc=Camellia(128) Mac=SHA1</span><br></pre></td></tr></table></figure>
+
+<p><code>ssl_prefer_server_ciphers</code> specifies whether to use the server’s SSL cipher preferences, rather than the client’s. It should always be <code>on</code> for more control in terms of ciphersuite selection.</p>
+<p><code>ssl_ecdh_curve</code> specifies the name of the curve to use in ECDH key exchange algorithms and is useful only if the ciphersuite uses ECDHE key exchange algorithm. The most common curves are : prime256v1, secp384r1 and secp521r1 and normally leaving it default should suffice.</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment">#ssl_min_protocol_version = 'TLSv1.2'</span></span><br><span class="line"><span class="comment">#ssl_max_protocol_version = ''</span></span><br></pre></td></tr></table></figure>
+<p>These 2 lines configure the minimum and maximun TLS versions to accept. By default the server will only serve the TLS client using TLSv1.2 and above. TLSv1.2 is a very secured TLS version and it is widely used in the world. Normally, we only change the minimum TLS version with assumption that all future versions will be more secured and for this reason, we normally don’t put restriction on the max version.</p>
+<p>TLSv1.3 is recently introduced that has new ciphersuite support and has more improvement in the handshake process. To enforce TLSv1.3 to be used, set the <code>ssl_min_protocol_version</code> to ‘TLSv1.3’ will suffice.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#ssl_dh_params_file &#x3D; &#39;&#39;</span><br><span class="line">#ssl_passphrase_command &#x3D; &#39;&#39;</span><br><span class="line">#ssl_passphrase_command_supports_reload &#x3D; off</span><br></pre></td></tr></table></figure>
+
+<p><code>ssl_dh_params_file</code> points to a file that contains custom diffie-hellman key exchange algorithm parameter. This is an optional parameter and is only useful if the ciphersuite uses DHE key exchange algorithm. If left empty, compiled-in defaults will be used. Custom DH parameters can be generated using command <code>openssl dhparam -out dhparams.pem 2048</code> and will normally reduce the attack exposure as attacker will have hardtime cracking the key exchange process using custom parameter instead of the well-known default. </p>
+<p><code>ssl_passphrase_command</code> is the command to obtain the password for the private key file specified by <code>ssl_key_file</code>. There is an option to add a password to a private key file during its generation and if password is used, <code>ssl_passphrase_command</code> must be set with the system command that will retrieve such password. Otherwise, TLS handshake will abord as PostgreSQL will not be able to access private key without password.</p>
+<p><code>ssl_passphrase_command_supports_reload</code> configures if the <code>ssl_passphrase_command</code> should be re-run at every reload (ie. SIGHUP). It is default to <code>off</code>, so the <code>ssl_passphrase_command</code> will not be run at every reload.</p>
+<h3 id="4-Transport-Layer-Security-TLS-in-PostgreSQL-Client"><a href="#4-Transport-Layer-Security-TLS-in-PostgreSQL-Client" class="headerlink" title="4. Transport Layer Security (TLS) in PostgreSQL Client"></a>4. Transport Layer Security (TLS) in PostgreSQL Client</h3><p>Now that we have a PostgreSQL server with TLS setup, we can use psql client to connect to the server also using TLS. Depending on the client connect parameters given, we can utilize TLS in different security levels. I will show the most common usages here:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># Case 1: connect to server in TLS mode</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=require dbname=postgres"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 2: connect to server in TLS mode if server supports it</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=prefer dbname=postgres"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 3: connect to server in TLS mode and verify server CA against client CA</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=verify-ca dbname=postgres sslrootcert=~/cert/root.crt"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 4: connect to server in TLS mode and present client certificate. Verify all certificate details and trust chain. Check certificate revokation list does not contain server cert.</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=verify-full dbname=postgres sslrootcert=~/cert/root.crt sslcert=~/cert/client.crt sslkey=~/cert/client.key sslcrl=~/cert/client.crl"</span></span><br></pre></td></tr></table></figure>
+
+<p>The usage in Case 4 is the most secured becuase both server and client will verify each other’s certificate and decide if both can be mutually trusted. The common name field in the certificate is checked against the server hostname; certificate validity period is checked, organization details are checked; certificate trust chain is checked; revokation list is checked.</p>
+<p>Case 1 to 3 are less secured because client does not provide client certificate to the server and there is not as much checking requested during the handshake process. </p>
+<h3 id="5-Transparent-Data-Encryption-TDE"><a href="#5-Transparent-Data-Encryption-TDE" class="headerlink" title="5. Transparent Data Encryption (TDE)"></a>5. Transparent Data Encryption (TDE)</h3><p>Transparent Data Encryption refers to the process of protecting data at rest by encrypting database files on the hard disk level and decrypting them while reading from hard disk. This is to prevent physical storage media theft. This is called <code>transparent</code> because the encryption and decryption happen between PostgreSQL server and the physical hard disk and it is not visible to the client applications. TDE uses symmetrical encryption for securing blocks of database files such as shared buffer and WAL files, and it is designed to accompany with a internal Key Management System (KMS) to manage the lifecycle of the encryption keys. </p>
+<p>TDE and KMS are still under development by the PostgreSQL community. The KMS feature is expected to be released in PG13 while the TDE feature to be in PG14. With its completion, it will add another layer of security feature on top of already security-rich PostgreSQL database.</p>
+<h3 id="6-Security-Vulnerability"><a href="#6-Security-Vulnerability" class="headerlink" title="6. Security Vulnerability"></a>6. Security Vulnerability</h3><p>Security Vulnerability is a weakness which can be exploited by an attacker to perform unauthorized actions, sabotage a service, or inject malicious software or virus. These weaknesses are generally implementation mistakes, undiscovered bugs or a legacy problem that require an update to the server to resolve.</p>
+<p>PostgreSQL also has a list of known security vulnerability that has been discovered and fixed by the community. The list can be found here: <a href="https://www.postgresql.org/support/security/">https://www.postgresql.org/support/security/</a>. These vulnerability ranges from different severity levels, from simple memory leak to crash the server. </p>
+<p>This is why doing regular PostgreSQL server upgrade is important because each minor release fixes some of the discovered security vulnerabilities and therefore reducing the attack surface on your server. </p>
+<h3 id="7-Summary"><a href="#7-Summary" class="headerlink" title="7. Summary"></a>7. Summary</h3><p>In part 2 of this blog, we have discussed the components involved around TLS, learned and understood what each TLS related configuration means in <code>postgresql.conf</code> and how to initiate TLS connection with psql client. We learned that keeping PostgreSQL server up-to-date can reduce the attack surface on some of the discovered vulnerabilities and also got a brief understanding of the TDE project that is currently being developed.</p>
+<p>TLS is a big protocl involving a lot of steps including certificate exchange, chain of trust verification, key exchange, cipher suite exchange, authentication, data integrity check and finally symmetrical encryption of application data with appropriate block cipher mode. Of course there is more to what we have discussed here so far and I will be producing more articles in the near future to address some of the advanced TLS related practices.</p>
+
         </div>
         
         <div class="level is-size-7 is-uppercase">
