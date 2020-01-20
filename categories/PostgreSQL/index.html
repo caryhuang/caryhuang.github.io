@@ -141,6 +141,97 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/" class="image is-7by1">
+            <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 3">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-01-20T21:47:59.000Z">2020-01-20</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    14 minutes read (About 2127 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/">Understanding Security Features in PostgreSQL - Part 3</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This is part 3 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing how to apply TLS in both PostgreSQL server and client using the principles we have learned in part 2 of the blog. In the end, I will also briefly talk about Transparent Data Encryption (TDE) and security vulnerability.</p>
+<p>Here is the overview of the <code>security</code> topics that will be covered in all parts of the blog:</p>
+<p>Part 1:   </p>
+<ul>
+<li>PostgreSQL Server Listen Address</li>
+<li>Host-Based Authentication</li>
+<li>Authentication with LDAP Server</li>
+<li>Authentication with PAM</li>
+<li>Role-Based Access Control </li>
+<li>Assign Table and Column Level Privileges to Users</li>
+<li>Assign User Level Privileges as Roles</li>
+<li>Assign and Column Level Privileges via Roles</li>
+<li>Role Inheritance</li>
+</ul>
+<p>Part 2:</p>
+<ul>
+<li>Security Concepts around TLS</li>
+<li>Symmetrical Encryption</li>
+<li>Asymmetrical Encryption (a.k.a Public Key Cryptography)</li>
+<li>Block Cipher Mode of Operation (a.k.a Stream Cipher)</li>
+<li>Key Exchange Algorithm</li>
+<li>TLS Certificate and Chain of Trust</li>
+<li>Data Integrity Check / Data Authentication</li>
+<li>TLS Cipher Suite and TLS handshake</li>
+<li>TLS versions</li>
+</ul>
+<p>Part 3: </p>
+<ul>
+<li>Applying Transport Layer Security (TLS) to PostgreSQL Server</li>
+<li>Applying Transport Layer Security (TLS) to PostgreSQL Client</li>
+<li>Transparent Data Encryption (TDE)</li>
+<li>Security Vulnerability</li>
+</ul>
+        </div>
+        
+        
+        <div class="level is-mobile">
+            <div class="level-start">
+                <div class="level-item">
+                <a class="button is-size-7 is-light" href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/#more">Read More</a>
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/" class="image is-7by1">
             <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 2">
         </a>
@@ -160,7 +251,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    27 minutes read (About 4063 words)
+                    14 minutes read (About 2134 words)
                 </span>
                 
                 
@@ -176,8 +267,8 @@
             <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This is part 2 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing TLS in greater details. I will begin by going over some of the most important security concepts around TLS before jumping into enabling TLS on PostgreSQL server. I believe it is crucial to have sufficient background information on TLS before tweaking the TLS settings in both client and server sides.</p>
 <p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication between client and server will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. TLS is one of the least understood but commonly used security protocol that ensures the security of many HTTPS sites and other services. TLS is a big protocol and this blog will describe how it works and how to enable TLS in your PostgreSQL server.</p>
 <p>In the end, we will briefly talk about Transparent Data Encryption (TDE) that the PG community is currently working on and also security vulnerability.</p>
-<p>Here is the overview of the <code>security</code> topics that will be covered in both parts of the blog:</p>
-<p>Part 1:  </p>
+<p>Here is the overview of the <code>security</code> topics that will be covered in all parts of the blog:</p>
+<p>Part 1:   </p>
 <ul>
 <li>PostgreSQL Server Listen Address</li>
 <li>Host-Based Authentication</li>
@@ -191,7 +282,7 @@
 </ul>
 <p>Part 2:</p>
 <ul>
-<li>Security Concepts around TLS<ul>
+<li>Security Concepts around TLS</li>
 <li>Symmetrical Encryption</li>
 <li>Asymmetrical Encryption (a.k.a Public Key Cryptography)</li>
 <li>Block Cipher Mode of Operation (a.k.a Stream Cipher)</li>
@@ -201,8 +292,10 @@
 <li>TLS Cipher Suite and TLS handshake</li>
 <li>TLS versions</li>
 </ul>
-</li>
-<li>Transport Layer Security (TLS) in PostgreSQL Server</li>
+<p>Part 3: </p>
+<ul>
+<li>Applying Transport Layer Security (TLS) to PostgreSQL Server</li>
+<li>Applying Transport Layer Security (TLS) to PostgreSQL Client</li>
 <li>Transparent Data Encryption (TDE)</li>
 <li>Security Vulnerability</li>
 </ul>
@@ -251,7 +344,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    18 minutes read (About 2697 words)
+                    19 minutes read (About 2851 words)
                 </span>
                 
                 
@@ -264,11 +357,12 @@
             
         </h1>
         <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodology to achieve in different PostgreSQL components. This blog is divided into part 1 and 2 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. </p>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodology to achieve in different PostgreSQL components. This blog is divided into part 1, 2 and 3 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. </p>
 <p>In Part 1 of the blog, I will be discussing the basic security features that exist in PostgreSQL with emphasis on Host-based authentication methods as well as user-based access control with the concept of roles. If done right, we could have a much more robust database server and potentially reduce the attack surface on the server, protecting it from attacks like SQL injections. I will also briefly discuss a few of the advanced authentication methods such as LDAP and PAM authentication. There are many more advanced authentication methods supported and we will be producing more articles in the near future to cover more of these methods.</p>
-<p>In Part 2 of the blog, I will be discussing TLS in greater detail, which I believe is crucial for a database administrator to understand first before enabling TLS in the PostgreSQL server. TLS is a fairly large and one of the least understood protocol today, which contains a lot of security components and methodology related to cryptography that could be quite confusing. We will briefly discuss Transparent Data Encryption that the PG community is currently working on and security vulnerability.</p>
-<p>Below is the overview of the <code>security</code> topics that will be covered in both parts of the blog:</p>
-<p>Part 1:  </p>
+<p>In Part 2 of the blog, I will be discussing TLS in greater detail, which I believe is crucial for a database administrator to understand first before enabling TLS in the PostgreSQL server. TLS is a fairly large and one of the least understood protocol today, which contains a lot of security components and methodology related to cryptography that could be quite confusing. </p>
+<p>In Part 3 of the blog, I will be discussing how to apply TLS configurations to both PostgreSQL server and client following the TLS principles that have been discussed in Part 2. I will also briefly discuss Transparent Data Encryption (TDE) that the PG community is currently working on that introduces another layer of secured database environment.</p>
+<p>Below is the overview of the <code>security</code> topics that will be covered in all parts of the blog:</p>
+<p>Part 1:   </p>
 <ul>
 <li>PostgreSQL Server Listen Address</li>
 <li>Host-Based Authentication</li>
@@ -282,7 +376,7 @@
 </ul>
 <p>Part 2:</p>
 <ul>
-<li>Security Concepts around TLS<ul>
+<li>Security Concepts around TLS</li>
 <li>Symmetrical Encryption</li>
 <li>Asymmetrical Encryption (a.k.a Public Key Cryptography)</li>
 <li>Block Cipher Mode of Operation (a.k.a Stream Cipher)</li>
@@ -292,8 +386,10 @@
 <li>TLS Cipher Suite and TLS handshake</li>
 <li>TLS versions</li>
 </ul>
-</li>
-<li>Transport Layer Security (TLS) in PostgreSQL Server</li>
+<p>Part 3: </p>
+<ul>
+<li>Applying Transport Layer Security (TLS) to PostgreSQL Server</li>
+<li>Applying Transport Layer Security (TLS) to PostgreSQL Client</li>
 <li>Transparent Data Encryption (TDE)</li>
 <li>Security Vulnerability</li>
 </ul>
@@ -678,7 +774,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            8
+                            9
                         </p>
                     </a>
                 </div>
@@ -840,7 +936,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">7</span>
+                <span class="level-item tag">8</span>
             </span>
         </a></li>
             </ul>
@@ -853,7 +949,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 15px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
+        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 13.33px;">replication</a> <a href="/tags/security/" style="font-size: 16.67px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
     </div>
 </div>
     
@@ -862,6 +958,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 3">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-01-20T21:47:59.000Z">2020-01-20</time></div>
+                    <a href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding Security Features in PostgreSQL - Part 3</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -939,25 +1054,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/view4.jpg" alt="Trace-Postgres-query-processing-internals-with-debugger">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-28T06:36:24.000Z">2019-09-27</time></div>
-                    <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Trace-Postgres-query-processing-internals-with-debugger</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -975,7 +1071,7 @@
                     <span class="level-item">January 2020</span>
                 </span>
                 <span class="level-end">
-                    <span class="level-item tag">2</span>
+                    <span class="level-item tag">3</span>
                 </span>
             </a>
         </li>
@@ -1050,7 +1146,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/networking/">
                         <span class="tag">networking</span>
-                        <span class="tag is-grey">3</span>
+                        <span class="tag is-grey">4</span>
                     </a>
                 </div>
                 
@@ -1092,7 +1188,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/security/">
                         <span class="tag">security</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
