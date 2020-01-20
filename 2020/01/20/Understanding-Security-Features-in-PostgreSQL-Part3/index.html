@@ -19,7 +19,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/images/view8.jpg">
 <meta property="article:published_time" content="2020-01-20T21:47:59.000Z">
-<meta property="article:modified_time" content="2020-01-20T21:51:44.000Z">
+<meta property="article:modified_time" content="2020-01-20T22:40:44.000Z">
 <meta property="article:author" content="Cary Huang">
 <meta property="article:tag" content="networking">
 <meta property="article:tag" content="security">
@@ -154,7 +154,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    14 minutes read (About 2127 words)
+                    16 minutes read (About 2340 words)
                 </span>
                 
                 
@@ -243,12 +243,16 @@
 <figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># Case 1: connect to server in TLS mode</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=require dbname=postgres"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 2: connect to server in TLS mode if server supports it</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=prefer dbname=postgres"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 3: connect to server in TLS mode and verify server CA against client CA</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=verify-ca dbname=postgres sslrootcert=~/cert/root.crt"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 4: connect to server in TLS mode and present client certificate. Verify all certificate details and trust chain. Check certificate revokation list does not contain server cert.</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=verify-full dbname=postgres sslrootcert=~/cert/root.crt sslcert=~/cert/client.crt sslkey=~/cert/client.key sslcrl=~/cert/client.crl"</span></span><br></pre></td></tr></table></figure>
 
 <p>The usage in Case 4 is the most secured becuase both server and client will verify each other’s certificate and decide if both can be mutually trusted. The common name field in the certificate is checked against the server hostname; certificate validity period is checked, organization details are checked; certificate trust chain is checked; revokation list is checked.</p>
-<p>Case 1 to 3 are less secured because client does not provide client certificate to the server and there is not as much checking requested during the handshake process. </p>
+<p>Please note that PostgreSQL server with TLS enabled by default does not force the client to present a TLS certificate for verification. If client presents one like in Case 4 above, the server will verify and deny connection is certificate is bad. If client does not provide a certificate like in Case 1 ~ 3, the server will skip the client certificate verification as there is nothing to verify, which is less secure.</p>
+<p>To enforce the connecting client to present a TLS certificate for verification, we will need to add a special <code>clientcert=1</code> argument in existing authentication rules defined in <code>pg_hba.conf</code>. </p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># TYPE  DATABASE         USER                 ADDRESS                 METHOD</span></span><br><span class="line">hostssl production_team     production_user      0.0.0.0/0            pam clientcert=1</span><br></pre></td></tr></table></figure>
+<p>The example above will enforce connecting client to present TLS certificate to access <code>production_team</code> database as <code>production_user</code>. If a TLS certificate is not provided by client, the connection will abort.</p>
 <h3 id="4-Transparent-Data-Encryption-TDE"><a href="#4-Transparent-Data-Encryption-TDE" class="headerlink" title="4. Transparent Data Encryption (TDE)"></a>4. Transparent Data Encryption (TDE)</h3><p>Transparent Data Encryption refers to the process of protecting data at rest by encrypting database files on the hard disk level and decrypting them while reading from hard disk. This is to prevent physical storage media theft. This is called <code>transparent</code> because the encryption and decryption happen between PostgreSQL server and the physical hard disk and it is not visible to the client applications. TDE uses symmetrical encryption for securing blocks of database files such as shared buffer and WAL files, and it is designed to accompany with a internal Key Management System (KMS) to manage the lifecycle of the encryption keys. </p>
 <p>TDE and KMS are still under development by the PostgreSQL community. The KMS feature is expected to be released in PG13 while the TDE feature to be in PG14. With its completion, it will add another layer of security feature on top of already security-rich PostgreSQL database.</p>
 <h3 id="5-Security-Vulnerability"><a href="#5-Security-Vulnerability" class="headerlink" title="5. Security Vulnerability"></a>5. Security Vulnerability</h3><p>Security Vulnerability is a weakness which can be exploited by an attacker to perform unauthorized actions, sabotage a service, or inject malicious software or virus. These weaknesses are generally implementation mistakes, undiscovered bugs or a legacy problem that require an update to the server to resolve.</p>
 <p>PostgreSQL also has a list of known security vulnerability that has been discovered and fixed by the community. The list can be found here: <a href="https://www.postgresql.org/support/security/">https://www.postgresql.org/support/security/</a>. These vulnerability ranges from different severity levels, from simple memory leak to crash the server. </p>
 <p>This is why doing regular PostgreSQL server upgrade is important because each minor release fixes some of the discovered security vulnerabilities and therefore reducing the attack surface on your server. </p>
+<h3 id="6-Summary"><a href="#6-Summary" class="headerlink" title="6. Summary"></a>6. Summary</h3><p>In part 3 of the blog, we have learned and understood what each TLS related configuration means in <code>postgresql.conf</code> and how to initiate TLS connection with psql client. We learned that keeping PostgreSQL server up-to-date can reduce the attack surface on some of the discovered vulnerabilities. We can ensure a fairly secured database network environment with TLS having adequate understanding of its fundamentals and practices. With the TDE feauture coming in near future, we can further secure the database envrionment in the disk level and prevent possible data loss due to disk theft.</p>
 
         </div>
         
