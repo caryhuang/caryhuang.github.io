@@ -19,7 +19,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/images/view8.jpg">
 <meta property="article:published_time" content="2020-01-20T21:47:59.000Z">
-<meta property="article:modified_time" content="2020-01-20T22:40:44.000Z">
+<meta property="article:modified_time" content="2020-01-22T20:48:06.000Z">
 <meta property="article:author" content="Cary Huang">
 <meta property="article:tag" content="networking">
 <meta property="article:tag" content="security">
@@ -154,7 +154,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    16 minutes read (About 2340 words)
+                    25 minutes read (About 3808 words)
                 </span>
                 
                 
@@ -168,6 +168,7 @@
         </h1>
         <div class="content">
             <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This is part 3 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing how to apply TLS in both PostgreSQL server and client using the principles we have learned in part 2 of the blog. In the end, I will also briefly talk about Transparent Data Encryption (TDE) and security vulnerability.</p>
+<a id="more"></a>
 <p>Here is the overview of the <code>security</code> topics that will be covered in all parts of the blog:</p>
 <p>Part 1:   </p>
 <ul>
@@ -195,25 +196,53 @@
 </ul>
 <p>Part 3: </p>
 <ul>
-<li>Applying Transport Layer Security (TLS) to PostgreSQL Server</li>
-<li>Applying Transport Layer Security (TLS) to PostgreSQL Client</li>
+<li>Preparing TLS Certificates</li>
+<li>Enabling Transport Layer Security (TLS) to PostgreSQL Server</li>
+<li>Enabling Transport Layer Security (TLS) to PostgreSQL Client</li>
+<li>TLS Connect Examples</li>
 <li>Transparent Data Encryption (TDE)</li>
 <li>Security Vulnerability</li>
 </ul>
-<a id="more"></a>
+<h3 id="2-Preparing-TLS-Certificates"><a href="#2-Preparing-TLS-Certificates" class="headerlink" title="2. Preparing TLS Certificates"></a>2. Preparing TLS Certificates</h3><p>Before we can utilize TLS to secure both the server and the client, we must prepare a set of TLS certificates to ensure mutual trust. Normally the CA (Certificate Authority) certificates can be purchased from a trusted organization and used it to create more CA-Signed certificates for services and applications. In this section, I will show you how to create your own CA Certificate and CA-Signed certificates using OpenSSL command line tool for both PostgreSQL server and client. </p>
+<p>You may also have heard the term <code>self-signed</code> certificate. This type of certificate is not signed by a trusted CA and is normally considered insecured in many applications. We will not go over the self-signed certificate generation in this blog.</p>
+<h4 id="2-1-Generate-a-Private-Key-for-CA-Certificate"><a href="#2-1-Generate-a-Private-Key-for-CA-Certificate" class="headerlink" title="2.1 Generate a Private Key for CA Certificate"></a>2.1 Generate a Private Key for CA Certificate</h4><p>Remember in last blog we mention that each certificate contains organization information and public key, which is paired with a private key file. Let’s generate a private key file for our CA first.</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ openssl genrsa -des3 -out cacert.key 2048</span><br><span class="line">Generating RSA private key, 2048 bit long modulus (2 primes)</span><br><span class="line">...............+++++</span><br><span class="line">........................+++++</span><br><span class="line">e is 65537 (0x010001)</span><br><span class="line">Enter pass phrase <span class="keyword">for</span> cacert.key:</span><br><span class="line">Verifying - Enter pass phrase <span class="keyword">for</span> cacert.key:</span><br></pre></td></tr></table></figure>
+<p>Your will be prompted with pass phrase, which is recommended to provide as it will prevent someone else from generating more root CA certificate from this key.</p>
+<h4 id="2-2-Generate-CA-Certificate-Using-the-Private-key"><a href="#2-2-Generate-CA-Certificate-Using-the-Private-key" class="headerlink" title="2.2 Generate CA Certificate Using the Private key"></a>2.2 Generate CA Certificate Using the Private key</h4><p>Now, let’s generate the CA Certificate with the private key</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ openssl req -x509 -new -nodes -key cacert.key -sha256 -days 3650 -out cacert.pem</span><br><span class="line">Enter pass phrase <span class="keyword">for</span> cacert.key:</span><br><span class="line">You are about to be asked to enter information that will be incorporated</span><br><span class="line">into your certificate request.</span><br><span class="line">What you are about to enter is what is called a Distinguished Name or a DN.</span><br><span class="line">There are quite a few fields but you can leave some blank</span><br><span class="line">For some fields there will be a default value,</span><br><span class="line">If you enter <span class="string">'.'</span>, the field will be left blank.</span><br><span class="line">-----</span><br><span class="line">Country Name (2 letter code) [AU]:CA</span><br><span class="line">State or Province Name (full name) [Some-State]:BC</span><br><span class="line">Locality Name (eg, city) []:Vancouver</span><br><span class="line">Organization Name (eg, company) [Internet Widgits Pty Ltd]:HighGo</span><br><span class="line">Organizational Unit Name (eg, section) []:Software</span><br><span class="line">Common Name (e.g. server FQDN or YOUR name) []:va.highgo.com</span><br><span class="line">Email Address []:cary.huang@highgo.ca</span><br></pre></td></tr></table></figure>
+<p>Please note that OpenSSL will prompt you to enter several pieces of organizational information that identifies the CA certificate. You should enter these information suited to your organization. The most important field is <code>Common Name</code>, which is commonly checked against the hostname or domain name of the service. Depending on the seurity policy, some server will enforce the rule that common name must equal its host / domain name; some servers do not have this restriction. </p>
+<h4 id="2-3-Generate-a-private-key-for-CA-Signed-certificate"><a href="#2-3-Generate-a-private-key-for-CA-Signed-certificate" class="headerlink" title="2.3 Generate a private key for CA-Signed certificate"></a>2.3 Generate a private key for CA-Signed certificate</h4><p>Like in the CA case, CA-signed certificate is also paired with a private key file</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ openssl genrsa -out server.key 2048</span><br><span class="line">Generating RSA private key, 2048 bit long modulus (2 primes)</span><br><span class="line">...................+++++</span><br><span class="line">............................................................................+++++</span><br><span class="line">e is 65537 (0x010001)</span><br></pre></td></tr></table></figure>
+<h4 id="2-4-Generate-a-Certificate-Signing-Request-for-CA-Signed-certificate"><a href="#2-4-Generate-a-Certificate-Signing-Request-for-CA-Signed-certificate" class="headerlink" title="2.4 Generate a Certificate Signing Request for CA-Signed certificate"></a>2.4 Generate a Certificate Signing Request for CA-Signed certificate</h4><p>Then we create a Certificate Signing Request (CSR), which contains a list of organizational information to be presented to the CA server for verification. The CA server then decide if the CSR should be granted a new certificate according to the security policy configured. Since we are using OpenSSL for certificate generation, the <code>CA server</code> here refers to OpenSSL itself, and the security policy configuration is located in <code>openssl.cnf</code>, which is commonly located in <code>/usr/local/ssl/openssl.cnf</code>. In an enterprise environment where Public Key Infrastructure (PKI) is deployed, the CA Server could refer to an actual service whose sole purpose is to verify incoming CSRs and renew or issue new certificates to requesting clients.</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ openssl req -new -key server.key -out server.csr</span><br><span class="line">You are about to be asked to enter information that will be incorporated</span><br><span class="line">into your certificate request.</span><br><span class="line">What you are about to enter is what is called a Distinguished Name or a DN.</span><br><span class="line">There are quite a few fields but you can leave some blank</span><br><span class="line">For some fields there will be a default value,</span><br><span class="line">If you enter <span class="string">'.'</span>, the field will be left blank.</span><br><span class="line">-----</span><br><span class="line">Country Name (2 letter code) [AU]:CA</span><br><span class="line">State or Province Name (full name) [Some-State]:BC</span><br><span class="line">Locality Name (eg, city) []:Vancouver</span><br><span class="line">Organization Name (eg, company) [Internet Widgits Pty Ltd]:HighGo</span><br><span class="line">Organizational Unit Name (eg, section) []:Software</span><br><span class="line">Common Name (e.g. server FQDN or YOUR name) []:va.highgo.ca</span><br><span class="line">Email Address []:cary.huang@highgo.ca</span><br><span class="line"></span><br><span class="line">Please enter the following <span class="string">'extra'</span> attributes</span><br><span class="line">to be sent with your certificate request</span><br><span class="line">A challenge password []:</span><br><span class="line">An optional company name []:HighGo Canada</span><br></pre></td></tr></table></figure>
+<h4 id="2-5-Generate-a-CA-Signed-certificate"><a href="#2-5-Generate-a-CA-Signed-certificate" class="headerlink" title="2.5 Generate a CA-Signed certificate"></a>2.5 Generate a CA-Signed certificate</h4><p>Since we are generating CA-signed certificate with OpenSSL locally, we can configure how the certificate should be generated using <code>openssl.cnf</code> file. We will just be using the default policty set in <code>openssl.cnf</code>. Here’s a snapshot of the default settings:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">[ usr_cert ]</span><br><span class="line"></span><br><span class="line"># These extensions are added when &#39;ca&#39; signs a request.</span><br><span class="line"></span><br><span class="line"># This goes against PKIX guidelines but some CAs do it and some software</span><br><span class="line"># requires this to avoid interpreting an end user certificate as a CA.</span><br><span class="line"></span><br><span class="line">basicConstraints&#x3D;CA:FALSE</span><br><span class="line"></span><br><span class="line"># Here are some examples of the usage of nsCertType. If it is omitted</span><br><span class="line"># the certificate can be used for anything *except* object signing.</span><br><span class="line"></span><br><span class="line"># This is OK for an SSL server.</span><br><span class="line"># nsCertType			&#x3D; server</span><br><span class="line"></span><br><span class="line"># For an object signing certificate this would be used.</span><br><span class="line"># nsCertType &#x3D; objsign</span><br><span class="line"></span><br><span class="line"># For normal client use this is typical</span><br><span class="line"># nsCertType &#x3D; client, email</span><br><span class="line"></span><br><span class="line"># and for everything including object signing:</span><br><span class="line"># nsCertType &#x3D; client, email, objsign</span><br><span class="line"></span><br><span class="line"># This is typical in keyUsage for a client certificate.</span><br><span class="line"># keyUsage &#x3D; nonRepudiation, digitalSignature, keyEncipherment</span><br></pre></td></tr></table></figure>
 
-<h3 id="2-Applying-Transport-Layer-Security-TLS-to-PostgreSQL-Server"><a href="#2-Applying-Transport-Layer-Security-TLS-to-PostgreSQL-Server" class="headerlink" title="2. Applying Transport Layer Security (TLS) to PostgreSQL Server"></a>2. Applying Transport Layer Security (TLS) to PostgreSQL Server</h3><p>PostgreSQL has native support for TLS to secure connection between client and server. The TLS support has to be enabled during build time and requires OpenSSL libraries. Depending on the versions of OpenSSL that the client or server is built with, TLS versions and ciphersuites may differ as well. This does not mean that both client and server must be linked with the same version of OpenSSL. It is possible that a client with older OpenSSL can connect to a server with newer OpenSSL if the server is configured to accept it. The TLS handshake process is initiated when a client first connects to the server in which they will evaluate TLS version used and negotiate ciphersuite that both ends are able to support. In this case, the server may use less secured ciphersuite and TLS version to communiate with the client, which may not be ideal.</p>
+<p>Let’s generate the CA-signed certificate. Note that the command will take <code>cacert.pem</code>, <code>cacert.key</code> and <code>server.csr</code> as inputs, in which we have already generated from previous steps. <code>server.pem</code> will be the output.</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ openssl x509 -req -<span class="keyword">in</span> server.csr -CA cacert.pem -CAkey cacert.key -CAcreateserial -out server.pem -days 3650 -sha256</span><br><span class="line">Signature ok</span><br><span class="line">subject=C = CA, ST = BC, L = Vancouver, O = HighGo, OU = Software, CN = va.highgo.ca, emailAddress = cary.huang@highgo.ca</span><br><span class="line">Getting CA Private Key</span><br><span class="line">Enter pass phrase <span class="keyword">for</span> cacert.key:</span><br></pre></td></tr></table></figure>
+
+<p>We can repeat from step 2.3 to 2.5 to generate a new pair for the client application.</p>
+<p>To conclude, we have the following files generated:</p>
+<ul>
+<li>cacert.pem - Root CA certificate that is at the top of the chain of trust. We use it to sign and create other certificates</li>
+<li>cacert.key - key for the Root CA Certificate - must keep it secured.</li>
+<li>server.pem - CA-signed certificate for server application</li>
+<li>server.key - key for the server certificate</li>
+<li>client.pem - CA-signed certificate for client application</li>
+<li>client.key - key for the client certificate</li>
+</ul>
+<h3 id="3-Enabling-Transport-Layer-Security-TLS-to-PostgreSQL-Server"><a href="#3-Enabling-Transport-Layer-Security-TLS-to-PostgreSQL-Server" class="headerlink" title="3. Enabling Transport Layer Security (TLS) to PostgreSQL Server"></a>3. Enabling Transport Layer Security (TLS) to PostgreSQL Server</h3><p>PostgreSQL has native support for TLS to secure connection between client and server. The TLS support has to be enabled during build time and requires OpenSSL libraries. Depending on the versions of OpenSSL that the client or server is built with, TLS versions and ciphersuites may differ as well. This does not mean that both client and server must be linked with the same version of OpenSSL. It is possible that a client with older OpenSSL can connect to a server with newer OpenSSL if the server is configured to accept it. The TLS handshake process is initiated when a client first connects to the server in which they will evaluate TLS version used and negotiate ciphersuite that both ends are able to support. In this case, the server may use less secured ciphersuite and TLS version to communiate with the client, which may not be ideal.</p>
 <p>The TLS support for a PostgreSQL server can be enabled in postgresql.conf.</p>
-<figure class="highlight bash"><figcaption><span>postgresql.conf</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="comment"># - SSL -</span></span><br><span class="line"></span><br><span class="line">ssl = on</span><br><span class="line">ssl_ca_file = <span class="string">'~/cert/root.crt'</span></span><br><span class="line">ssl_cert_file = <span class="string">'~/cert/server.crt'</span></span><br><span class="line">ssl_crl_file = <span class="string">''</span></span><br><span class="line">ssl_key_file = <span class="string">'~/cert/server.key'</span></span><br><span class="line">ssl_ciphers = <span class="string">'HIGH:MEDIUM:+3DES:!aNULL'</span> <span class="comment"># allowed SSL ciphers</span></span><br><span class="line">ssl_prefer_server_ciphers = on</span><br><span class="line">ssl_ecdh_curve = <span class="string">'prime256v1'</span></span><br><span class="line">ssl_min_protocol_version = <span class="string">'TLSv1.2'</span></span><br><span class="line">ssl_max_protocol_version = <span class="string">''</span></span><br><span class="line">ssl_dh_params_file = <span class="string">''</span></span><br><span class="line">ssl_passphrase_command = <span class="string">''</span></span><br><span class="line">ssl_passphrase_command_supports_reload = off</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><figcaption><span>postgresql.conf</span></figcaption><table><tr><td class="code"><pre><span class="line">ssl = on</span><br><span class="line">ssl_ca_file = <span class="string">'~/cert/cacert.pem'</span></span><br><span class="line">ssl_cert_file = <span class="string">'~/cert/server.pem'</span></span><br><span class="line">ssl_crl_file = <span class="string">''</span></span><br><span class="line">ssl_key_file = <span class="string">'~/cert/server.key'</span></span><br><span class="line">ssl_ciphers = <span class="string">'HIGH:MEDIUM:+3DES:!aNULL'</span> <span class="comment"># allowed SSL ciphers</span></span><br><span class="line">ssl_prefer_server_ciphers = on</span><br><span class="line">ssl_ecdh_curve = <span class="string">'prime256v1'</span></span><br><span class="line">ssl_min_protocol_version = <span class="string">'TLSv1.2'</span></span><br><span class="line">ssl_max_protocol_version = <span class="string">''</span></span><br><span class="line">ssl_dh_params_file = <span class="string">''</span></span><br><span class="line">ssl_passphrase_command = <span class="string">''</span></span><br><span class="line">ssl_passphrase_command_supports_reload = off</span><br></pre></td></tr></table></figure>
 
 <p>Let’s examine the configuration parameters.</p>
 <figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">ssl = on</span><br></pre></td></tr></table></figure>
 <p>This line turns on the TLS support. Please note that even if TLS is turned on, the server will still be able to accept connections that do not use TLS. Normally, the client is the entity that decides if TLS should be used or not. The server can also enforce the incoming connections to use TLS by modifying the <code>pg_hba.conf</code> file like this, where the connections from 172.16.30.0/24 must be TLS, otherwise the server will deny.</p>
-<figure class="highlight bash"><figcaption><span>pg_hba.conf</span></figcaption><table><tr><td class="code"><pre><span class="line">hostssl sales_team       all             172.16.30.0/24          trust</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">hostssl sales_team       all             172.16.30.0/24          trust</span><br></pre></td></tr></table></figure>
 
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">ssl_ca_file = <span class="string">'~/cert/root.crt'</span></span><br><span class="line">ssl_cert_file = <span class="string">'~/cert/server.crt'</span></span><br><span class="line">ssl_crl_file = <span class="string">''</span></span><br><span class="line">ssl_key_file = <span class="string">'~/cert/server.key'</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">ssl_ca_file = <span class="string">'~/cert/cacert.pem'</span></span><br><span class="line">ssl_cert_file = <span class="string">'~/cert/server.pem'</span></span><br><span class="line">ssl_crl_file = <span class="string">''</span></span><br><span class="line">ssl_key_file = <span class="string">'~/cert/server.key'</span></span><br></pre></td></tr></table></figure>
 
-<p>These 4 lines tell PostgreSQL where to load the X509 certificate, the CA certificate, server private key and the certificate revokation list. These certificates must be pre-generated by OpenSSL command or purchased from a trusted organization. For TLS to work, <code>ssl_ca_file</code>, <code>ssl_cert_file</code> and <code>ssl_key_file</code> must be provided.</p>
+<p>These 4 lines tell PostgreSQL where to load the X509 certificate, the CA certificate, server private key and the certificate revokation list. These certificates must be pre-generated by OpenSSL command or purchased from a trusted organization. For TLS to work, <code>ssl_ca_file</code>, <code>ssl_cert_file</code> and <code>ssl_key_file</code> must be provided. We will use the certificates we have generated for server in the previous section.</p>
 <p>The file pointed by <code>ssl_ca_file</code> will be used to determined if the certificate can be trusted by deriving the chain of trust.<br>The file pointed by <code>ssl_cert_file</code> will be sent to the connecting client during TLS handshake for authentication purposes.<br>The file pointed by <code>ssl_key_file</code> will be used for asymmetrical encryption during authentication </p>
 <p>The file pointed by <code>ssl_crl_file</code> is optional and it contains a list of certificates that cannot be trusted (or revoked). Distributing revoked certificates using this file is not the most ideal but still being practice today. It may have performance impact if the list is very large and it introduces a problem of when the list should be renewed and how often. Online Certificate Status Protocol (OCSP. ref:<a href="https://en.wikipedia.org/wiki/Online_Certificate_Status_Protocol">https://en.wikipedia.org/wiki/Online_Certificate_Status_Protocol</a>) is a newer protocol designed for Public Key Infrastructure (PKI) for querying certificate revokation status that addresses some of the issues with revokation file. Feel free to give a read on OCSP in the link above.</p>
 <figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">ssl_ciphers = <span class="string">'HIGH:MEDIUM:+3DES:!aNULL'</span> <span class="comment"># allowed SSL ciphers</span></span><br><span class="line">ssl_prefer_server_ciphers = on</span><br><span class="line">ssl_ecdh_curve = <span class="string">'prime256v1'</span></span><br></pre></td></tr></table></figure>
@@ -239,20 +268,37 @@
 <p><code>ssl_dh_params_file</code> points to a file that contains custom diffie-hellman key exchange algorithm parameter. This is an optional parameter and is only useful if the ciphersuite uses DHE key exchange algorithm. If left empty, compiled-in defaults will be used. Custom DH parameters can be generated using command <code>openssl dhparam -out dhparams.pem 2048</code> and will normally reduce the attack exposure as attacker will have hardtime cracking the key exchange process using custom parameter instead of the well-known default. </p>
 <p><code>ssl_passphrase_command</code> is the command to obtain the password for the private key file specified by <code>ssl_key_file</code>. There is an option to add a password to a private key file during its generation and if password is used, <code>ssl_passphrase_command</code> must be set with the system command that will retrieve such password. Otherwise, TLS handshake will abord as PostgreSQL will not be able to access private key without password.</p>
 <p><code>ssl_passphrase_command_supports_reload</code> configures if the <code>ssl_passphrase_command</code> should be re-run at every reload (ie. SIGHUP). It is default to <code>off</code>, so the <code>ssl_passphrase_command</code> will not be run at every reload.</p>
-<h3 id="3-Applying-Transport-Layer-Security-TLS-to-PostgreSQL-Client"><a href="#3-Applying-Transport-Layer-Security-TLS-to-PostgreSQL-Client" class="headerlink" title="3. Applying Transport Layer Security (TLS) to PostgreSQL Client"></a>3. Applying Transport Layer Security (TLS) to PostgreSQL Client</h3><p>Now that we have a PostgreSQL server with TLS setup, we can use psql client to connect to the server also using TLS. Depending on the client connect parameters given, we can utilize TLS in different security levels. I will show the most common usages here:</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># Case 1: connect to server in TLS mode</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=require dbname=postgres"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 2: connect to server in TLS mode if server supports it</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=prefer dbname=postgres"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 3: connect to server in TLS mode and verify server CA against client CA</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=verify-ca dbname=postgres sslrootcert=~/cert/root.crt"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 4: connect to server in TLS mode and present client certificate. Verify all certificate details and trust chain. Check certificate revokation list does not contain server cert.</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=verify-full dbname=postgres sslrootcert=~/cert/root.crt sslcert=~/cert/client.crt sslkey=~/cert/client.key sslcrl=~/cert/client.crl"</span></span><br></pre></td></tr></table></figure>
+<h3 id="4-Enabling-Transport-Layer-Security-TLS-to-PostgreSQL-Client"><a href="#4-Enabling-Transport-Layer-Security-TLS-to-PostgreSQL-Client" class="headerlink" title="4. Enabling Transport Layer Security (TLS) to PostgreSQL Client"></a>4. Enabling Transport Layer Security (TLS) to PostgreSQL Client</h3><p>Now that we have a PostgreSQL server with TLS setup, we can use psql client to connect to the server also using TLS. Depending on the client connect parameters given, we can utilize TLS in different security levels. I will show the most common usages here:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># Case 1: connect to server in TLS mode</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=require dbname=postgres"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 2: connect to server in TLS mode if server supports it</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=prefer dbname=postgres"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 3: connect to server in TLS mode and verify server CA against client CA</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=verify-ca dbname=postgres sslrootcert=~/cert/cacert.pem"</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Case 4: connect to server in TLS mode and present client certificate. Verify all certificate details and trust chain. Check certificate revokation list does not contain server cert.</span></span><br><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=verify-full dbname=postgres sslrootcert=~/cert/cacert.pem sslcert=~/cert/client.pem sslkey=~/cert/client.key"</span></span><br></pre></td></tr></table></figure>
 
 <p>The usage in Case 4 is the most secured becuase both server and client will verify each other’s certificate and decide if both can be mutually trusted. The common name field in the certificate is checked against the server hostname; certificate validity period is checked, organization details are checked; certificate trust chain is checked; revokation list is checked.</p>
 <p>Please note that PostgreSQL server with TLS enabled by default does not force the client to present a TLS certificate for verification. If client presents one like in Case 4 above, the server will verify and deny connection is certificate is bad. If client does not provide a certificate like in Case 1 ~ 3, the server will skip the client certificate verification as there is nothing to verify, which is less secure.</p>
 <p>To enforce the connecting client to present a TLS certificate for verification, we will need to add a special <code>clientcert=1</code> argument in existing authentication rules defined in <code>pg_hba.conf</code>. </p>
 <figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># TYPE  DATABASE         USER                 ADDRESS                 METHOD</span></span><br><span class="line">hostssl production_team     production_user      0.0.0.0/0            pam clientcert=1</span><br></pre></td></tr></table></figure>
 <p>The example above will enforce connecting client to present TLS certificate to access <code>production_team</code> database as <code>production_user</code>. If a TLS certificate is not provided by client, the connection will abort.</p>
-<h3 id="4-Transparent-Data-Encryption-TDE"><a href="#4-Transparent-Data-Encryption-TDE" class="headerlink" title="4. Transparent Data Encryption (TDE)"></a>4. Transparent Data Encryption (TDE)</h3><p>Transparent Data Encryption refers to the process of protecting data at rest by encrypting database files on the hard disk level and decrypting them while reading from hard disk. This is to prevent physical storage media theft. This is called <code>transparent</code> because the encryption and decryption happen between PostgreSQL server and the physical hard disk and it is not visible to the client applications. TDE uses symmetrical encryption for securing blocks of database files such as shared buffer and WAL files, and it is designed to accompany with a internal Key Management System (KMS) to manage the lifecycle of the encryption keys. </p>
+<h3 id="5-TLS-Connect-Examples"><a href="#5-TLS-Connect-Examples" class="headerlink" title="5. TLS Connect Examples"></a>5. TLS Connect Examples</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=require dbname=postgres"</span></span><br><span class="line">psql (13devel)</span><br><span class="line">SSL connection (protocol: TLSv1.2, cipher: ECDHE-RSA-AES256-GCM-SHA384, bits: 256, compression: off)</span><br><span class="line">Type <span class="string">"help"</span> <span class="keyword">for</span> <span class="built_in">help</span>.</span><br><span class="line"></span><br><span class="line">postgres=<span class="comment">#</span></span><br></pre></td></tr></table></figure>
+
+<p>Please note that psql prints the TLS version used (TLSv1.2) and the cipher suite negotiated during handshake (ECDHE-RSA-AES256-GCM-SHA384). Below is the wireshark capture of the above TLS connection:</p>
+<p><img src="/images/tls-case1.png" alt="tls handshake"></p>
+<p><img src="/images/tls-case1-cipher.png" alt="tls handshake"></p>
+<p>Another Example:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ psql -U cary -h localhost -d <span class="string">"sslmode=verify-full dbname=postgres sslrootcert=~/cert/cacert.pem sslcert=~/cert/client.pem sslkey=~/cert/client.key"</span></span><br><span class="line"></span><br><span class="line">psql: error: could not connect to server: server certificate <span class="keyword">for</span> <span class="string">"va.highgo.ca"</span> does not match host name <span class="string">"localhost"</span></span><br></pre></td></tr></table></figure>
+
+<p>Here, we have an error when we set sslmode to <code>verify-full</code>, where both server and client will verify each other with the most strict criteria. This error happens because the <code>Common Name</code> field in the certificate does not match the host name. Did I mention that <code>Common Name</code> is the most important field of a certificate? To resolve this error, we can either re-generate certificate with matching Common name, or change the host name.</p>
+<p>I simply add an entry to <code>/etc/hosts</code> to resolve the error</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">127.0.0.1       localhost</span><br><span class="line">127.0.0.1       va.highgo.ca</span><br></pre></td></tr></table></figure>
+
+<p>and the error will disappear when both Common Name and Hostname match</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ psql -U cary -h va.highgo.ca -d <span class="string">"sslmode=verify-full dbname=postgres sslrootcert=~/cert/cacert.pem sslcert=~/cert/client.pem sslkey=~/cert/client.key"</span></span><br><span class="line"></span><br><span class="line">psql (13devel)</span><br><span class="line">SSL connection (protocol: TLSv1.2, cipher: ECDHE-RSA-AES256-GCM-SHA384, bits: 256, compression: off)</span><br><span class="line">Type <span class="string">"help"</span> <span class="keyword">for</span> <span class="built_in">help</span>.</span><br></pre></td></tr></table></figure>
+
+<p>Please note that this command also forces the client to submit a certificate to server as well as seen from the wireshark capture. We can tell by looking at the <code>length</code> field of the packet capture. There are 2 exchanges having lengths = 2675 and 2446. Those are the actual certificate contents being transmitted. Previous capture only has 1 exchanges having packet length = 2675; it means only server is providing certificate to client for verification.</p>
+<p><img src="/images/tls-case4.png" alt="tls handshake"></p>
+<h3 id="6-Transparent-Data-Encryption-TDE"><a href="#6-Transparent-Data-Encryption-TDE" class="headerlink" title="6. Transparent Data Encryption (TDE)"></a>6. Transparent Data Encryption (TDE)</h3><p>Transparent Data Encryption refers to the process of protecting data at rest by encrypting database files on the hard disk level and decrypting them while reading from hard disk. This is to prevent physical storage media theft. This is called <code>transparent</code> because the encryption and decryption happen between PostgreSQL server and the physical hard disk and it is not visible to the client applications. TDE uses symmetrical encryption for securing blocks of database files such as shared buffer and WAL files, and it is designed to accompany with a internal Key Management System (KMS) to manage the lifecycle of the encryption keys. </p>
 <p>TDE and KMS are still under development by the PostgreSQL community. The KMS feature is expected to be released in PG13 while the TDE feature to be in PG14. With its completion, it will add another layer of security feature on top of already security-rich PostgreSQL database.</p>
-<h3 id="5-Security-Vulnerability"><a href="#5-Security-Vulnerability" class="headerlink" title="5. Security Vulnerability"></a>5. Security Vulnerability</h3><p>Security Vulnerability is a weakness which can be exploited by an attacker to perform unauthorized actions, sabotage a service, or inject malicious software or virus. These weaknesses are generally implementation mistakes, undiscovered bugs or a legacy problem that require an update to the server to resolve.</p>
+<h3 id="7-Security-Vulnerability"><a href="#7-Security-Vulnerability" class="headerlink" title="7. Security Vulnerability"></a>7. Security Vulnerability</h3><p>Security Vulnerability is a weakness which can be exploited by an attacker to perform unauthorized actions, sabotage a service, or inject malicious software or virus. These weaknesses are generally implementation mistakes, undiscovered bugs or a legacy problem that require an update to the server to resolve.</p>
 <p>PostgreSQL also has a list of known security vulnerability that has been discovered and fixed by the community. The list can be found here: <a href="https://www.postgresql.org/support/security/">https://www.postgresql.org/support/security/</a>. These vulnerability ranges from different severity levels, from simple memory leak to crash the server. </p>
 <p>This is why doing regular PostgreSQL server upgrade is important because each minor release fixes some of the discovered security vulnerabilities and therefore reducing the attack surface on your server. </p>
-<h3 id="6-Summary"><a href="#6-Summary" class="headerlink" title="6. Summary"></a>6. Summary</h3><p>In part 3 of the blog, we have learned and understood what each TLS related configuration means in <code>postgresql.conf</code> and how to initiate TLS connection with psql client. We learned that keeping PostgreSQL server up-to-date can reduce the attack surface on some of the discovered vulnerabilities. We can ensure a fairly secured database network environment with TLS having adequate understanding of its fundamentals and practices. With the TDE feauture coming in near future, we can further secure the database envrionment in the disk level and prevent possible data loss due to disk theft.</p>
+<h3 id="8-Summary"><a href="#8-Summary" class="headerlink" title="8. Summary"></a>8. Summary</h3><p>In part 3 of the blog, we have learned and understood what each TLS related configuration means in <code>postgresql.conf</code> and how to initiate TLS connection with psql client. We learned that keeping PostgreSQL server up-to-date can reduce the attack surface on some of the discovered vulnerabilities. We can ensure a fairly secured database network environment with TLS having adequate understanding of its fundamentals and practices. With the TDE feauture coming in near future, we can further secure the database envrionment in the disk level and prevent possible data loss due to disk theft.</p>
 
         </div>
         
@@ -276,6 +322,13 @@
 
 <div class="card card-transparent">
     <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        <div class="level-start">
+            <a class="level level-item has-link-grey  article-nav-prev" href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/">
+                <i class="level-item fas fa-chevron-left"></i>
+                <span class="level-item">Logical Replication Between PostgreSQL and MongoDB</span>
+            </a>
+        </div>
         
         
         <div class="level-end">
@@ -349,7 +402,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            9
+                            10
                         </p>
                     </a>
                 </div>
@@ -373,7 +426,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            13
+                            14
                         </p>
                     </a>
                 </div>
@@ -511,7 +564,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">8</span>
+                <span class="level-item tag">9</span>
             </span>
         </a></li>
             </ul>
@@ -524,7 +577,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 13.33px;">replication</a> <a href="/tags/security/" style="font-size: 16.67px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
+        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 15px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
     </div>
 </div>
     
@@ -533,6 +586,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-mongo-blog-banner-canva.jpg" alt="Logical Replication Between PostgreSQL and MongoDB">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-03-12T18:17:22.000Z">2020-03-12</time></div>
+                    <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Logical Replication Between PostgreSQL and MongoDB</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -610,25 +682,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/view1.jpg" alt="Replication-Failover-with-pg_rewind-in-PG12">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-28T06:36:52.000Z">2019-09-27</time></div>
-                    <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Replication-Failover-with-pg_rewind-in-PG12</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -639,6 +692,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2020/01/">
@@ -719,6 +783,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/mongodb/">
+                        <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/networking/">
                         <span class="tag">networking</span>
                         <span class="tag is-grey">4</span>
@@ -756,7 +827,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/replication/">
                         <span class="tag">replication</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 

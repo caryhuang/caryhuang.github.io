@@ -140,6 +140,67 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-mongo-blog-banner-canva.jpg" alt="Logical Replication Between PostgreSQL and MongoDB">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-03-12T18:17:22.000Z">2020-03-12</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    12 minutes read (About 1764 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/">Logical Replication Between PostgreSQL and MongoDB</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL and MongoDB are two popular open source relational (SQL) and non-relational (NoSQL) databases available today. Both are maintained by groups of very experienced development teams globally and are widely used in many popular industries for adminitration and analytical purposes. MongoDB is a NoSQL Document-oriented Database which stores the data in form of key-value pairs expressed in JSON or BSON; it provides high performance and scalability along with data modelling and data management of huge sets of data in an enterprise application. PostgreSQL is a SQL database designed to handle a range of workloads in many applications supporting many concurrent users; it is a feature-rich database with high extensibility, which allows users to create custom plugins, extensions, data types, common table expressions to expand existing features </p>
+<p>I have recently been involved in the development of a MongoDB Decoder Plugin for PostgreSQL, which can be paired with a logical replication slot to publish WAL changes to a subscriber in a format that MongoDB can understand. Basically, we would like to enable logical replication between MongoDB (as subscriber) and PostgreSQL (as publisher) in an automatic fashion. Since both databases are very different in nature, physical replication of WAL files is not applicable in this case. The logical replication supported by PostgreSQL is a method of replicating data objects changes based on replication identity (usually a primary key) and it would be the ideal choice for this purpose as it is designed to allow sharing the object changes between PostgreSQL and multiple other databases. The MongoDB Decoder Plugin will play a very important role as it is directly responsible for producing a series of WAL changes in a format that MongoDB can understand (ie. Javascript and JSON).</p>
+<p>In this blog, I would like to share some of my initial research and design approach towards the development of MongoDB Decoder Plugin.</p>
+        </div>
+        
+        
+        <div class="level is-mobile">
+            <div class="level-start">
+                <div class="level-item">
+                <a class="button is-size-7 is-light" href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/#more">Read More</a>
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/" class="image is-7by1">
             <img class="thumbnail" src="/images/view3.jpg" alt="Steaming-Replication-Setup-in-PG12-How-to-do-it-right">
         </a>
@@ -312,7 +373,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            9
+                            10
                         </p>
                     </a>
                 </div>
@@ -336,7 +397,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            13
+                            14
                         </p>
                     </a>
                 </div>
@@ -474,7 +535,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">8</span>
+                <span class="level-item tag">9</span>
             </span>
         </a></li>
             </ul>
@@ -487,7 +548,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 13.33px;">replication</a> <a href="/tags/security/" style="font-size: 16.67px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
+        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 15px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
     </div>
 </div>
     
@@ -496,6 +557,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-mongo-blog-banner-canva.jpg" alt="Logical Replication Between PostgreSQL and MongoDB">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-03-12T18:17:22.000Z">2020-03-12</time></div>
+                    <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Logical Replication Between PostgreSQL and MongoDB</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -573,25 +653,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/view1.jpg" alt="Replication-Failover-with-pg_rewind-in-PG12">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-28T06:36:52.000Z">2019-09-27</time></div>
-                    <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Replication-Failover-with-pg_rewind-in-PG12</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -602,6 +663,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2020/01/">
@@ -682,6 +754,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/mongodb/">
+                        <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/networking/">
                         <span class="tag">networking</span>
                         <span class="tag is-grey">4</span>
@@ -719,7 +798,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/replication/">
                         <span class="tag">replication</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 

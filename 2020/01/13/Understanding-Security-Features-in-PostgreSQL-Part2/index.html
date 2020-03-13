@@ -19,7 +19,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/images/view8.jpg">
 <meta property="article:published_time" content="2020-01-13T23:58:47.000Z">
-<meta property="article:modified_time" content="2020-01-20T22:35:00.000Z">
+<meta property="article:modified_time" content="2020-01-22T20:48:08.000Z">
 <meta property="article:author" content="Cary Huang">
 <meta property="article:tag" content="networking">
 <meta property="article:tag" content="security">
@@ -154,7 +154,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    14 minutes read (About 2082 words)
+                    14 minutes read (About 2049 words)
                 </span>
                 
                 
@@ -169,7 +169,7 @@
         <div class="content">
             <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This is part 2 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing TLS in greater details. I will begin by going over some of the most important security concepts around TLS before jumping into enabling TLS on PostgreSQL server. I believe it is crucial to have sufficient background information on TLS before tweaking the TLS settings in both client and server sides.</p>
 <p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication between client and server will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. TLS is one of the least understood but commonly used security protocol that ensures the security of many HTTPS sites and other services. TLS is a big protocol and this blog will describe how it works and how to enable TLS in your PostgreSQL server.</p>
-<p>In the end, we will briefly talk about Transparent Data Encryption (TDE) that the PG community is currently working on and also security vulnerability.</p>
+<a id="more"></a>
 <p>Here is the overview of the <code>security</code> topics that will be covered in all parts of the blog:</p>
 <p>Part 1:   </p>
 <ul>
@@ -197,13 +197,13 @@
 </ul>
 <p>Part 3: </p>
 <ul>
-<li>Applying Transport Layer Security (TLS) to PostgreSQL Server</li>
-<li>Applying Transport Layer Security (TLS) to PostgreSQL Client</li>
+<li>Preparing TLS Certificates</li>
+<li>Enabling Transport Layer Security (TLS) to PostgreSQL Server</li>
+<li>Enabling Transport Layer Security (TLS) to PostgreSQL Client</li>
+<li>TLS Connect Examples</li>
 <li>Transparent Data Encryption (TDE)</li>
 <li>Security Vulnerability</li>
 </ul>
-<a id="more"></a>
-
 <h3 id="2-Security-Concepts-around-TLS"><a href="#2-Security-Concepts-around-TLS" class="headerlink" title="2. Security Concepts around TLS"></a>2. Security Concepts around TLS</h3><p>Before we jump into configuring TLS in PostgreSQL. It is super important to have some background information on the following security topics build around TLS.</p>
 <h4 id="2-1-Symmetrical-Encryption"><a href="#2-1-Symmetrical-Encryption" class="headerlink" title="2.1 Symmetrical Encryption"></a>2.1 Symmetrical Encryption</h4><p>Symmetrical Encryption is a type of encryption where only one secret key is used to encrypt and decrypt a message. In other words, the connecting client will use the secret key to encrypt the message and send to server, the server uses the same key to decrypt the ciphered message and obtain the original message. This is a very fast encryption operation and may sound simple, but the challenge here is how to securely share this one and only secret key between the client and server, how long should the secret key be used before next rotation? Should the secret key be pre-configured on both client and server sides? Should third-party key management software be integrated? These are some of the common challenges with symmetrical encryption.</p>
 <p><img src="/images/symetrical.png" alt="symmetrical encryption"></p>
@@ -255,8 +255,8 @@
 <p>There are several types of TLS certificate and each has its own place in the certificate hierarchy and serve different purposes. A TLS certificate is a small data file that contains the public key, organization details, trustee’s digital signature, extensions and validity dates. Normally a TLS certificate is generated with a private key. The key pair bounded with the certificate is important as they are required for authentication when a TLS client wishes to connect to the server.</p>
 <p>The following image illustrates the idea of certificate trust chain:</p>
 <p><img src="/images/cert_chain.png" alt="certificate chain"></p>
-<p>As you can see, the root CA is on top of hierarchy and is able to generate and sign additional <code>intermediate CA</code> and issue to several organizations. The organization then is able to take the intermediate CA and generate additional <code>regular certificates</code> and matching <code>private keys</code> to use in their services such as PostgreSQL server, FTPS and HTTPS server.</p>
-<p>A CA certificate can be purchased from a trusted organization or generated by oneself using openssl and java key tool. We would not be going over the procedure to generate certificates in this blog as it is a lengthy procedure. In this blog, we will be mainly focusing on the concept behind the security protocols.</p>
+<p>As you can see, the root CA is on top of hierarchy and is able to generate and sign additional <code>intermediate CA</code> and issue to several organizations. The organization then is able to take the intermediate CA and generate additional <code>CA-signed certificates</code> and matching <code>private keys</code> to use in their services such as PostgreSQL server, FTPS and HTTPS server.</p>
+<p>A CA certificate can be purchased from a trusted organization or generated by oneself using openssl and java key tool. We will go over the procedure to generate these certificates using OpenSSL as examples in part 3 of this blog.</p>
 <h4 id="2-7-TLS-versions"><a href="#2-7-TLS-versions" class="headerlink" title="2.7 TLS versions"></a>2.7 TLS versions</h4><p>TLS is a newer protocol that replaces its predecessor, Secured Sockets Layer (SSL). Below is a list of TLS versions that we should use as of today:</p>
 <ul>
 <li>TLSv1.0</li>
@@ -289,7 +289,7 @@
 <li>ensure handshake message is not tempered with the agreed message authentication algorithm</li>
 <li>secured communication then begins.</li>
 </ul>
-<h3 id="7-Summary"><a href="#7-Summary" class="headerlink" title="7. Summary"></a>7. Summary</h3><p>TLS is a big protocl involving a lot of steps including certificate exchange, chain of trust verification, key exchange, cipher suite exchange, authentication, data integrity check and finally symmetrical encryption of application data with appropriate block cipher mode. Having adequate fundamental understanding to TLS is crucial to ensure a correct and secured database environment setup. Of course there is more to what we have discussed here so far and I will be producing more articles in the near future to address some of the advanced TLS related practices.</p>
+<h3 id="7-Summary"><a href="#7-Summary" class="headerlink" title="7. Summary"></a>7. Summary</h3><p>TLS is a big protocol involving a lot of steps including certificate exchange, chain of trust verification, key exchange, cipher suite exchange, authentication, data integrity check and finally symmetrical encryption of application data with appropriate block cipher mode. Having adequate fundamental understanding to TLS is crucial to ensure a correct and secured database environment setup. Of course there is more to what we have discussed here so far and I will be producing more articles in the near future to address some of the advanced TLS related practices.</p>
 
         </div>
         
@@ -393,7 +393,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            9
+                            10
                         </p>
                     </a>
                 </div>
@@ -417,7 +417,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            13
+                            14
                         </p>
                     </a>
                 </div>
@@ -555,7 +555,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">8</span>
+                <span class="level-item tag">9</span>
             </span>
         </a></li>
             </ul>
@@ -568,7 +568,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 13.33px;">replication</a> <a href="/tags/security/" style="font-size: 16.67px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
+        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 15px;">security</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a>
     </div>
 </div>
     
@@ -577,6 +577,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-mongo-blog-banner-canva.jpg" alt="Logical Replication Between PostgreSQL and MongoDB">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-03-12T18:17:22.000Z">2020-03-12</time></div>
+                    <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Logical Replication Between PostgreSQL and MongoDB</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -654,25 +673,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/view1.jpg" alt="Replication-Failover-with-pg_rewind-in-PG12">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2019-09-28T06:36:52.000Z">2019-09-27</time></div>
-                    <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Replication-Failover-with-pg_rewind-in-PG12</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -683,6 +683,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2020/01/">
@@ -763,6 +774,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/mongodb/">
+                        <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/networking/">
                         <span class="tag">networking</span>
                         <span class="tag is-grey">4</span>
@@ -800,7 +818,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/replication/">
                         <span class="tag">replication</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
