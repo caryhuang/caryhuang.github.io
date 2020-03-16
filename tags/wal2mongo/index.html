@@ -7,12 +7,12 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>Tag: query processing - Cary&#39;s Blog</title>
+<title>Tag: wal2mongo - Cary&#39;s Blog</title>
 
 
     <meta property="og:type" content="website">
 <meta property="og:title" content="Cary&#39;s Blog">
-<meta property="og:url" content="http://yoursite.com/tags/query-processing/index.html">
+<meta property="og:url" content="http://yoursite.com/tags/wal2mongo/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/images/og_image.png">
@@ -130,7 +130,7 @@
         <nav class="breadcrumb" aria-label="breadcrumbs">
         <ul>
             <li><a href="/tags">Tags</a></li>
-            <li class="is-active"><a href="#" aria-current="page">query processing</a></li>
+            <li class="is-active"><a href="#" aria-current="page">wal2mongo</a></li>
         </ul>
         </nav>
     </div>
@@ -140,8 +140,8 @@
 <div class="card">
     
     <div class="card-image">
-        <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view4.jpg" alt="Trace-Postgres-query-processing-internals-with-debugger">
+        <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="image is-7by1">
+            <img class="thumbnail" src="/images/view3.jpg" alt="Logical Replication Between PostgreSQL and MongoDB">
         </a>
     </div>
     
@@ -149,7 +149,7 @@
         
         <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
             <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-09-28T06:36:24.000Z">2019-09-27</time>
+                <time class="level-item has-text-grey" datetime="2020-03-12T18:17:22.000Z">2020-03-12</time>
                 
                 <div class="level-item">
                 <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
@@ -159,7 +159,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    32 minutes read (About 4769 words)
+                    14 minutes read (About 2031 words)
                 </span>
                 
                 
@@ -168,19 +168,20 @@
         
         <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
             
-                <a class="has-link-black-ter" href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/">Trace-Postgres-query-processing-internals-with-debugger</a>
+                <a class="has-link-black-ter" href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/">Logical Replication Between PostgreSQL and MongoDB</a>
             
         </h1>
         <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>In this article we will use GDB debugger to trace the internals of Postgres and observe how an input query passes through several levels of transformation (Parser -&gt; Analyzer -&gt; Rewriter -&gt; Planner -&gt; Executor) and eventually produces an output. </p>
-<p>This article is based on PG12 running on Ubuntu 18.04,  and we will use a simple <code>SELECT</code> query with <code>ORDER BY</code> , <code>GROUP BY</code>, and <code>LIMIT</code> keywords to go through the entire query processing tracing.</p>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL and MongoDB are two popular open source relational (SQL) and non-relational (NoSQL) databases available today. Both are maintained by groups of very experienced development teams globally and are widely used in many popular industries for adminitration and analytical purposes. MongoDB is a NoSQL Document-oriented Database which stores the data in form of key-value pairs expressed in JSON or BSON; it provides high performance and scalability along with data modelling and data management of huge sets of data in an enterprise application. PostgreSQL is a SQL database designed to handle a range of workloads in many applications supporting many concurrent users; it is a feature-rich database with high extensibility, which allows users to create custom plugins, extensions, data types, common table expressions to expand existing features </p>
+<p>I have recently been involved in the development of a MongoDB Decoder Plugin for PostgreSQL, which can be paired with a logical replication slot to publish WAL changes to a subscriber in a format that MongoDB can understand. Basically, we would like to enable logical replication between MongoDB (as subscriber) and PostgreSQL (as publisher) in an automatic fashion. Since both databases are very different in nature, physical replication of WAL files is not applicable in this case. The logical replication supported by PostgreSQL is a method of replicating data objects changes based on replication identity (usually a primary key) and it would be the ideal choice for this purpose as it is designed to allow sharing the object changes between PostgreSQL and multiple other databases. The MongoDB Decoder Plugin will play a very important role as it is directly responsible for producing a series of WAL changes in a format that MongoDB can understand (ie. Javascript and JSON).</p>
+<p>In this blog, I would like to share some of my initial research and design approach towards the development of MongoDB Decoder Plugin.</p>
         </div>
         
         
         <div class="level is-mobile">
             <div class="level-start">
                 <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/#more">Read More</a>
+                <a class="button is-size-7 is-light" href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/#more">Read More</a>
                 </div>
             </div>
         </div>
