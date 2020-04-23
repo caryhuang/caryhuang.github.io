@@ -7,12 +7,12 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>Tag: snmp - Cary&#39;s Blog</title>
+<title>Tag: logical decoding - Cary&#39;s Blog</title>
 
 
     <meta property="og:type" content="website">
 <meta property="og:title" content="Cary&#39;s Blog">
-<meta property="og:url" content="http://yoursite.com/tags/snmp/index.html">
+<meta property="og:url" content="http://yoursite.com/tags/logical-decoding/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/images/og_image.png">
@@ -130,7 +130,7 @@
         <nav class="breadcrumb" aria-label="breadcrumbs">
         <ul>
             <li><a href="/tags">Tags</a></li>
-            <li class="is-active"><a href="#" aria-current="page">snmp</a></li>
+            <li class="is-active"><a href="#" aria-current="page">logical decoding</a></li>
         </ul>
         </nav>
     </div>
@@ -140,8 +140,8 @@
 <div class="card">
     
     <div class="card-image">
-        <a href="/2019/07/04/Types-of-SNMP-OIDs-Explained/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view7.jpg" alt="Types of SNMP OIDs Explained">
+        <a href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/" class="image is-7by1">
+            <img class="thumbnail" src="/images/seqrep.png" alt="Can Sequence Relation be Logically Replicated?">
         </a>
     </div>
     
@@ -149,17 +149,17 @@
         
         <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
             <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-07-04T22:14:21.000Z">2019-07-04</time>
+                <time class="level-item has-text-grey" datetime="2020-04-22T17:56:57.000Z">2020-04-22</time>
                 
                 <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/Netsnmp/">Netsnmp</a>
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                 </div>
                 
                 
                 <span class="level-item has-text-grey">
                     
                     
-                    7 minutes read (About 1010 words)
+                    13 minutes read (About 2023 words)
                 </span>
                 
                 
@@ -168,18 +168,18 @@
         
         <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
             
-                <a class="has-link-black-ter" href="/2019/07/04/Types-of-SNMP-OIDs-Explained/">Types of SNMP OIDs Explained</a>
+                <a class="has-link-black-ter" href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/">Can Sequence Relation be Logically Replicated?</a>
             
         </h1>
         <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>SNMP stands for Simple Network Management Protocol and it is commonly used to access and manage network equipment such as switches and routers. It has been available for a long time and has evolved quite a lot with better functionality and security. Each SNMP object can be addressed by its Object IDs (OIDs) and I find that many new SNMP users are confused about the SNMP OIDs and how they should be used correctly. There are 3 major kinds of SNMP OIDs, scalar, table and dynamic and each has its own unique way of accessing. This blog will explain each type of OID and show how they can be accessed correctly.</p>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>I have noticed that there is a page on the offical PostgreSQL documentation (<a href="https://www.postgresql.org/docs/current/logical-replication-restrictions.html">https://www.postgresql.org/docs/current/logical-replication-restrictions.html</a>) that states several restrictions to the current logical replication design. One of the restrictions is about sequence relation type where any changes associated with a sequence relation type is not logically replicated to the subscriber or to the decoding plugin. This is an interesting restriction and I took the initiative to look into this restriction further and evaluate if it is possible to have it supported. I have consulted several senior members in the PostgreSQL communitiy and got some interesting responses from them. In this blog, I will share my current work in the area of supporting sequence replication.</p>
         </div>
         
         
         <div class="level is-mobile">
             <div class="level-start">
                 <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2019/07/04/Types-of-SNMP-OIDs-Explained/#more">Read More</a>
+                <a class="button is-size-7 is-light" href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/#more">Read More</a>
                 </div>
             </div>
         </div>

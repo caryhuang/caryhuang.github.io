@@ -7,18 +7,25 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>Tag: networking - Cary&#39;s Blog</title>
+<title>Can Sequence Relation be Logically Replicated? - Cary&#39;s Blog</title>
 
 
-    <meta property="og:type" content="website">
-<meta property="og:title" content="Cary&#39;s Blog">
-<meta property="og:url" content="http://yoursite.com/tags/networking/index.html">
+    <meta name="description" content="1. IntroductionI have noticed that there is a page on the offical PostgreSQL documentation (https:&#x2F;&#x2F;www.postgresql.org&#x2F;docs&#x2F;current&#x2F;logical-replication-restrictions.html) that states several restricti">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Can Sequence Relation be Logically Replicated?">
+<meta property="og:url" content="http://yoursite.com/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
+<meta property="og:description" content="1. IntroductionI have noticed that there is a page on the offical PostgreSQL documentation (https:&#x2F;&#x2F;www.postgresql.org&#x2F;docs&#x2F;current&#x2F;logical-replication-restrictions.html) that states several restricti">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/images/og_image.png">
+<meta property="og:image" content="http://yoursite.com/images/seqrep.png">
+<meta property="article:published_time" content="2020-04-22T17:56:57.000Z">
+<meta property="article:modified_time" content="2020-04-23T17:09:01.368Z">
 <meta property="article:author" content="Cary Huang">
+<meta property="article:tag" content="logical replication">
+<meta property="article:tag" content="logical decoding">
+<meta property="article:tag" content="sequence">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/images/og_image.png">
+<meta name="twitter:image" content="http://yoursite.com/images/seqrep.png">
 
 
 
@@ -76,7 +83,7 @@
         <div class="navbar-brand is-flex-center">
             <a class="navbar-item navbar-logo" href="/">
             
-                <img src="/images/mini4more.png" alt="Cary&#39;s Blog" height="28">
+                <img src="/images/mini4more.png" alt="Can Sequence Relation be Logically Replicated?" height="28">
             
             </a>
         </div>
@@ -125,257 +132,123 @@
     <section class="section">
         <div class="container">
             <div class="columns">
-                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main"><div class="card">
+                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
+<div class="card">
+    
+    <div class="card-image">
+        <span  class="image is-7by1">
+            <img class="thumbnail" src="/images/seqrep.png" alt="Can Sequence Relation be Logically Replicated?">
+        </span>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-04-22T17:56:57.000Z">2020-04-22</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    13 minutes read (About 2023 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                Can Sequence Relation be Logically Replicated?
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>I have noticed that there is a page on the offical PostgreSQL documentation (<a href="https://www.postgresql.org/docs/current/logical-replication-restrictions.html">https://www.postgresql.org/docs/current/logical-replication-restrictions.html</a>) that states several restrictions to the current logical replication design. One of the restrictions is about sequence relation type where any changes associated with a sequence relation type is not logically replicated to the subscriber or to the decoding plugin. This is an interesting restriction and I took the initiative to look into this restriction further and evaluate if it is possible to have it supported. I have consulted several senior members in the PostgreSQL communitiy and got some interesting responses from them. In this blog, I will share my current work in the area of supporting sequence replication.</p>
+<a id="more"></a>
+<h3 id="2-What-is-a-Sequence"><a href="#2-What-is-a-Sequence" class="headerlink" title="2. What is a Sequence?"></a>2. What is a Sequence?</h3><p>Sequence is a special type of relation that is used as a number generator manager, which allows an user to request the next number from the sequence, reset the current value, change the size of increment (or decrement) and perform several other configurations that suit their needs. A sequence is automatically created when an user creates a regular table that contains a column of type <code>SERIAL</code>. Alternatively, a sequence can also be created manually by using the <code>CREATE SEQUENCE seqname;</code> command. A sequence is similar to a regular table except that it can only contain 1 single row, is created with a special schema by default that contains several control parameters for managing the number generation and user cannot use <code>UPDATE</code> clause on a sequence. SQL functions such as <code>nextval()</code>, <code>currval()</code>, <code>setval()</code> and <code>ALTER</code> commands are the proper methods of accessing or modifying sequence data.</p>
+<h3 id="3-Why-is-Sequence-not-Replicated-in-Current-Design"><a href="#3-Why-is-Sequence-not-Replicated-in-Current-Design" class="headerlink" title="3. Why is Sequence not Replicated in Current Design?"></a>3. Why is Sequence not Replicated in Current Design?</h3><p>This is the question I ask myself and the PostgreSQL community for several times and I have received several interesting responses to this question. Like a regular table, sequence also emits a WAL update upon a change to the sequence value but with a major difference. Instead of emitting a WAL update at every <code>nextval()</code> call, sequence actually does this at every 32 increments and it logs a future value 32 increments after instead of current value. Doing WAL logging every 32 increments adds a significant gain in performance according to a benchmark report shared by the community. For example, if current sequence value is 50 with increment of 5, the value that is written to WAL record will be 210, because ( 50 + (32x5) = 210). This also means that in an events of a crash, some sequence values will be lost. Since sequence does not guarentee free of gap and is not part of user data, such a sequence loss is generally ok. </p>
+<p>Logical replication is designed to track the WAL changes and report to subscribers about the current states and values. It would be quite contradicting to replicate sequence because the current sequence value does not equal to the value stored in the WAL. The subscriber in the sequence case will receive a value that is 32 increments in the future.</p>
+<p>Another response I have got is that the implementation of sequence intermixed a bunch of transactional and non-transactional states in a very messy way, thus making it difficult to achieve sensible behaviour for logical decoding. </p>
+<h3 id="4-Can-Sequence-Relation-be-Logically-Replicated"><a href="#4-Can-Sequence-Relation-be-Logically-Replicated" class="headerlink" title="4. Can Sequence Relation be Logically Replicated?"></a>4. Can Sequence Relation be Logically Replicated?</h3><p>In the current PostgreSQL logical replication architecture, yes it is possible to have a patch to replicate changes to a sequence relation. Before we dive in further, we have to understand what the benefit would be if we were able to replicate a sequence. In the current design, an user is able to set up a PostgreSQL publisher and subscriber to replicate a table that could be associated with a sequence if it has a column of data type <code>SERIAL</code>. The values of the table will be copied to the subscriber of course, but the state of sequence will not. In the case of a failover, the subscriber may not be able to insert more data to the table because <code>SERIAL</code> data is often declared as <code>PRIMARY KEY</code> and it could use an unexpected sequence value that conflicts with existing records. To remedy this, PostgreSQL documentation suggests manually copying over the sequence values or use utility such as <code>pg_dump</code> to do the copying. I believe it is the biggest benefit if sequence relation can be replicated such that in a fail over case, the user is no longer required to manually synchronize the sequence states. </p>
+<h3 id="5-Where-to-Add-the-Sequence-Replication-Support"><a href="#5-Where-to-Add-the-Sequence-Replication-Support" class="headerlink" title="5. Where to Add the Sequence Replication Support?"></a>5. Where to Add the Sequence Replication Support?</h3><p>Logical replication actually has 2 routes, first is via the logical decoding plugin to a third party subscriber, second is between a PostgreSQL publisher and subscriber. Both routes are achieved differently in multiple source files but both do invoke the same common modules in the replication module in the PostgreSQL source repository. This section will describe briefly these common modules </p>
+<h4 id="5-1-Define-a-New-Change-Type"><a href="#5-1-Define-a-New-Change-Type" class="headerlink" title="5.1 Define a New Change Type"></a>5.1 Define a New Change Type</h4><p>Since sequence change has some fundamental difference between the usual changes caused by INSERT, UPDATE or DELETE, it is better to define a new change type for sequence in reorderbuffer.h first:</p>
+<figure class="highlight c"><figcaption><span>src/include/replication/reorderbuffer.h</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="keyword">enum</span> ReorderBufferChangeType</span><br><span class="line">&#123;</span><br><span class="line">	REORDER_BUFFER_CHANGE_INSERT,</span><br><span class="line">	REORDER_BUFFER_CHANGE_UPDATE,</span><br><span class="line">	REORDER_BUFFER_CHANGE_DELETE,</span><br><span class="line">	REORDER_BUFFER_CHANGE_MESSAGE,</span><br><span class="line">	REORDER_BUFFER_CHANGE_INTERNAL_SNAPSHOT,</span><br><span class="line">	REORDER_BUFFER_CHANGE_INTERNAL_COMMAND_ID,</span><br><span class="line">	REORDER_BUFFER_CHANGE_INTERNAL_TUPLECID,</span><br><span class="line">	REORDER_BUFFER_CHANGE_INTERNAL_SPEC_INSERT,</span><br><span class="line">	REORDER_BUFFER_CHANGE_INTERNAL_SPEC_CONFIRM,</span><br><span class="line">	REORDER_BUFFER_CHANGE_TRUNCATE,</span><br><span class="line">	<span class="comment">/* added a new CHANGE TYPE */</span></span><br><span class="line">	REORDER_BUFFER_CHANGE_SEQUENCE,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>Create a new struct that stores the context data for sequence changes within the <code>ReorderBufferChange</code> union</p>
+<figure class="highlight c"><figcaption><span>src/include/replication/reorderbuffer.h</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">ReorderBufferChange</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">	...</span><br><span class="line">	<span class="keyword">union</span></span><br><span class="line">	&#123;</span><br><span class="line">		...</span><br><span class="line"></span><br><span class="line">		<span class="comment">/*</span></span><br><span class="line"><span class="comment">		 * Context data for Sequence changes</span></span><br><span class="line"><span class="comment">		 */</span></span><br><span class="line">		<span class="class"><span class="keyword">struct</span></span></span><br><span class="line"><span class="class">		&#123;</span></span><br><span class="line">			RelFileNode relnode;</span><br><span class="line">			ReorderBufferTupleBuf *newtuple;</span><br><span class="line">		&#125; sequence;</span><br><span class="line">	&#125;			data;</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line">&#125; ReorderBufferChange;</span><br></pre></td></tr></table></figure>
+<p>As you can see, for sequence change, we will only have the newtuple that represents the new sequence value. Old tuple is not needed here.</p>
+<h4 id="5-2-The-Logical-Decoder-Module-src-backend-replication-logical-decode-c"><a href="#5-2-The-Logical-Decoder-Module-src-backend-replication-logical-decode-c" class="headerlink" title="5.2 The Logical Decoder Module (src/backend/replication/logical/decode.c)"></a>5.2 The Logical Decoder Module (src/backend/replication/logical/decode.c)</h4><p>This module decodes WAL records for the purpose of logical decoding, utilizes <code>snapbuild</code> module to build a fitting catalog snapshot and passes information to the <code>reorderbuffer</code> module for properly decoding the changes. </p>
+<p>For every WAL log read, the handle will be passed to <code>LogicalDecodingProcessRecord</code> for further decoding. As you can see for the type <code>RM_SEQ_ID</code>, there is no dedicated decoding function invoked. We should create a dedicated decoding function called <code>DecodeSequence</code> and update the switch statement such that the sequence type will use this decoding method.</p>
+<figure class="highlight c"><figcaption><span>src/backend/replication/logical/decode.c</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="keyword">void</span> </span><br><span class="line">LogicalDecodingProcessRecord(LogicalDecodingContext *ctx, XLogReaderState *record)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* cast so we get a warning when new rmgrs are added */</span></span><br><span class="line">	<span class="keyword">switch</span> ((RmgrId) XLogRecGetRmid(record))</span><br><span class="line">	&#123;</span><br><span class="line">		...</span><br><span class="line"></span><br><span class="line">		<span class="keyword">case</span> RM_HEAP_ID:</span><br><span class="line">			DecodeHeapOp(ctx, &amp;buf);</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">case</span> RM_LOGICALMSG_ID:</span><br><span class="line">			DecodeLogicalMsgOp(ctx, &amp;buf);</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* added a new decoder function to handle the sequence type */</span></span><br><span class="line">		<span class="keyword">case</span> RM_SEQ_ID:</span><br><span class="line">			DecodeSequence(ctx, &amp;buf);</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Now, we shall define the <code>DecodeSequence</code> function to actually do the decoding. Comments are embedded in the below code block to explain what each line is doing briefly.</p>
+<figure class="highlight c"><figcaption><span>src/backend/replication/logical/decode.c</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">void</span></span><br><span class="line">DecodeSequence(LogicalDecodingContext *ctx, XLogRecordBuffer *buf)</span><br><span class="line">&#123;</span><br><span class="line">	ReorderBufferChange *change;</span><br><span class="line">	RelFileNode target_node;</span><br><span class="line">	XLogReaderState *r = buf-&gt;record;</span><br><span class="line">	<span class="keyword">char</span>	   *tupledata = <span class="literal">NULL</span>;</span><br><span class="line">	Size		tuplelen;</span><br><span class="line">	Size		datalen = <span class="number">0</span>;</span><br><span class="line">	uint8		info = XLogRecGetInfo(buf-&gt;record) &amp; ~XLR_INFO_MASK;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* only decode changes flagged with XLOG_SEQ_LOG  */</span></span><br><span class="line">	<span class="keyword">if</span> (info != XLOG_SEQ_LOG)</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* only interested in our database */</span></span><br><span class="line">	XLogRecGetBlockTag(r, <span class="number">0</span>, &amp;target_node, <span class="literal">NULL</span>, <span class="literal">NULL</span>);</span><br><span class="line">	<span class="keyword">if</span> (target_node.dbNode != ctx-&gt;slot-&gt;data.database)</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* output plugin doesn't look for this origin, no need to queue */</span></span><br><span class="line">	<span class="keyword">if</span> (FilterByOrigin(ctx, XLogRecGetOrigin(r)))</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Obtain the change from the decoding context */</span></span><br><span class="line">	change = ReorderBufferGetChange(ctx-&gt;reorder);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Set the new Sequence change type */</span></span><br><span class="line">	change-&gt;action = REORDER_BUFFER_CHANGE_SEQUENCE;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Set origin of the change. Used in logical decoding plugin to filter the sources of incoming changes */</span></span><br><span class="line">	change-&gt;origin_id = XLogRecGetOrigin(r);</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memcpy</span>(&amp;change-&gt;data.sequence.relnode, &amp;target_node, <span class="keyword">sizeof</span>(RelFileNode));</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* read the entire raw tuple data as a series of char */</span></span><br><span class="line">	tupledata = XLogRecGetData(r);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* read the length of raw tuple data as a series of char */</span></span><br><span class="line">	datalen = XLogRecGetDataLen(r);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* calculate the size of actual tuple by minusing the headers */</span></span><br><span class="line">	tuplelen = datalen - SizeOfHeapHeader - <span class="keyword">sizeof</span>(xl_seq_rec);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* allocate a new tuple  */</span></span><br><span class="line">	change-&gt;data.sequence.newtuple =</span><br><span class="line">		ReorderBufferGetTupleBuf(ctx-&gt;reorder, tuplelen);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* decode the raw tuple data and save the results as new tuple */</span></span><br><span class="line">	DecodeSeqTuple(tupledata, datalen, change-&gt;data.sequence.newtuple);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* set the catalog change, so snapbuild module will be called to build a snapshot for this sequence change */</span></span><br><span class="line">	ReorderBufferXidSetCatalogChanges(ctx-&gt;reorder, XLogRecGetXid(buf-&gt;record), buf-&gt;origptr);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* queue this change in reorderbuffer module */</span></span><br><span class="line">	ReorderBufferQueueChange(ctx-&gt;reorder, XLogRecGetXid(r), buf-&gt;origptr, change);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>The above will call a new function <code>DecodeSeqTuple</code> to actually turn raw tuple data into a <code>ReorderBufferTupleBuf</code> which is needed in <code>reorderbuffer</code> module. This function tries to break down each section of the WAL (written by sequence.c) into a <code>ReorderBufferTupleBuf</code>. </p>
+<figure class="highlight c"><figcaption><span>src/backend/replication/logical/decode.c</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">void</span></span><br><span class="line">DecodeSeqTuple(<span class="keyword">char</span> *data, Size len, ReorderBufferTupleBuf *tuple)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">int</span>	datalen = len - <span class="keyword">sizeof</span>(xl_seq_rec) - SizeofHeapTupleHeader;</span><br><span class="line"></span><br><span class="line">	Assert(datalen &gt;= <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">	tuple-&gt;tuple.t_len = datalen + SizeofHeapTupleHeader;;</span><br><span class="line"></span><br><span class="line">	ItemPointerSetInvalid(&amp;tuple-&gt;tuple.t_self);</span><br><span class="line"></span><br><span class="line">	tuple-&gt;tuple.t_tableOid = InvalidOid;</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memcpy</span>(((<span class="keyword">char</span> *) tuple-&gt;tuple.t_data),</span><br><span class="line">		   data + <span class="keyword">sizeof</span>(xl_seq_rec),</span><br><span class="line">		   SizeofHeapTupleHeader);</span><br><span class="line"></span><br><span class="line">	<span class="built_in">memcpy</span>(((<span class="keyword">char</span> *) tuple-&gt;tuple.t_data) + SizeofHeapTupleHeader,</span><br><span class="line">		   data + <span class="keyword">sizeof</span>(xl_seq_rec) + SizeofHeapTupleHeader,</span><br><span class="line">		   datalen);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-3-The-Reorder-Buffer-Module-src-backend-replication-reorderbuffer-c"><a href="#5-3-The-Reorder-Buffer-Module-src-backend-replication-reorderbuffer-c" class="headerlink" title="5.3 The Reorder Buffer Module (src/backend/replication/reorderbuffer.c)"></a>5.3 The Reorder Buffer Module (src/backend/replication/reorderbuffer.c)</h4><p>reorderbuffer module receives transaction records in the order they are written to the WAL and is primarily responsible for reassembling and passing them to the logical decoding plugin (test_decoding for example) with individual changes. The <code>ReorderBufferCommit</code> is the last function before the change is passed down to the logical decoding plugin by calling the <code>begin</code>, <code>change</code> and <code>commit</code> callback handlers. This is where we will add a new logics to pass a sequence change.</p>
+<figure class="highlight c"><figcaption><span>src/backend/replication/reorderbuffer.c</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="keyword">void</span></span><br><span class="line">ReorderBufferCommit(ReorderBuffer *rb, TransactionId xid,</span><br><span class="line">					XLogRecPtr commit_lsn, XLogRecPtr end_lsn,</span><br><span class="line">					TimestampTz commit_time,</span><br><span class="line">					RepOriginId origin_id, XLogRecPtr origin_lsn)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	PG_TRY();</span><br><span class="line">	&#123;</span><br><span class="line">		...</span><br><span class="line">		<span class="comment">/* call the begin callback */</span></span><br><span class="line">		rb-&gt;<span class="built_in">begin</span>(rb, txn);</span><br><span class="line"></span><br><span class="line">		ReorderBufferIterTXNInit(rb, txn, &amp;iterstate);</span><br><span class="line">		<span class="keyword">while</span> ((change = ReorderBufferIterTXNNext(rb, iterstate)) != <span class="literal">NULL</span>)</span><br><span class="line">		&#123;</span><br><span class="line">			Relation	relation = <span class="literal">NULL</span>;</span><br><span class="line">			Oid			reloid;</span><br><span class="line"></span><br><span class="line">			<span class="keyword">switch</span> (change-&gt;action)</span><br><span class="line">			&#123;</span><br><span class="line">				...</span><br><span class="line"></span><br><span class="line">				<span class="keyword">case</span> REORDER_BUFFER_CHANGE_SEQUENCE:</span><br><span class="line">					<span class="comment">/* check on snapshot */</span></span><br><span class="line">					Assert(snapshot_now);</span><br><span class="line"></span><br><span class="line">					<span class="comment">/* get the relation oid from sequence change context */</span></span><br><span class="line">					reloid = RelidByRelfilenode(change-&gt;data.sequence.relnode.spcNode,</span><br><span class="line">												change-&gt;data.sequence.relnode.relNode);</span><br><span class="line"></span><br><span class="line">					<span class="comment">/* check on relation oid */</span></span><br><span class="line">					<span class="keyword">if</span> (reloid == InvalidOid)</span><br><span class="line">						elog(ERROR, <span class="string">"could not map filenode \"%s\" to relation OID"</span>,</span><br><span class="line">							 relpathperm(change-&gt;data.tp.relnode,</span><br><span class="line">										 MAIN_FORKNUM));</span><br><span class="line"></span><br><span class="line">					<span class="comment">/* get the relation struct from relation oid */</span></span><br><span class="line">					relation = RelationIdGetRelation(reloid);</span><br><span class="line"></span><br><span class="line">					<span class="comment">/* check on relation struct */</span></span><br><span class="line">					<span class="keyword">if</span> (!RelationIsValid(relation))</span><br><span class="line">						elog(ERROR, <span class="string">"could not open relation with OID %u (for filenode \"%s\")"</span>,</span><br><span class="line">							 reloid,</span><br><span class="line">							 relpathperm(change-&gt;data.sequence.relnode,</span><br><span class="line">										 MAIN_FORKNUM));</span><br><span class="line"></span><br><span class="line">					<span class="comment">/* call the change callback */</span></span><br><span class="line">					<span class="keyword">if</span> (RelationIsLogicallyLogged(relation))</span><br><span class="line">						rb-&gt;apply_change(rb, txn, relation, change);</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		...</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* call commit callback */</span></span><br><span class="line">		rb-&gt;commit(rb, txn, commit_lsn);</span><br><span class="line"></span><br><span class="line">		...</span><br><span class="line">	&#125;</span><br><span class="line">	PG_CATCH();</span><br><span class="line">	&#123;</span><br><span class="line">		...</span><br><span class="line">	&#125;</span><br><span class="line">	PG_END_TRY();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Once the decoding plugin receives a change of type <code>REORDER_BUFFER_CHANGE_SEQUENCE</code>, it will need to handle it and look up the proper change context to get the tuple information</p>
+<figure class="highlight c"><figcaption><span>contrib/test_decoding/test_decoding.c</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">void</span></span><br><span class="line">pg_decode_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,</span><br><span class="line">				 Relation relation, ReorderBufferChange *change)</span><br><span class="line">&#123;</span><br><span class="line">	...</span><br><span class="line"></span><br><span class="line">	<span class="keyword">switch</span> (change-&gt;action)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">case</span> REORDER_BUFFER_CHANGE_INSERT:</span><br><span class="line">			...</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> REORDER_BUFFER_CHANGE_UPDATE:</span><br><span class="line">			...</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> REORDER_BUFFER_CHANGE_DELETE:</span><br><span class="line">			...</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">case</span> REORDER_BUFFER_CHANGE_SEQUENCE:</span><br><span class="line">			<span class="comment">/* print the sequence tuple out */</span></span><br><span class="line">			appendStringInfoString(ctx-&gt;out, <span class="string">" SEQUENCE:"</span>);</span><br><span class="line">			<span class="keyword">if</span> (change-&gt;data.sequence.newtuple == <span class="literal">NULL</span>)</span><br><span class="line">				appendStringInfoString(ctx-&gt;out, <span class="string">" (no-tuple-data)"</span>);</span><br><span class="line">			<span class="keyword">else</span></span><br><span class="line">				tuple_to_stringinfo(ctx-&gt;out, tupdesc,</span><br><span class="line">									&amp;change-&gt;data.sequence.newtuple-&gt;tuple,</span><br><span class="line">									<span class="literal">false</span>);</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		<span class="keyword">default</span>:</span><br><span class="line">			Assert(<span class="literal">false</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="6-Conclusion"><a href="#6-Conclusion" class="headerlink" title="6. Conclusion"></a>6. Conclusion</h3><p>We have discussed about the current implementation of logical decoding and some potential reasons why sequence is not supported in PostgreSQL logical replication. We have also gone through some important source files that could be updated to allow sequence replication. In the above approach, whenever the sequence module emits a WAL update, (which is a future value 32 increments later as discussed previously), the logical decoding plugin will receive this same future value, which is in fact different from the actual sequence value currently. This can be justified if we think about the purpose of sequence replication for a second, which is useful in fail over cases. With this future sequence value, the subsequent data insersions will be able to continue starting from this future sequence value.</p>
+
+        </div>
+        
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/logical-decoding/" rel="tag">logical decoding</a>, <a class="has-link-grey -link" href="/tags/logical-replication/" rel="tag">logical replication</a>, <a class="has-link-grey -link" href="/tags/sequence/" rel="tag">sequence</a>
+                </div>
+            </div>
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        
+        <div class="level-end">
+            <a class="level level-item has-link-grey  article-nav-next" href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/">
+                <span class="level-item">Logical Replication Between PostgreSQL and MongoDB</span>
+                <i class="level-item fas fa-chevron-right"></i>
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+
+
+<div class="card">
     <div class="card-content">
-        <nav class="breadcrumb" aria-label="breadcrumbs">
-        <ul>
-            <li><a href="/tags">Tags</a></li>
-            <li class="is-active"><a href="#" aria-current="page">networking</a></li>
-        </ul>
-        </nav>
+        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
+        <script>(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+<div class="fb-comments" data-width="100%" data-href="http://yoursite.com/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/" data-num-posts="5"></div>
+
     </div>
 </div>
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 3">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2020-01-20T21:47:59.000Z">2020-01-20</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    25 minutes read (About 3808 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/">Understanding Security Features in PostgreSQL - Part 3</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This is part 3 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing how to apply TLS in both PostgreSQL server and client using the principles we have learned in part 2 of the blog. In the end, I will also briefly talk about Transparent Data Encryption (TDE) and security vulnerability.</p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 2">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2020-01-13T23:58:47.000Z">2020-01-13</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    14 minutes read (About 2049 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/">Understanding Security Features in PostgreSQL - Part 2</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This is part 2 of the blog “Understanding Security Features in PostgreSQL”, in which I will be discussing TLS in greater details. I will begin by going over some of the most important security concepts around TLS before jumping into enabling TLS on PostgreSQL server. I believe it is crucial to have sufficient background information on TLS before tweaking the TLS settings in both client and server sides.</p>
-<p>In part 1 of this blog, we mostly discussed about authentication and authorization (AA), which is important to identify which client is permitted to connect and which table or column he/she is permitted to operate. Even with the strongest authentication and authorization, the actual communication between client and server will not be encrypted unless Transport Layer Security (TLS) is specifically enabled in the database server. TLS is one of the least understood but commonly used security protocol that ensures the security of many HTTPS sites and other services. TLS is a big protocol and this blog will describe how it works and how to enable TLS in your PostgreSQL server.</p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view2.jpg" alt="Understanding Security Features in PostgreSQL - Part 1">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2020-01-10T22:02:06.000Z">2020-01-10</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    19 minutes read (About 2857 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/">Understanding Security Features in PostgreSQL - Part 1</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodology to achieve in different PostgreSQL components. This blog is divided into part 1, 2 and 3 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. </p>
-<p>In Part 1 of the blog, I will be discussing the basic security features that exist in PostgreSQL with emphasis on Host-based authentication methods as well as user-based access control with the concept of roles. If done right, we could have a much more robust database server and potentially reduce the attack surface on the server, protecting it from attacks like SQL injections. I will also briefly discuss a few of the advanced authentication methods such as LDAP and PAM authentication. There are many more advanced authentication methods supported and we will be producing more articles in the near future to cover more of these methods.</p>
-<p>In Part 2 of the blog, I will be discussing TLS in greater detail, which I believe is crucial for a database administrator to understand first before enabling TLS in the PostgreSQL server. TLS is a fairly large and one of the least understood protocol today, which contains a lot of security components and methodology related to cryptography that could be quite confusing. </p>
-<p>In Part 3 of the blog, I will be discussing how to apply TLS configurations to both PostgreSQL server and client following the TLS principles that have been discussed in Part 2. I will also briefly discuss Transparent Data Encryption (TDE) that the PG community is currently working on that introduces another layer of secured database environment.</p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2019/07/04/Types-of-SNMP-OIDs-Explained/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view7.jpg" alt="Types of SNMP OIDs Explained">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-07-04T22:14:21.000Z">2019-07-04</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/Netsnmp/">Netsnmp</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    7 minutes read (About 1010 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2019/07/04/Types-of-SNMP-OIDs-Explained/">Types of SNMP OIDs Explained</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>SNMP stands for Simple Network Management Protocol and it is commonly used to access and manage network equipment such as switches and routers. It has been available for a long time and has evolved quite a lot with better functionality and security. Each SNMP object can be addressed by its Object IDs (OIDs) and I find that many new SNMP users are confused about the SNMP OIDs and how they should be used correctly. There are 3 major kinds of SNMP OIDs, scalar, table and dynamic and each has its own unique way of accessing. This blog will explain each type of OID and show how they can be accessed correctly.</p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2019/07/04/Types-of-SNMP-OIDs-Explained/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 </div>
                 
 
@@ -939,7 +812,7 @@
             <div class="level-start has-text-centered-mobile">
                 <a class="footer-logo is-block has-mb-6" href="/">
                 
-                    <img src="/images/mini4more.png" alt="Cary&#39;s Blog" height="28">
+                    <img src="/images/mini4more.png" alt="Can Sequence Relation be Logically Replicated?" height="28">
                 
                 </a>
                 <p class="is-size-7">
