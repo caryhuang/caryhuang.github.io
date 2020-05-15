@@ -7,18 +7,26 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>Archives: 2020/4 - Cary&#39;s Blog</title>
+<title>Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL - Cary&#39;s Blog</title>
 
 
-    <meta property="og:type" content="website">
-<meta property="og:title" content="Cary&#39;s Blog">
-<meta property="og:url" content="http://yoursite.com/archives/2020/04/index.html">
+    <meta name="description" content="1. IntroductionData and user security have always been important considerations for small to large enterprises during the deployment of their database or application servers. PostgreSQL today has rich">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL">
+<meta property="og:url" content="http://yoursite.com/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
+<meta property="og:description" content="1. IntroductionData and user security have always been important considerations for small to large enterprises during the deployment of their database or application servers. PostgreSQL today has rich">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/images/og_image.png">
+<meta property="og:image" content="http://yoursite.com/images/kms.png">
+<meta property="article:published_time" content="2020-05-14T20:18:25.000Z">
+<meta property="article:modified_time" content="2020-05-15T18:57:06.734Z">
 <meta property="article:author" content="Cary Huang">
+<meta property="article:tag" content="security">
+<meta property="article:tag" content="key management system">
+<meta property="article:tag" content="external key management system">
+<meta property="article:tag" content="tde">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/images/og_image.png">
+<meta name="twitter:image" content="http://yoursite.com/images/kms.png">
 
 
 
@@ -76,7 +84,7 @@
         <div class="navbar-brand is-flex-center">
             <a class="navbar-item navbar-logo" href="/">
             
-                <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
+                <img src="/images/Simplicity-design-logo.jpg" alt="Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL" height="28">
             
             </a>
         </div>
@@ -126,44 +134,124 @@
         <div class="container">
             <div class="columns">
                 <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
-
-<div class="card widget">
-    <div class="card-content">
-        <h3 class="tag is-link">
-        April 2020
-        </h3>
-        <div class="timeline">
+<div class="card">
+    
+    <div class="card-image">
+        <span  class="image is-7by1">
+            <img class="thumbnail" src="/images/kms.png" alt="Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL">
+        </span>
+    </div>
+    
+    <div class="card-content article ">
         
-            <article class="media">
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-05-14T20:18:25.000Z">2020-05-14</time>
                 
-                <a href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/" class="media-left">
-                    <p class="image is-64x64">
-                        <img class="thumbnail" src="/images/seqrep.png" alt="Can Sequence Relation be Logically Replicated?">
-                    </p>
-                </a>
-                
-                <div class="media-content">
-                    <div class="content">
-                        <time class="has-text-grey is-size-7 is-block is-uppercase" datetime="2020-04-22T17:56:57.000Z">2020-04-22</time>
-                        <a href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Can Sequence Relation be Logically Replicated?</a>
-                        <div class="level article-meta is-mobile">
-                            <div class="level-left">
-                                
-                                <div class="level-item is-size-7 is-uppercase">
-                                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                                </div>
-                                
-                            </div>
-                        </div>
-                    </div>
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                 </div>
-            </article>
-        
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    9 minutes read (About 1295 words)
+                </span>
+                
+                
+            </div>
         </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Data and user security have always been important considerations for small to large enterprises during the deployment of their database or application servers. PostgreSQL today has rich support for many network level and user level security features. These include TLS to secure database connections, internal user authentication, integration with external user authentication services such as RADIUS, LDAP and GSSAPI, and TLS certificate based user authentication …etc. However, it does not yet support Transparent Data Encryption (TDE) feature where all the database files and logs have an option to be encrypted before written to disk or decrypted when retrieving from the disk. This adds extra security measure to protect against disk theft. </p>
+<p>All these features have something in common; they all use cryptographic keys (either symmetrical or asymmetrical, statically generated or exchanged on the fly using Diffie Hellman) in some ways to achieve the security goals. It is quite common for an organization to focus entirely on the actual data encryption part but pay minimal attention to the cryptographic keys that make the encryption possible. In fact, data encryption is the easy part, the protection of the cryptographic keys is often the hardest as it has several levels of complexities. </p>
+<a id="more"></a>
+<p>A group of members (including myself) from the PostgreSQL community are actively working on TDE and internal KMS features towards PG14 and there has been some good work done on the internal KMS module with future support of integrating with an external KMS already in discussion. You may find the current status and the work in progress from these links below:</p>
+<p><a href="https://wiki.postgresql.org/wiki/Transparent_Data_Encryption#Scope_for_the_first_release_of_TDE">PostgreSQL TDE Wiki Page</a><br><a href="https://commitfest.postgresql.org/28/2196/">Interal KMS for PostgreSQL</a></p>
+<p>Today I would like to discuss the benefits of external key management system over the internal.</p>
+<h3 id="2-Compliance"><a href="#2-Compliance" class="headerlink" title="2. Compliance"></a>2. Compliance</h3><p>Perhaps one of the biggest benefit of having an external KMS is compliance. For organizations that are mandated by the government to have the <a href="https://csrc.nist.gov/publications/detail/fips/140/2/final">FIPS 140-2</a> compliance certification, the external KMS could potentially help them achieve FIPS 140-2 level 3 (tamper resistant key storage) certification. Internal KMS, on the other hand, may provide FIPS 140-2 level 1 (stop the use of unsafe algorithms) and at most up to FIPS 140-2 level 2 (store keys in tamper proof evident hardware). </p>
+<p>Depending on the industry governance, there may be a strict requirement that any key materials and encrypted data must be stored separately. For example, in the Payment Card Industry Data Security Standard (PCI DSS) requires that the cardholder data and encryption keys must be protected and stored separately. </p>
+<p>For this reason alone, certain data sensitive organizations cannot consider PostgreSQL as their choice of database due to lack of support to external KMS. </p>
+<h3 id="3-Deployment-Flexibility"><a href="#3-Deployment-Flexibility" class="headerlink" title="3. Deployment Flexibility"></a>3. Deployment Flexibility</h3><p>Another benefit of external KMS is the flexibility in deployment. When deploying their IT infrastructure, many organizations face the decision whether to maintain all applications including key management system on site or host them in a dedeciated data center or even to the cloud. With external KMS, it is possible for these organizations to have a future proof deployment where all the cryptographic keys are centrally managed and will ensure their solution will work in any of the deployment scenarios. With internal KMS, these organizations will not have the flexibility in the deployment because the application will be tied to the storage space within itself. </p>
+<p>Taking PostgreSQL as an example, each database cluster has a different storage space. With the internal KMS, each cluster manages its own set of cryptographic keys. In a larger deployment scenario where multiple PG instances will be deployed, it will become very difficult to manage the life cycle of the cryptographic keys used in each cluster.</p>
+<h3 id="4-Complete-Life-Cycle-Management-for-Encryption-Keys"><a href="#4-Complete-Life-Cycle-Management-for-Encryption-Keys" class="headerlink" title="4. Complete Life Cycle Management for Encryption Keys"></a>4. Complete Life Cycle Management for Encryption Keys</h3><p>Normally, a complete life cycle of an encryption key is very likely involved in the following phases. Depending on the business cases, some phases can be omitted. </p>
+<ul>
+<li>Key generation</li>
+<li>Key registration</li>
+<li>Key storage</li>
+<li>Key distribution and installation</li>
+<li>Key usage</li>
+<li>Key rotation</li>
+<li>Key backup</li>
+<li>Key recovery</li>
+<li>Key revocation</li>
+<li>Key suspension</li>
+<li>Key destruction</li>
+</ul>
+<p>It is possible for an Internal KMS to support all of the phases within its storage space and allows an user to manage the key life cycle but this process will not scale as scope requirement increases. External KMS, on the other hand, provides a centralized life cycle management of all the keys that it is managing. This is a much simpler approach to manage all the key materials in a larger deployment scenario. While it is not a security best practice, it is quite common to start a project with the internal KMS and later migrate to external one. Many of the key manager software vendors have support for key migration. </p>
+<h3 id="5-Security-Audit"><a href="#5-Security-Audit" class="headerlink" title="5. Security Audit"></a>5. Security Audit</h3><p>This is again a requirement for certain corporate and industry compliance where there must be a detailed audit log capturing all the key usages, rotations, who accessed the key and at what time. Depending on the requirement, certain alert mechanism may be required to be implemented to alert the key administrator about any potential issues that could rise from the cryptographic key operations. With an external KMS system, it tends to be much easier to streamline the key audit reports for all the keys it is managing and easier to prove to customers or potential auditors that the keys are indeed very securied and closely monitored. </p>
+<p>Taking the PostgreSQL as an example and it’s current work on internal KMS, it is quite difficult to prove that the keys are stored securely without the auditing mechanism to closely monitor the key usages and their lifecycles. Even if there is a complete suite of auditing mechanism in place, the auditing is still a difficult and costly operation to perform especially when there are multiple servers deployed. This would result in all storage systems to be audited individually.</p>
+<h3 id="6-Key-Management-Duty-Separation"><a href="#6-Key-Management-Duty-Separation" class="headerlink" title="6. Key Management Duty Separation"></a>6. Key Management Duty Separation</h3><p>Normally, the key administrators of an external KMS has the ability to configure permissions for all the cryptographic keys that it manages. Permissions such as intended purpose, owner, validity period and other user attributes. PostgreSQL and the current work on internal KMS, on the other hand, does not have this level of granularity in adminsitrative roles. The database administrator is also the encryption key administrator. This may be an issue in certain compliance requirement like HIPAA where it is required that both roles must be separated for proper data access.</p>
+<h3 id="7-Conclusion"><a href="#7-Conclusion" class="headerlink" title="7. Conclusion"></a>7. Conclusion</h3><p>External KMS indeed has several more benefits over the internal KMS as it provides additional management, compliance and control. It is an increasing trend that more security-conscious organiations are driving their integrations and deployments with an external KMS in the design. However, it does not mean the internal KMS should not be used at all. For smaller organziation and deployment, it is quite normal to start with the internal KMS and later migrate the key to an external KMS as the deployment gets larger in size. </p>
+<p>There is an active internal KMS development in PostgreSQL community and it can achieve basic key life cycle management and the next big focus would be on Transparent Data Encryption (TDE) and eventually an extension that supports communication to an external KMS.</p>
+<p>Key Management Interoperability Protocol (KMIP) is a communication standard set out by Organization for the Advancement of Structured Information Standards (OASIS) to enable a secured communication between key management systems and crptographically-enabled applications such as PostgreSQL. There is not many C-based open source KMIP client implementations today that can be utilized to develop a PostgreSQL extension that acts as a KMIP client to talk to external KMS, but I am sure as externa key management becomes a maintream, there will be many different versions of implementation emerging in the market.</p>
+
+        </div>
+        
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/external-key-management-system/" rel="tag">external key management system</a>, <a class="has-link-grey -link" href="/tags/key-management-system/" rel="tag">key management system</a>, <a class="has-link-grey -link" href="/tags/security/" rel="tag">security</a>, <a class="has-link-grey -link" href="/tags/tde/" rel="tag">tde</a>
+                </div>
+            </div>
+        </div>
+        
+        
+        
     </div>
 </div>
 
 
+
+
+
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        
+        <div class="level-end">
+            <a class="level level-item has-link-grey  article-nav-next" href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/">
+                <span class="level-item">Can Sequence Relation be Logically Replicated?</span>
+                <i class="level-item fas fa-chevron-right"></i>
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+
+
+<div class="card">
+    <div class="card-content">
+        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
+        <script>(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+<div class="fb-comments" data-width="100%" data-href="http://yoursite.com/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/" data-num-posts="5"></div>
+
+    </div>
+</div>
 </div>
                 
 
@@ -759,7 +847,7 @@
             <div class="level-start has-text-centered-mobile">
                 <a class="footer-logo is-block has-mb-6" href="/">
                 
-                    <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
+                    <img src="/images/Simplicity-design-logo.jpg" alt="Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL" height="28">
                 
                 </a>
                 <p class="is-size-7">
