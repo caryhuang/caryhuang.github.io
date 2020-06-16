@@ -130,6 +130,174 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/" class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-arch-cover.png" alt="An Overview of PostgreSQL Backend Architecture">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-06-15T18:06:09.000Z">2020-06-15</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    20 minutes read (About 3068 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/">An Overview of PostgreSQL Backend Architecture</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL backend is a collection of processes forked from the main process called <code>Postmaster</code>. Each forked process has different roles and responsibilities in the backend. This article describes the responsibility of core backend processes that power the PostgreSQL system as we know it today. The overall PostgreSQL backend architecture can be illustrated by the image below:</p>
+<p><img src="/images/pg-arch.png" alt="pg-backend-architecture"></p>
+<p>Postmaster is the first process to be started who has control of all the backend processes and is responsible for accepting and closing the database connections. At start up, the postmaster forks several backend processes that are intended to process different aspects of backend tasks, which we will be covering in this blog. When a user initiates a connection to the PostgreSQL database, the client process will send an authentication message to the Postmaster main process. The Postmaster main process authenticates the user according to the authentication methods configured and will fork a new session to provide service to this user only if the user passes authentication.</p>
+<h3 id="2-BgWriter-Background-Writer-Process"><a href="#2-BgWriter-Background-Writer-Process" class="headerlink" title="2. BgWriter (Background Writer) Process"></a>2. BgWriter (Background Writer) Process</h3><p>The BgWriter process is a process that writes dirty pages in shared memory to disk. It has two functions: one is to periodically flush out the dirty data from the memory buffer to the disk to reduce the blocking during the query; the other is that the PG needs to write out all the dirty pages to the disk during the regular checkpoint. By BgWriter Writing out some dirty pages in advance, it can reduce the IO operations to be performed when setting checkpoints (A type of database recovery technology), so that the system’s IO load tends to be stable. BgWriter is a process added after PostgreSQL v8.0 and it has a dedicated section in <code>postgresql.conf</code> to configure its behavior. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"># - Background Writer -</span><br><span class="line"></span><br><span class="line">#bgwriter_delay &#x3D; 200ms                 # 10-10000ms between rounds</span><br><span class="line">#bgwriter_lru_maxpages &#x3D; 100            # max buffers written&#x2F;round, 0 disables</span><br><span class="line">#bgwriter_lru_multiplier &#x3D; 2.0          # 0-10.0 multiplier on buffers scanned&#x2F;round</span><br><span class="line">#bgwriter_flush_after &#x3D; 512kB           # measured in pages, 0 disables</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p><strong>bgwriter_delay</strong>:<br>The time interval between two consecutive flush data in the backgroud writer process. The default value is 200, and the unit is milliseconds.</p>
+</li>
+<li><p><strong>bgwriter_lru_maxpages</strong>:<br>The maximum amount of data written by the backgroud writer process at a time. The default value is 100, in units of buffers. If the amount of dirty data is less than this value, the write operation is all completed by the backgroud writer process; conversely, if it is greater than this value, the greater part will be completed by the server process process. When the value is set to 0, it means that the backgroud writer writing process is disabled, and it is completely completed by the server process; when it is set to -1, it means that all dirty data is done by the backgroud writer. (Checkpoint operations are not included here)</p>
+</li>
+<li><p><strong>bgwriter_lru_multiplier</strong>:<br>This parameter indicates the number of data blocks written to the disk each time, of course, the value must be less than bgwriter_lru_maxpages. If the setting is too small, the amount of dirty data that needs to be written is greater than the amount of data written each time, so the remaining work that needs to be written to the disk needs to be completed by the server process process, which will reduce performance; if the value configuration is too large, the amount of dirty data written More than the number of buffers required at the time, which is convenient for applying for buffer work again later, and IO waste may occur at the same time. The default value of this parameter is 2.0.</p>
+</li>
+<li><p><strong>bgwriter_flush_after</strong>:<br>BgWriter is triggered when the data page size reaches bgwriter_flush_after, the default is 512KB.</p>
+</li>
+</ul>
+<h3 id="3-WalWriter-Process"><a href="#3-WalWriter-Process" class="headerlink" title="3. WalWriter Process"></a>3. WalWriter Process</h3><p>The core idea of ​​Write Ahead Log (also called Xlog) is that the modification of data files must only occur after these modifications have been recorded in the log, that is, the log is written first before the data is written . Using this mechanism can avoid frequent data writing to the disk, and can reduce disk I/O. The database can use these WAL logs to recover the database after a database restart. WalWriter Process is a backend process responsible for ensuring the WAL files are properly written to the disk and its behavior is configurable with the following parameters set in <code>postgresql.conf</code></p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#------------------------------------------------------------------------------</span><br><span class="line"># WRITE-AHEAD LOG</span><br><span class="line">#------------------------------------------------------------------------------</span><br><span class="line"></span><br><span class="line"># - Settings -</span><br><span class="line"></span><br><span class="line">wal_level &#x3D; logical                     # minimal, replica, or logical</span><br><span class="line">                                        # (change requires restart)</span><br><span class="line">#fsync &#x3D; on                             # flush data to disk for crash safety</span><br><span class="line">                                        # (turning this off can cause</span><br><span class="line">                                        # unrecoverable data corruption)</span><br><span class="line">#synchronous_commit &#x3D; on                # synchronization level;</span><br><span class="line">                                        # off, local, remote_write, remote_apply, or on</span><br><span class="line">#wal_sync_method &#x3D; fsync                # the default is the first option</span><br><span class="line">                                        # supported by the operating system:</span><br><span class="line">                                        #   open_datasync</span><br><span class="line">                                        #   fdatasync (default on Linux)</span><br><span class="line">                                        #   fsync</span><br><span class="line">                                        #   fsync_writethrough</span><br><span class="line">                                        #   open_sync</span><br><span class="line">#full_page_writes &#x3D; on                  # recover from partial page writes</span><br><span class="line">#wal_compression &#x3D; off                  # enable compression of full-page writes</span><br><span class="line">#wal_log_hints &#x3D; off                    # also do full page writes of non-critical updates</span><br><span class="line">                                        # (change requires restart)</span><br><span class="line">#wal_init_zero &#x3D; on                     # zero-fill new WAL files</span><br><span class="line">#wal_recycle &#x3D; on                       # recycle WAL files</span><br><span class="line">#wal_buffers &#x3D; -1                       # min 32kB, -1 sets based on shared_buffers</span><br><span class="line">                                        # (change requires restart)</span><br><span class="line">#wal_writer_delay &#x3D; 200ms               # 1-10000 milliseconds</span><br><span class="line">#wal_writer_flush_after &#x3D; 1MB           # measured in pages, 0 disables</span><br><span class="line"></span><br><span class="line">#commit_delay &#x3D; 0                       # range 0-100000, in microseconds</span><br><span class="line">#commit_siblings &#x3D; 5                    # range 1-1000</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p><strong>wal_level</strong>:<br>Controls the level of wal storage. wal_level determines how much information is written to the WAL. The default value is <code>replica</code>, which adds WAL archive information and includes information required by read-only servers (streaming replicattion). It can also be set to <code>minimal</code>, which only writes the information needed to recover from a crash or immediate shutdown. Setting to <code>Logical</code> allows WAL streaming to be done in logical decoding scenarios.</p>
+</li>
+<li><p><strong>fsync</strong>:<br>This parameter directly controls whether the log is written to disk first. The default value is ON (write first), which means that the system shall ensure the change is indeed flushed to disk, by issuing the fsync command set by <code>wal_sync_method</code>. While turning off fsync is often a performance benefit, this can result in unrecoverable data corruption in the event of a power failure or system crash. Thus it is only advisable to turn off fsync if you can easily recreate your entire database from external data.</p>
+</li>
+<li><p><strong>synchronous_commit</strong>:<br>This parameter configures whether the system will wait for WAL to complete before returning status information to the user transaction. The default value is ON, indicating that it must wait for WAL to complete before returning transaction status information; configuring OFF can feed back the transaction status faster.</p>
+</li>
+<li><p><strong>wal_sync_method</strong>:<br>This parameter controls the fsync method of WAL writing to disk. The default value is fsync. The available values ​​include open_datasync, fdatasync, fsync_writethrough, fsync, and open_sync. open_datasync and open_sync respectively.</p>
+</li>
+<li><p><strong>full_page_writes</strong>:<br>indicates whether to write the entire page to the WAL.</p>
+</li>
+<li><p><strong>wal_buffers</strong>:<br>The amount of memory space used to store WAL data. The system default value is 64K. This parameter is also affected by the two parameters <code>wal_writer_delay</code> and <code>commit_delay</code>.</p>
+</li>
+<li><p><strong>wal_writer_delay</strong>:<br>The write interval of the WalWriter process. The default value is 200 milliseconds. If the time is too long, it may cause insufficient memory in the WAL buffer; if the time is too short, it will cause the WAL to continuously write, increasing the disk I/O burden.</p>
+</li>
+<li><p><strong>wal_writer_flush_after</strong>:<br>When dirty data exceeds this threshold, it will be flushed to disk.</p>
+</li>
+<li><p><strong>commit_delay</strong>:<br>indicates the time that the submitted data is stored in the WAL buffer. The default value is 0 milliseconds, which means no delay; when it is set to a non-zero value, the transaction will not be written to the WAL immediately after the commit is executed, but it is still stored in the WAL In the buffer, waiting for the WalWriter process to write to the disk periodically.</p>
+</li>
+<li><p><strong>commit_siblings</strong>:<br>When a transaction issues a commit request, if the number of transactions in the database is greater than the value of commit_siblings, the transaction will wait for a period of time (commit_delay value); otherwise, the transaction is directly written to WAL. The system default value is 5, and this parameter also determines the validity of <code>commit_delay</code>.</p>
+</li>
+</ul>
+<h3 id="4-PgArch-Process"><a href="#4-PgArch-Process" class="headerlink" title="4. PgArch Process"></a>4. PgArch Process</h3><p>Similar to the ARCH archiving process in the Oracle database, the difference is that ARCH performs archiving on redo log while PgArch performs archiving on WAL logs. This is needed because the WAL log will be recycled. In other words, the WAL log in the past will be overwritten by the newly generated ones. The PgArch process is responsible for backing up the WAL log before they are overwritten. Starting from version 8.x, these WAL logs can then be used for PITR (Point-In-Time-Recovery), which restores the database state to a certain state at certain period of time. PgArch also has a dedicated section in <code>postgresql.conf</code> to configure its behavior.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"># - Archiving -</span><br><span class="line"></span><br><span class="line">#archive_mode &#x3D; off             # enables archiving; off, on, or always</span><br><span class="line">                                # (change requires restart)</span><br><span class="line">#archive_command &#x3D; &#39;&#39;           # command to use to archive a logfile segment</span><br><span class="line">                                # placeholders: %p &#x3D; path of file to archive</span><br><span class="line">                                #               %f &#x3D; file name only</span><br><span class="line">                                # e.g. &#39;test ! -f &#x2F;mnt&#x2F;server&#x2F;archivedir&#x2F;%f &amp;&amp; cp %p &#x2F;mnt&#x2F;server&#x2F;archivedir&#x2F;%f&#39;</span><br><span class="line">#archive_timeout &#x3D; 0            # force a logfile segment switch after this</span><br><span class="line">                                # number of seconds; 0 disables</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>archive_mode</strong>:</li>
+</ul>
+<p>Indicates whether to perform the archive operation; it can be set to (off), (on) or (always), the default value is off.</p>
+<ul>
+<li><strong>archive_command</strong>:</li>
+</ul>
+<p>The command set by the administrator for archiving WAL logs. In the command for archiving, the predefined variable “%p” is used to refer to the WAL full path file name that needs to be archived while “%f” indicates the file name without a path (the paths here are relative to the current working directory). When each WAL segment file is archived, the command specified by <code>archive_command</code> will be executed. If the archive command returns 0, PostgreSQL considers the file successfully archived, and then deletes or recycles the WAL segment file. If a non-zero value is returned, PostgreSQL will consider the file was not successfully archived, and will periodically retry until it succeeds.</p>
+<ul>
+<li><strong>archive_timeout</strong>:</li>
+</ul>
+<p>Indicates the archiving period. When the time set by this parameter is exceeded, the WAL segment is forcibly switched. The default value is 0 (function disabled).</p>
+<h3 id="5-AutoVacuum-Process"><a href="#5-AutoVacuum-Process" class="headerlink" title="5. AutoVacuum Process"></a>5. AutoVacuum Process</h3><p>In PostgreSQL database, after performing UPDATE or DELETE operations on the data, the database will not immediately delete the old version of the data. Instead, the data will be marked as deleted by PostgreSQL’s multi-version mechanism. If these old versions of data are being accessed by other transactions, it is necessary to retain them temporarily. After the transaction is submitted, the old versions of the data are no longer required (dead tuples) and therefore the database needs to clean them up to make room. This task is performed by the AutoVacuum process and the parameters related to the AutoVacuum process are also in the postgresql.conf.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#------------------------------------------------------------------------------</span><br><span class="line"># AUTOVACUUM</span><br><span class="line">#------------------------------------------------------------------------------</span><br><span class="line"></span><br><span class="line">#autovacuum &#x3D; on                        # Enable autovacuum subprocess?  &#39;on&#39;</span><br><span class="line">                                        # requires track_counts to also be on.</span><br><span class="line">#log_autovacuum_min_duration &#x3D; -1       # -1 disables, 0 logs all actions and</span><br><span class="line">                                        # their durations, &gt; 0 logs only</span><br><span class="line">                                        # actions running at least this number</span><br><span class="line">                                        # of milliseconds.</span><br><span class="line">#autovacuum_max_workers &#x3D; 3             # max number of autovacuum subprocesses</span><br><span class="line">                                        # (change requires restart)</span><br><span class="line">#autovacuum_naptime &#x3D; 1min              # time between autovacuum runs</span><br><span class="line">#autovacuum_vacuum_threshold &#x3D; 50       # min number of row updates before</span><br><span class="line">                                        # vacuum</span><br><span class="line">#autovacuum_analyze_threshold &#x3D; 50      # min number of row updates before</span><br><span class="line">                                        # analyze</span><br><span class="line">#autovacuum_vacuum_scale_factor &#x3D; 0.2   # fraction of table size before vacuum</span><br><span class="line">#autovacuum_analyze_scale_factor &#x3D; 0.1  # fraction of table size before analyze</span><br><span class="line">#autovacuum_freeze_max_age &#x3D; 200000000  # maximum XID age before forced vacuum</span><br><span class="line">                                        # (change requires restart)</span><br><span class="line">#autovacuum_multixact_freeze_max_age &#x3D; 400000000        # maximum multixact age</span><br><span class="line">                                        # before forced vacuum</span><br><span class="line">                                        # (change requires restart)</span><br><span class="line">#autovacuum_vacuum_cost_delay &#x3D; 2ms     # default vacuum cost delay for</span><br><span class="line">                                        # autovacuum, in milliseconds;</span><br><span class="line">                                        # -1 means use vacuum_cost_delay</span><br><span class="line">#autovacuum_vacuum_cost_limit &#x3D; -1      # default vacuum cost limit for</span><br><span class="line">                                        # autovacuum, -1 means use</span><br><span class="line">                                        # vacuum_cost_limit</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p><strong>autovacuum</strong>:<br>whether to start the auto vacuum process automatically, the default value is on.</p>
+</li>
+<li><p><strong>log_autovacuum_min_duration</strong>:<br>This parameter records the execution time of autovacuum. When the execution time of autovaccum exceeds the setting of the <code>log_autovacuum_min_duration</code> parameter, this incident will be recorded in the log. The default is “-1”, which means no recording.</p>
+</li>
+<li><p><strong>autovacuum_max_workers</strong>:<br>Set the maximum number of autovacuum subprocesses</p>
+</li>
+<li><p><strong>autovacuum_naptime</strong>:<br>Set the interval time between two autovacuum processes.</p>
+</li>
+<li><p><strong>autovacuum_vacuum_threshold</strong> and <strong>autovacuum_analyze_threshold</strong>:<br>Set the threshold values of the number of updated tuples on the table, if number of tuple updates exceed these values, vacuum and analysis need to be performed respectively.</p>
+</li>
+<li><p><strong>autovacuum_vacuum_scale_factor</strong> and <strong>autovacuum_analyze_scale_factor</strong>:<br>Set the scaling factor for table size.</p>
+</li>
+<li><p><strong>autovacuum_freeze_max_age</strong>:<br>Set the upper limit of transaction ID that needs to be forced to clean up the database.</p>
+</li>
+<li><p><strong>autovacuum_vacuum_cost_delay</strong>:<br>When the autovacuum process is about to be executed, the vacuum execution cost is evaluated. If the value set by <code>autovacuum_vacuum_cost_limit</code> is exceeded, there will be a delay set by the <code>autovacuum_vacuum_cost_delay</code> parameter. If the value is -1, it means to use <code>vacuum_cost_delay</code> value instead. the default value is 20 ms.</p>
+</li>
+<li><p><strong>autovacuum_vacuum_cost_limi</strong>: This value is the evaluation threshold of the autovacuum process. The default is -1, which means to use the “vacuum_cost_limit” value. If the cost evaluated during the execution of the autovacuum process exceeds <code>autovacuum_vacuum_cost_limit</code>, the autovacuum process will sleep.</p>
+</li>
+</ul>
+<h3 id="6-Stat-Collector"><a href="#6-Stat-Collector" class="headerlink" title="6. Stat Collector"></a>6. Stat Collector</h3><p>Stat collector is a statistical information collector of the PostgreSQL database. It collects statistical information during the operation of the database, such as the number of table additions, deletions, or updates, the number of data blocks, changes in indexes…etc. Collecting statistical information is mainly for the query optimizer to make correct judgment and choose the best execution plan. The parameters related to the Stat collector in the <code>postgresql.conf</code> file are as follows:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">#------------------------------------------------------------------------------</span><br><span class="line"># STATISTICS</span><br><span class="line">#------------------------------------------------------------------------------</span><br><span class="line"></span><br><span class="line"># - Query and Index Statistics Collector -</span><br><span class="line"></span><br><span class="line">#track_activities &#x3D; on</span><br><span class="line">#track_counts &#x3D; on</span><br><span class="line">#track_io_timing &#x3D; off</span><br><span class="line">#track_functions &#x3D; none                 # none, pl, all</span><br><span class="line">#track_activity_query_size &#x3D; 1024       # (change requires restart)</span><br><span class="line">#stats_temp_directory &#x3D; &#39;pg_stat_tmp&#39;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p><strong>track_activities</strong>:<br>Indicates whether to enable the statistical information collection function for the command currently executed in the session. This parameter is only visible to the super user and session owner. The default value is on.</p>
+</li>
+<li><p><strong>track_counts</strong>:<br>indicates whether to enable the statistical information collection function for database activities. Since the database to be cleaned is selected in the AutoVacuum automatic cleaning process, the database statistical information is required, so the default value of this parameter is on.</p>
+</li>
+<li><p><strong>track_io_timing</strong>:<br>Timely call data block I/O, the default is off, because set to the on state will repeatedly call the database time, which adds a lot of overhead to the database. Only super user can set</p>
+</li>
+<li><p><strong>track_functions</strong>:<br>indicates whether to enable the number of function calls and time-consuming statistics.</p>
+</li>
+<li><p><strong>track_activity_query_size</strong>:<br>Set the number of bytes used to track the currently executed command of each active session. The default value is 1024, which can only be set after the database is started.</p>
+</li>
+<li><p><strong>stats_temp_directory</strong>:<br>Temporary storage path for statistical information. The path can be a relative path or an absolute path. The default parameter is pg_stat_tmp. This parameter can only be modified in the postgresql.conf file or on the server command line.</p>
+</li>
+</ul>
+<h3 id="7-Checkpointer-Process"><a href="#7-Checkpointer-Process" class="headerlink" title="7. Checkpointer Process"></a>7. Checkpointer Process</h3><p>The checkpointer is a sequence of transaction points set by the system. Setting the checkpoint ensures that the WAL log information before the checkpoint is flushed to the disk. In the event of a crash, the crash recovery procedure looks at the latest checkpoint record to determine the point in the log (known as the redo record) from which it should start the REDO operation. The relevant parameters in the postgresql.conf file are:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"># - Checkpoints -</span><br><span class="line"></span><br><span class="line">#checkpoint_timeout &#x3D; 5min              # range 30s-1d</span><br><span class="line">max_wal_size &#x3D; 1GB</span><br><span class="line">min_wal_size &#x3D; 80MB</span><br><span class="line">#checkpoint_completion_target &#x3D; 0.5     # checkpoint target duration, 0.0 - 1.0</span><br><span class="line">#checkpoint_flush_after &#x3D; 256kB         # measured in pages, 0 disables</span><br><span class="line">#checkpoint_warning &#x3D; 30s               # 0 disables</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p><strong>checkpoint_timeout</strong>:<br>this parameter configures the period of performing a checkpoint. The default is 5 minutes. This means a checkpoint will occur every 5 minutes or when <code>max_wal_size</code> is about to be exceeded. Default is 1GB.</p>
+</li>
+<li><p><strong>max_wal_size</strong>:<br>this parameter sets the max WAL size before a checkpoint will happen</p>
+</li>
+<li><p><strong>min_wal_size</strong>:<br>this parameter sets a minimum on the amout of WAL files recycled for future usage</p>
+</li>
+<li><p><strong>checkpoint_completion_target</strong>:<br>To avoid flooding the I/O system with a burst of page writes, writing dirty buffers during a checkpoint is spread over a period of time. That period is controlled by <code>checkpoint_completion_target</code>, which is given as a fraction of the checkpoint interval.</p>
+</li>
+<li><p><strong>checkpoint_flush_after</strong>:<br>This parameter allows to force the OS that pages written by the checkpoint should be flushed to disk after a configurable number of bytes. Otherwise, these pages may be kept in the OS’s page cache. Default value is 256kB</p>
+</li>
+<li><p><strong>checkpoint_warning</strong>:<br>Checkpoints are faily expensive operation. This parameter configures a threshold between each checkpoint and if checkpoints happen too close together than <code>checkpoint_warning</code>period, the system will output a warning in server log to recommend user to increase <code>max_wal_size</code></p>
+</li>
+</ul>
+<h3 id="8-Shared-Memory-and-Local-Memory"><a href="#8-Shared-Memory-and-Local-Memory" class="headerlink" title="8. Shared Memory and Local Memory"></a>8. Shared Memory and Local Memory</h3><p>When PostgreSQL server starts, a shared memory will be allocated to be used as a buffer of data blocks to improve the reading and writing capabilities.The WAL log buffer and CLOG buffer also exist in shared memory. Some global information such as process information, lock information, global statistics, etc are all stored in shared memory</p>
+<p>In addition to the shared memory, the background services will also allocate some local memory to temporarily store data that does not require global storage. These memory buffers mainly include the following categories:</p>
+<ul>
+<li>Temporary buffer: local buffer used to access temporary tables</li>
+<li>work_mem: Memory buffering used by memory sort operations and hash tables before using temporary disk files.</li>
+<li>maintenance_work_mem: Memory buffer used in maintenance operations (such as vacuum, create index, and alter table add foreign key, etc.).</li>
+</ul>
+<h3 id="9-Summary"><a href="#9-Summary" class="headerlink" title="9. Summary"></a>9. Summary</h3><p>This blog provides an overview of the core backend processes that drive the PostgreSQL as we see it today and they serve as foundations to database performance tuning. There are many parameters that can be changed to influence the behavior of these backend processes to make the database perform better, safer and faster. This will be a topic for the future.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/" class="image is-7by1">
             <img class="thumbnail" src="/images/kms.png" alt="Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL">
         </a>
@@ -678,68 +846,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view5.jpg" alt="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-09-26T06:36:03.000Z">2019-09-25</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    13 minutes read (About 1940 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/">A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>Postgres is a huge database system consisting of a wide range of built-in data types, functions, features and operators that can be utilized to solve many common to complex problems. However, in the world full of complex problems, sometimes these are just not enough depending on the use case complexities.</p>
-<p>Worry not, since Postgres version 9, it is possible to extend Postgres’s existing functionalities with the use of “extensions”</p>
-<p>In this article, I will show you how to create your own extensions and add to Postgres.</p>
-<p>Please note that this article is based on Postgres version 12 running on Ubuntu 18.04 and before you can create your own extensions, PG must have been built and installed first</p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -804,7 +910,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            12
+                            13
                         </p>
                     </a>
                 </div>
@@ -828,7 +934,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            21
+                            24
                         </p>
                     </a>
                 </div>
@@ -966,7 +1072,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">11</span>
+                <span class="level-item tag">12</span>
             </span>
         </a></li>
             </ul>
@@ -979,7 +1085,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 20px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 20px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -988,6 +1094,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-arch-cover.png" alt="An Overview of PostgreSQL Backend Architecture">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-06-15T18:06:09.000Z">2020-06-15</time></div>
+                    <a href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/" class="title has-link-black-ter is-size-6 has-text-weight-normal">An Overview of PostgreSQL Backend Architecture</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1065,25 +1190,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 2">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-01-13T23:58:47.000Z">2020-01-13</time></div>
-                    <a href="/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding Security Features in PostgreSQL - Part 2</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1094,6 +1200,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2020/05/">
@@ -1186,6 +1303,20 @@
             <div class="field is-grouped is-grouped-multiline">
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/architecture/">
+                        <span class="tag">architecture</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/backend/">
+                        <span class="tag">backend</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/extension/">
                         <span class="tag">extension</span>
                         <span class="tag is-grey">1</span>
@@ -1265,6 +1396,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/pg-rewind/">
                         <span class="tag">pg_rewind</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postmaster/">
+                        <span class="tag">postmaster</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
