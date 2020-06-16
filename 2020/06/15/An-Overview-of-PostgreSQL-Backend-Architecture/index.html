@@ -19,7 +19,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/images/pg-arch-cover.png">
 <meta property="article:published_time" content="2020-06-15T18:06:09.000Z">
-<meta property="article:modified_time" content="2020-06-16T00:14:27.217Z">
+<meta property="article:modified_time" content="2020-06-16T20:08:07.916Z">
 <meta property="article:author" content="Cary Huang">
 <meta property="article:tag" content="postmaster">
 <meta property="article:tag" content="backend">
@@ -155,7 +155,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    20 minutes read (About 3068 words)
+                    20 minutes read (About 3069 words)
                 </span>
                 
                 
@@ -170,6 +170,7 @@
         <div class="content">
             <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL backend is a collection of processes forked from the main process called <code>Postmaster</code>. Each forked process has different roles and responsibilities in the backend. This article describes the responsibility of core backend processes that power the PostgreSQL system as we know it today. The overall PostgreSQL backend architecture can be illustrated by the image below:</p>
 <p><img src="/images/pg-arch.png" alt="pg-backend-architecture"></p>
+<a id="more"></a>
 <p>Postmaster is the first process to be started who has control of all the backend processes and is responsible for accepting and closing the database connections. At start up, the postmaster forks several backend processes that are intended to process different aspects of backend tasks, which we will be covering in this blog. When a user initiates a connection to the PostgreSQL database, the client process will send an authentication message to the Postmaster main process. The Postmaster main process authenticates the user according to the authentication methods configured and will fork a new session to provide service to this user only if the user passes authentication.</p>
 <h3 id="2-BgWriter-Background-Writer-Process"><a href="#2-BgWriter-Background-Writer-Process" class="headerlink" title="2. BgWriter (Background Writer) Process"></a>2. BgWriter (Background Writer) Process</h3><p>The BgWriter process is a process that writes dirty pages in shared memory to disk. It has two functions: one is to periodically flush out the dirty data from the memory buffer to the disk to reduce the blocking during the query; the other is that the PG needs to write out all the dirty pages to the disk during the regular checkpoint. By BgWriter Writing out some dirty pages in advance, it can reduce the IO operations to be performed when setting checkpoints (A type of database recovery technology), so that the system’s IO load tends to be stable. BgWriter is a process added after PostgreSQL v8.0 and it has a dedicated section in <code>postgresql.conf</code> to configure its behavior. </p>
 <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"># - Background Writer -</span><br><span class="line"></span><br><span class="line">#bgwriter_delay &#x3D; 200ms                 # 10-10000ms between rounds</span><br><span class="line">#bgwriter_lru_maxpages &#x3D; 100            # max buffers written&#x2F;round, 0 disables</span><br><span class="line">#bgwriter_lru_multiplier &#x3D; 2.0          # 0-10.0 multiplier on buffers scanned&#x2F;round</span><br><span class="line">#bgwriter_flush_after &#x3D; 512kB           # measured in pages, 0 disables</span><br></pre></td></tr></table></figure>
