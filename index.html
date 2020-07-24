@@ -130,6 +130,102 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/07/23/Approaches-to-Achieve-in-memory-table-storage-with-PostgreSQL-pluggable-API/" class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-mem-plug-cover.png" alt="Approaches to Achieve in-memory table storage with PostgreSQL pluggable API">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-07-23T20:06:49.000Z">2020-07-23</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    9 minutes read (About 1347 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/07/23/Approaches-to-Achieve-in-memory-table-storage-with-PostgreSQL-pluggable-API/">Approaches to Achieve in-memory table storage with PostgreSQL pluggable API</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Recently, I have had an opportunity to perform some in-depth feasibility study in-memory table using PostgreSQL’s pluggable storage API. The pluggable storage API was introduced Since PostgreSQL v12 and it allowed custom table storage Access Methods (AM for short) to be developed. Some famous examples include zheap from EDB, which aims to store a much more simplified tuple structure to achieve vacuum free storage and zedstore from Greenplum to utilize columnar storage. But they do not utilize in-memory storage and still interacts with existing buffer manager to persist data to disk. </p>
+<p>Yes, it would be nice to have in-memory tables if they would perform faster. It would definitley be a very interesting challenge if we could achieve an in-memory table storage engine and design it in a way that will give serious performance advantages using the existing pluggable storage API architecture.</p>
+<p>Developing a custom storage AM is no easy task and it requires a very deep understanding on how the current PostgreSQL storage engine works before we are able to improve it. In addition to redefining the tuple strucutre and custom algorithms to store and retrieve, it is also possible to define our own in-memory based storage module to handle the insertion and retrieval of tuple instead of utilizing the same buffer manager routines like what heap, zheap and zedstore access methods are using.</p>
+<p>In this blog, I will briefly talk about the capability of pluggable storage API and share some progress on our in-memory table analysis</p>
+<h3 id="2-The-Pluggale-Storage-Access-Method-API"><a href="#2-The-Pluggale-Storage-Access-Method-API" class="headerlink" title="2. The Pluggale Storage Access Method API"></a>2. The Pluggale Storage Access Method API</h3><p>PostgreSQL already has a pluggable index access method API for defining different index methods such as btree, gin and gist…etc where btree is the default index method today. The desired method can be selected when issuing the <code>CREATE INDEX</code> command like:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">CREATE INDEX gin_idx ON movies USING gin (year);</span><br><span class="line">CREATE INDEX gist_idx ON movies USING gist (year);</span><br></pre></td></tr></table></figure>
+
+<p>Before PostgreSQL v12, there was not a pluggable access method for defining table storage and heap was the only access method available. After the introduction of pluggable storage API in v12, it is now possible to create custom storage access methods other than the default heap using similar syntax when creating a table like:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">CREATE ACCESS METHOD myheap TYPE TABLE HANDLER myheap_handler;</span><br><span class="line">CREATE TABLE mytable (a int, b char(10)) using myheap;</span><br></pre></td></tr></table></figure>
+
+<p>There are a total of 38 callback functions provided by the pluggable API that requires to be implemented to develop a new table access method. They are defined in <code>TableAmRoutine</code> structure in <code>tableam.h</code>. It is quite tedious to explain all 38 callback functions here but in short, they primarily have to deal with:</p>
+<ul>
+<li>slot type</li>
+<li>table sequential scan</li>
+<li>parallel table scan</li>
+<li>index scan</li>
+<li>tuple visibility check</li>
+<li>tuple modification, update, insert..etc</li>
+<li>DDL related function, setting relfilenode, vacuum and …etc</li>
+<li>TOAST information</li>
+<li>planner time estimation</li>
+<li>bitmap and sample scan functionality</li>
+</ul>
+<p>As you can see, the functionalities to be provided by these callback functions are very critical as they have direct impact on how efficient or inefficient it is to retrieve and store data</p>
+<h3 id="3-Using-Pluggable-Storage-API-to-Achieve-in-memory-table"><a href="#3-Using-Pluggable-Storage-API-to-Achieve-in-memory-table" class="headerlink" title="3. Using Pluggable Storage API to Achieve in-memory table"></a>3. Using Pluggable Storage API to Achieve in-memory table</h3><p>The pluggable API does not directly deals with data storage to disk and it has to rely on interacting with <code>buffer manager</code>, which in turn, puts the tuple on disk via <code>storage manager</code>. This is a good thing, because with this architecture, we could potentially create a memory cache module and have the pluggable API’s tuple modification callbacks and scanning callbacks to interact with this new memory cache instead for faster tuple insersion and retrieval. </p>
+<p>It is possible to achieve a very simple in-memory table with this approach, but there are some interesting considerations here. </p>
+<ul>
+<li>can existing buffer manager still play a role to perform data persistence on disk?</li>
+<li>how large can memory cache size be?</li>
+<li>how and when should memory cache persists data to disk?</li>
+<li>can the access method work if it does not utilize buffer manager routines at all, ie. without CTID?</li>
+<li>is existing buffer manager is already acting like a in-memory data storage if its buffer pool is allocated large enough and we don’t mark a page as dirty, so in theory the data always stays in the buffer pool?</li>
+</ul>
+<h4 id="3-1-Buffer-Manager"><a href="#3-1-Buffer-Manager" class="headerlink" title="3.1 Buffer Manager"></a>3.1 Buffer Manager</h4><p>Let’s talk about buffer manager. PostgreSQL buffer manager is a very well-written module that works as a intermediate data page buffer before they are flushed to the disk. Existing heap access method and others like zheap and zedstore impementations make extensive use of buffer manager to achieve data storage and persistence on disk. In our in-memory table approach, we actually would like to skip the buffer manager routines and replace it with our own memory cache or similar. So in terms of architecture, it would look something like this where the green highlighted block is what we would like to achieve with in-memory table. </p>
+<p><img src="/images/in-mem-table.png" alt="in-mem-table"></p>
+<p>In this approach, the design of the memory cache component would be a challenge as it essentially replaces the functionality of existing buffer manager and utilize in-memory data storage instead. For this reason, the CTID value, which points directly to a specific data page managed by buffer manager, may not be valid anymore if buffer manager is no longer to be used. The concern would be if it is possible to implement a new access method without buffer manager and CTID? Our investigation shows yes, it is possible for the access method to not use buffer manager and CTID at all, but it would require the pluggable API to manually fill the <code>TupleTableSlot</code> when it has retrieved a tuple from memory cache.</p>
+<h4 id="3-2-Buffer-Manager-as-In-memory-storage"><a href="#3-2-Buffer-Manager-as-In-memory-storage" class="headerlink" title="3.2 Buffer Manager as In-memory storage?"></a>3.2 Buffer Manager as In-memory storage?</h4><p>Another question that rises is that If the existing buffer manager has a large enough buffer pool and we never mark a page as dirty, the buffer manager theoretically will not flush a page to disk and in this case, will we have something very similar to the memory cache module? Theoretically yes, but unfortunately it is not how current buffer manager is designed to do. Buffer manager maintains a ring buffer with limited size and data is flushed to disk when new data enters or when they are deemed as “dirty”. It uses a 3-layer buffer structure to manage the location of each data page on disk and provides comprehensive APIs to the PostgreSQL backend processes to interact, insert and retrieve a tuple. If a tuple resides on the disk instead of in the buffer, it has to retrieve it from the disk. </p>
+<p>In terms of time ticks, this is how PG retrieves a tuple from disk:</p>
+<p><img src="/images/bufman-t.png" alt="buffer manager time ticks"></p>
+<p>As you can see, it takes T1+T2+T3+T4+T5 to retrieve a tuple from disk. With the approach of in-memory table, we want to cut off the time takes to retrive tuple from disk, like:</p>
+<p><img src="/images/bufman-t2.png" alt="memory cache time ticks"></p>
+<p>which takes T1’ + T2’ + T3’ to retrive a tuple from the memory cache. This is where in-memory table implementation can help with performance increase. </p>
+<h4 id="3-3-Max-size-of-Memory"><a href="#3-3-Max-size-of-Memory" class="headerlink" title="3.3 Max size of Memory?"></a>3.3 Max size of Memory?</h4><p>Our investigation shows that PostgreSQL can reserve up to 25% of total available system memory. If we minus the shared memory allocations from other backend processes from this 25%, the remainder is the maximum size the memory cache can allocate. See image below.</p>
+<p><img src="/images/mem-size.png" alt="memory size allocation"></p>
+<h3 id="4-Our-Approach"><a href="#4-Our-Approach" class="headerlink" title="4. Our Approach?"></a>4. Our Approach?</h3><p>Since our focus is primarily on the memory cache, which is an alternative to existing buffer manager, we would prefer to use the existing Heap tuple as data strucutre to begin with. This way, we can use the existing TOAST, vacuum, WAL, scanning logics and we will primarily focus on replacing its buffer manager interactions with memory-cache equivalent function calls. All this will be done as a separate extension using pluggable API, so it is still possible to use the default Heap access methods on some tables and use in-memory access methods for some other tables.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/" class="image is-7by1">
             <img class="thumbnail" src="/images/pg-arch-cover.png" alt="An Overview of PostgreSQL Backend Architecture">
         </a>
@@ -678,66 +774,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view4.jpg" alt="Trace-Postgres-query-processing-internals-with-debugger">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-09-28T06:36:24.000Z">2019-09-27</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    32 minutes read (About 4769 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/">Trace-Postgres-query-processing-internals-with-debugger</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>In this article we will use GDB debugger to trace the internals of Postgres and observe how an input query passes through several levels of transformation (Parser -&gt; Analyzer -&gt; Rewriter -&gt; Planner -&gt; Executor) and eventually produces an output. </p>
-<p>This article is based on PG12 running on Ubuntu 18.04,  and we will use a simple <code>SELECT</code> query with <code>ORDER BY</code> , <code>GROUP BY</code>, and <code>LIMIT</code> keywords to go through the entire query processing tracing.</p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -802,7 +838,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            13
+                            14
                         </p>
                     </a>
                 </div>
@@ -826,7 +862,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            24
+                            26
                         </p>
                     </a>
                 </div>
@@ -964,7 +1000,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">12</span>
+                <span class="level-item tag">13</span>
             </span>
         </a></li>
             </ul>
@@ -977,7 +1013,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 20px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 20px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -986,6 +1022,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/07/23/Approaches-to-Achieve-in-memory-table-storage-with-PostgreSQL-pluggable-API/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-mem-plug-cover.png" alt="Approaches to Achieve in-memory table storage with PostgreSQL pluggable API">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-07-23T20:06:49.000Z">2020-07-23</time></div>
+                    <a href="/2020/07/23/Approaches-to-Achieve-in-memory-table-storage-with-PostgreSQL-pluggable-API/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Approaches to Achieve in-memory table storage with PostgreSQL pluggable API</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1063,25 +1118,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 3">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-01-20T21:47:59.000Z">2020-01-20</time></div>
-                    <a href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding Security Features in PostgreSQL - Part 3</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1092,6 +1128,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2020/06/">
@@ -1237,6 +1284,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/in-memory-table/">
+                        <span class="tag">in-memory table</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/key-management-system/">
                         <span class="tag">key management system</span>
                         <span class="tag is-grey">1</span>
@@ -1288,6 +1342,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/pg-rewind/">
                         <span class="tag">pg_rewind</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pluggable-api/">
+                        <span class="tag">pluggable api</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
