@@ -7,24 +7,18 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function - Cary&#39;s Blog</title>
+<title>Tag: postgresql - Cary&#39;s Blog</title>
 
 
-    <meta name="description" content="1. OverviewTable partitioning is introduced after Postgres version 9.4 that provides several performance improvement under extreme loads. Partitioning refers to splitting one logically large table int">
-<meta property="og:type" content="article">
-<meta property="og:title" content="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function">
-<meta property="og:url" content="http://yoursite.com/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/index.html">
+    <meta property="og:type" content="website">
+<meta property="og:title" content="Cary&#39;s Blog">
+<meta property="og:url" content="http://yoursite.com/tags/postgresql/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
-<meta property="og:description" content="1. OverviewTable partitioning is introduced after Postgres version 9.4 that provides several performance improvement under extreme loads. Partitioning refers to splitting one logically large table int">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/images/view6.jpg">
-<meta property="article:published_time" content="2019-09-26T05:32:25.000Z">
-<meta property="article:modified_time" content="2020-01-13T23:40:06.000Z">
+<meta property="og:image" content="http://yoursite.com/images/og_image.png">
 <meta property="article:author" content="Cary Huang">
-<meta property="article:tag" content="partition">
-<meta property="article:tag" content="trigger">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/images/view6.jpg">
+<meta name="twitter:image" content="http://yoursite.com/images/og_image.png">
 
 
 
@@ -82,7 +76,7 @@
         <div class="navbar-brand is-flex-center">
             <a class="navbar-item navbar-logo" href="/">
             
-                <img src="/images/Simplicity-design-logo.jpg" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function" height="28">
+                <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
             
             </a>
         </div>
@@ -131,20 +125,31 @@
     <section class="section">
         <div class="container">
             <div class="columns">
-                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
+                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main"><div class="card">
+    <div class="card-content">
+        <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/tags">Tags</a></li>
+            <li class="is-active"><a href="#" aria-current="page">postgresql</a></li>
+        </ul>
+        </nav>
+    </div>
+</div>
+
+    
 <div class="card">
     
     <div class="card-image">
-        <span  class="image is-7by1">
-            <img class="thumbnail" src="/images/view6.jpg" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function">
-        </span>
+        <a href="/2020/08/21/TLS-Related-Updates-in-PostgreSQL-13/" class="image is-7by1">
+            <img class="thumbnail" src="/images/pg13-tls-cover.png" alt="TLS Related Updates in PostgreSQL 13">
+        </a>
     </div>
     
     <div class="card-content article ">
         
         <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
             <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-09-26T05:32:25.000Z">2019-09-25</time>
+                <time class="level-item has-text-grey" datetime="2020-08-21T18:30:21.000Z">2020-08-21</time>
                 
                 <div class="level-item">
                 <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
@@ -154,7 +159,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    10 minutes read (About 1501 words)
+                    7 minutes read (About 1027 words)
                 </span>
                 
                 
@@ -163,87 +168,37 @@
         
         <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
             
-                A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function
+                <a class="has-link-black-ter" href="/2020/08/21/TLS-Related-Updates-in-PostgreSQL-13/">TLS Related Updates in PostgreSQL 13</a>
             
         </h1>
         <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>Table partitioning is introduced after Postgres version 9.4 that provides several performance improvement under extreme loads. Partitioning refers to splitting one logically large table into smaller pieces, which in turn distribute heavy loads across smaller pieces (also known as partitions).</p>
-<p>There are several ways to define a partition table, such as declarative partitioning and partitioning by inheritance. In this article we will focus on a simple form of declarative partitioning by value range.</p>
-<p>Later in this article, we will discuss how we can define a <code>TRIGGER</code> to work with a <code>FUNCTION</code> to make table updates more dynamic.</p>
-<a id="more"></a>
-<h3 id="2-Creating-a-Table-Partition-by-Range"><a href="#2-Creating-a-Table-Partition-by-Range" class="headerlink" title="2. Creating a Table Partition by Range"></a>2. Creating a Table Partition by Range</h3><p>Let’s define a use case. Say we are a world famous IT consulting company and there is a database table called <code>salesman_performance</code>, which contains all the sales personnel world wide and their lifetime revenue of sales. Technically it is possible to have one table containing all sales personnel in the world but as entries get much larger, the query performance may be greatly reduced.</p>
-<p>Here, we would like to create 7 partitions, representing 7 different levels of sales (or ranks) like so:</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance (</span><br><span class="line">        salesman_id <span class="built_in">int</span> <span class="keyword">not</span> <span class="literal">NULL</span>,</span><br><span class="line">        first_name <span class="built_in">varchar</span>(<span class="number">45</span>),</span><br><span class="line">        last_name <span class="built_in">varchar</span>(<span class="number">45</span>),</span><br><span class="line">        revenue <span class="built_in">numeric</span>(<span class="number">11</span>,<span class="number">2</span>),</span><br><span class="line">        last_updated <span class="built_in">timestamp</span></span><br><span class="line">) <span class="keyword">PARTITION</span> <span class="keyword">BY</span> <span class="keyword">RANGE</span> (revenue);</span><br></pre></td></tr></table></figure>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>The upcoming major release of PostgreSQL 13 has several important behavioral updates related to the TLS implementation. These updates may have some to your current PostgreSQL security deployment if you were considering to upgrade to 13 when it offically releases. Today I would like to do a quick summary of these updates.</p>
+<h3 id="2-Minimum-TLS-Version-Changed-to-TLSv1-2"><a href="#2-Minimum-TLS-Version-Changed-to-TLSv1-2" class="headerlink" title="2. Minimum TLS Version Changed to TLSv1.2"></a>2. Minimum TLS Version Changed to TLSv1.2</h3><p>There are 2 server parameters in <code>postgresql.conf</code> that influence the desired TLS versions to use during communication, <code>ssl_min_protocol_version</code> and <code>ssl_max_protocol_version</code>. In previous PG versions, the default value for <code>ssl_min_protocol_version</code> was <code>TLSv1</code>, in which many older versions of OpenSSL could support. In PG13, this default has been rasied to TLSv1.2, which satisfies current industry’s best practice. This means that if your psql client is built using older version of OpenSSL, such as 1.0.0., the PG13 server by default will deny this TLS connection, until either you rebuild the psql client with newer version of OpenSSL, or you lower the <code>ssl_min_protocol_version</code> back to <code>TLSv1</code>. Lowering this default is strongly discouraged as older versions of TLS are not as secured and many industrial applications are communicating using <code>TLSv1.2</code> as a standard requirement now.</p>
+<h3 id="3-New-libpq-connection-parameters"><a href="#3-New-libpq-connection-parameters" class="headerlink" title="3. New libpq connection parameters"></a>3. New libpq connection parameters</h3><p>There are also several updates to the libpq client side connection parameters related to TLS. See sub sections below:</p>
+<h4 id="3-1-ssl-min-protocol-version-and-ssl-max-protocol-version"><a href="#3-1-ssl-min-protocol-version-and-ssl-max-protocol-version" class="headerlink" title="3.1 ssl_min_protocol_version and ssl_max_protocol_version"></a>3.1 ssl_min_protocol_version and ssl_max_protocol_version</h4><p>The <code>ssl_min_protocol_version</code> and <code>ssl_max_protocol_version</code> parameters defined in the <code>postgresql.conf</code> on the server side were not available in the libpq client side in the previous PG versions. This means that in previous versions, it was not possible for client to influence the desired version of TLS to used as it would always want to used the newest TLS versions to communicate with the server. This may not be ideal in some cases. In PG13, the same sets of parameters are added to the libpq client side as well such that the client can also play a part in determining the ideal TLS version for communication. These parameters can be specified to <code>psql</code> like so:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">psql -U user -d &quot;sslmode&#x3D;require dbname&#x3D;postgres ssl_max_protocol_version&#x3D;TLSv1.2&quot;</span><br><span class="line">psql -U user -d &quot;sslmode&#x3D;require dbname&#x3D;postgres ssl_min_protocol_version&#x3D;TLSv1.3&quot;</span><br></pre></td></tr></table></figure>
 
-<p>Please note that, we have to specify that it is a partition table by using keyword “PARTITION BY RANGE”. It is not possible to alter a already created table and make it a partition table.</p>
-<p>Now, let’s create 7 partitions based on revenue performance:</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance_chief <span class="keyword">PARTITION</span> <span class="keyword">OF</span> salesman_performance</span><br><span class="line">        <span class="keyword">FOR</span> <span class="keyword">VALUES</span> <span class="keyword">FROM</span> (<span class="number">100000000.00</span>) <span class="keyword">TO</span> (<span class="number">999999999.99</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance_elite <span class="keyword">PARTITION</span> <span class="keyword">OF</span> salesman_performance</span><br><span class="line">        <span class="keyword">FOR</span> <span class="keyword">VALUES</span> <span class="keyword">FROM</span> (<span class="number">10000000.00</span>) <span class="keyword">TO</span> (<span class="number">99999999.99</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance_above_average <span class="keyword">PARTITION</span> <span class="keyword">OF</span> salesman_performance</span><br><span class="line">        <span class="keyword">FOR</span> <span class="keyword">VALUES</span> <span class="keyword">FROM</span> (<span class="number">1000000.00</span>) <span class="keyword">TO</span> (<span class="number">9999999.99</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance_average <span class="keyword">PARTITION</span> <span class="keyword">OF</span> salesman_performance</span><br><span class="line">        <span class="keyword">FOR</span> <span class="keyword">VALUES</span> <span class="keyword">FROM</span> (<span class="number">100000.00</span>) <span class="keyword">TO</span> (<span class="number">999999.99</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance_below_average <span class="keyword">PARTITION</span> <span class="keyword">OF</span> salesman_performance</span><br><span class="line">        <span class="keyword">FOR</span> <span class="keyword">VALUES</span> <span class="keyword">FROM</span> (<span class="number">10000.00</span>) <span class="keyword">TO</span> (<span class="number">99999.99</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance_need_work <span class="keyword">PARTITION</span> <span class="keyword">OF</span> salesman_performance</span><br><span class="line">        <span class="keyword">FOR</span> <span class="keyword">VALUES</span> <span class="keyword">FROM</span> (<span class="number">1000.00</span>) <span class="keyword">TO</span> (<span class="number">9999.99</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> salesman_performance_poor <span class="keyword">PARTITION</span> <span class="keyword">OF</span> salesman_performance</span><br><span class="line">        <span class="keyword">FOR</span> <span class="keyword">VALUES</span> <span class="keyword">FROM</span> (<span class="number">0.00</span>) <span class="keyword">TO</span> (<span class="number">999.99</span>);</span><br></pre></td></tr></table></figure>
-<p>Let’s insert some values into “salesman_performace” table with different users having different revenue performance:</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">1</span>, <span class="string">'Cary'</span>, <span class="string">'Huang'</span>, <span class="number">4458375.34</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">2</span>, <span class="string">'Nick'</span>, <span class="string">'Wahlberg'</span>, <span class="number">340.2</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">3</span>, <span class="string">'Ed'</span>, <span class="string">'Chase'</span>, <span class="number">764.34</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">4</span>, <span class="string">'Jennifer'</span>, <span class="string">'Davis'</span>, <span class="number">33750.12</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">5</span>, <span class="string">'Johnny'</span>, <span class="string">'Lollobrigida'</span>, <span class="number">4465.23</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">6</span>, <span class="string">'Bette'</span>, <span class="string">'Nicholson'</span>, <span class="number">600.44</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">7</span>, <span class="string">'Joe'</span>, <span class="string">'Swank'</span>, <span class="number">445237.34</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">8</span>, <span class="string">'Fred'</span>, <span class="string">'Costner'</span>, <span class="number">2456789.34</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">9</span>, <span class="string">'Karl'</span>, <span class="string">'Berry'</span>, <span class="number">4483758.34</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">10</span>, <span class="string">'Zero'</span>, <span class="string">'Cage'</span>, <span class="number">74638930.64</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">11</span>, <span class="string">'Matt'</span>, <span class="string">'Johansson'</span>, <span class="number">655837.34</span>, <span class="string">'2019-09-20 16:00:00'</span>);</span><br></pre></td></tr></table></figure>
+<p>The second command in the above example sets minium TLS protocol to <code>TLSv1.3</code>, which means that this client would only want to communicate with a server that could support TLSv1.3 as minimum version requirement. TLSv1.3 is fairly new and not every PostgreSQL servers are built with this support. In this case, the client simply refuses to communicate. These parameters are great additions to the current libpq as they give the client the ability to enforce the desired TLS version to use rather than simply letting the server to decide, resulting in a much more secured environment.</p>
+<h4 id="3-2-channel-binding"><a href="#3-2-channel-binding" class="headerlink" title="3.2 channel_binding"></a>3.2 channel_binding</h4><p>Channel binding is a new feature introduced in PG13, in which the libpq client can optionally enable to further increase the security of the TLS connection. The <code>channel_binding</code> parameter can be set to <code>require</code> to enforce the channel binding feature, <code>prefer</code> to only use channel binding if it is available or <code>disable</code> to not use channel binding at all. <code>prefer</code> is the default value for the new <code>channel_binding</code> parameter.</p>
+<p>The channel binding feature enforces trust between client and server so that Client informs the server whom it thinks it speaks to, and Server validates whether it is correct or not. This prevents an attacker who is able to capture users’ authentication credentials (e.g. OAuth tokens, session identifiers, etc) from reusing those credentials in another TLS sessions. In PG13, the channel binding is done by tying the user’s <code>scram-sha-256</code> credentials to a unique fingerprint of the TLS session in which they are used (channel binding), so they cannot be reused in another TLS sessions initiated by the attacker.</p>
+<p>To use this feature, we need to define a rule in <code>pg_hba.conf</code> that uses <code>scram-sha-256</code> as authentication method. Ex:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">hostssl    all    all    127.0.0.1&#x2F;32    scram-sha-256</span><br></pre></td></tr></table></figure>
 
-<p>Postgres will automatically distribute queries to the respective partition based on revenue range. </p>
-<p>You may run the \d+ command to see the table and its partitions</p>
-<p><img src="/images/partition-table.png" alt="partition-table"></p>
-<p>or examine just salesman_performance, which shows partition key and range</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line">\d+ salesman-performance</span><br></pre></td></tr></table></figure>
+<p>also set the default password authentication method to <code>scram-sha-256</code> in <code>postgresql.conf</code>. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">password_encryption &#x3D; scram-sha-256</span><br></pre></td></tr></table></figure>
 
-<p><img src="/images/partition-table-info.png" alt="partition-table"></p>
-<p>we can also use EXPLAIN ANALYZE query to see the query plan PG system makes to scan each partition. In the plan, it indicates how many rows of records exist in each partition</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">EXPLAIN</span> <span class="keyword">ANALYZE</span> <span class="keyword">SELECT</span> * <span class="keyword">FROM</span> salesman_performance;</span><br></pre></td></tr></table></figure>
-<p><img src="/images/partition-table-query-plan.png" alt="partition-table"></p>
-<p>There you have it. This ia a very basic partition table that distributes data by value range.</p>
-<p>One of the advantages of using partition table is that bulk loads and deletes can be done simply by adding or removing partitions (DROP TABLE). This is much faster and can entirely avoid VACUUM overhead caused by DELETE</p>
-<p>When you make a update to an entry. Say salesman_id 1 has reached the “Chief” level of sales rank from “Above Average” rank</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">UPDATE</span> salesman_performance <span class="keyword">SET</span> revenue = <span class="number">445837555.34</span> <span class="keyword">where</span> salesman_id=<span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+<p>and then sets a scram-sha-256 password for the current user or another user in a existing psql connection</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">\password</span><br><span class="line"></span><br><span class="line">or \password [username]</span><br></pre></td></tr></table></figure>
 
-<p>You will see that Postgres automatically put salesman_id 1 into the “salesman_performance_chief” partition and removes from “salesman_performance_above_average”</p>
-<h3 id="3-Delete-and-Detach-Partition"><a href="#3-Delete-and-Detach-Partition" class="headerlink" title="3. Delete and Detach Partition"></a>3. Delete and Detach Partition</h3><p>A partition can be deleted completely simply by the “DROP TABLE [partition name]” command. This may not be desirable in some use cases.</p>
-<p>The more recommended approach is to use “DETACH PARTITION” queries, which removes the partition relationship but preserves the data.</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> salesman_performance DETACH <span class="keyword">PARTITION</span> salesman_performance_chief;</span><br></pre></td></tr></table></figure>
+<p>then finally, we can use psql with channel binding to connect to the server. Ex:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">psql -U user -d &quot;sslmode&#x3D;require dbname&#x3D;postgres channel_binding&#x3D;require ssl_min_protocol_version&#x3D;TLSv1.2&quot;</span><br></pre></td></tr></table></figure>
 
-<p>If a partition range is missing, and the subsequent insertion has a range that no other partitions contain, the insertion will fail.</p>
-<figure class="highlight"><table><tr><td class="code"><pre><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> salesman_performance <span class="keyword">VALUES</span>( <span class="number">12</span>, <span class="string">'New'</span>, <span class="string">'User'</span>, <span class="number">755837555.34</span>, <span class="keyword">current_timestamp</span>);</span><br><span class="line"></span><br><span class="line">=&gt; should result in failure because no partitions contain a range for this revenue =  755837555.34</span><br></pre></td></tr></table></figure>
-<p>If we add back the partition for the missing range, then the above insertion will work:</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span> salesman_performance ATTACH <span class="keyword">PARTITION</span> salesman_performance_chief</span><br><span class="line"><span class="keyword">FOR</span> <span class="keyword">VALUES</span> <span class="keyword">FROM</span> (<span class="number">100000000.00</span>) <span class="keyword">TO</span> (<span class="number">999999999.99</span>);</span><br></pre></td></tr></table></figure>
+<h4 id="3-3-sslpassword"><a href="#3-3-sslpassword" class="headerlink" title="3.3 sslpassword"></a>3.3 sslpassword</h4><p>In previous version of PG, in a <code>sslmode=verify-full</code> case, the client will need to specify its X509 certificate, private key and CA cert to complete the entire TLS authentication. In the case where the private key supplied by the client is encrypted with a password, the psql will prompt the user to enter it before proceeding with the TLS authentication. The new <code>sslpassword</code> parameter allows the user to specify the password to the connection parameters without prompting the user to enter it. This is a userful addition, as the psql command could basically completes without having a human or a bot to enter the passphrase to unlock the private key. This parameter can be used like this:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">psql -U user -d &quot;sslmode&#x3D;verify-full dbname&#x3D;postgres sslrootcert&#x3D;cacert.pem sslcert&#x3D;client.pem sslkey&#x3D;client.key sslpassword&#x3D;mypass&quot;</span><br></pre></td></tr></table></figure>
 
-<h3 id="4-Create-Function-Using-Plpgsql-and-Define-a-Trigger"><a href="#4-Create-Function-Using-Plpgsql-and-Define-a-Trigger" class="headerlink" title="4. Create Function Using Plpgsql and Define a Trigger"></a>4. Create Function Using Plpgsql and Define a Trigger</h3><p>In this section, we will use an example of subscriber and coupon code redemption to illustrate the use of Plpgsql function and a trigger to correctly manage the distribution of available coupon codes.</p>
-<p>First we will have a table called “subscriber”, which store a list of users and a table called “coupon”, which stores a list of available coupons.</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> subscriber (</span><br><span class="line">    sub_id <span class="built_in">int</span> <span class="keyword">not</span> <span class="literal">NULL</span>,</span><br><span class="line">    first_name <span class="built_in">varchar</span>(<span class="number">45</span>),</span><br><span class="line">    last_name <span class="built_in">varchar</span>(<span class="number">45</span>),</span><br><span class="line">    coupon_code_redeemed <span class="built_in">varchar</span>(<span class="number">200</span>),</span><br><span class="line">    last_updated <span class="built_in">timestamp</span></span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> coupon (</span><br><span class="line">    coupon_code <span class="built_in">varchar</span>(<span class="number">45</span>),</span><br><span class="line">    percent_off <span class="built_in">int</span> <span class="keyword">CHECK</span> (percent_off &gt;= <span class="number">0</span> <span class="keyword">AND</span> percent_off&lt;=<span class="number">100</span>),</span><br><span class="line">    redeemed_by <span class="built_in">varchar</span>(<span class="number">100</span>),</span><br><span class="line">    time_redeemed <span class="built_in">timestamp</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<h3 id="4-Remove-support-for-OpenSSL-0-9-8-and-1-0-0"><a href="#4-Remove-support-for-OpenSSL-0-9-8-and-1-0-0" class="headerlink" title="4. Remove support for OpenSSL 0.9.8 and 1.0.0"></a>4. Remove support for OpenSSL 0.9.8 and 1.0.0</h3><p>Another major change is that PG13 will refuse to be built with OpenSSL versions 1.0.0 and 0.9.8 as these are very old and are no longer considered secured in today’s standard. If you are still using these OpenSSL versions, you will need to upgrade to newer or recent versions to be compatible with PG13.</p>
+<h3 id="5-Conclusion"><a href="#5-Conclusion" class="headerlink" title="5. Conclusion"></a>5. Conclusion</h3><p>PG13 brings many exciting new features and enhancements to PostgreSQL and many of these new changes need to be carefully assessed for potential incompatibility with the previous PG versions. Today, our focus is mainly on new updates related to TLS, which may have behavioral impacts to the existing deployment and the way existing client and server communicates using TLS. For the full changes and potential incompatibilities, visit the official change log <a href="https://www.postgresql.org/docs/release/13.0/">here</a></p>
 
-<p>Let’s insert some records to the above tables:</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> subscriber (sub_id, first_name, last_name, last_updated) <span class="keyword">VALUES</span>(<span class="number">1</span>,<span class="string">'Cary'</span>,<span class="string">'Huang'</span>,<span class="keyword">current_timestamp</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> subscriber  (sub_id, first_name, last_name, last_updated) <span class="keyword">VALUES</span>(<span class="number">1</span>,<span class="string">'Nick'</span>,<span class="string">'Wahlberg'</span>,<span class="keyword">current_timestamp</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> subscriber  (sub_id, first_name, last_name, last_updated) <span class="keyword">VALUES</span>(<span class="number">1</span>,<span class="string">'Johnny'</span>,<span class="string">'Lollobrigida'</span>,<span class="keyword">current_timestamp</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> subscriber  (sub_id, first_name, last_name, last_updated) <span class="keyword">VALUES</span>(<span class="number">1</span>,<span class="string">'Joe'</span>,<span class="string">'Swank'</span>,<span class="keyword">current_timestamp</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> subscriber  (sub_id, first_name, last_name, last_updated) <span class="keyword">VALUES</span>(<span class="number">1</span>,<span class="string">'Matt'</span>,<span class="string">'Johansson'</span>,<span class="keyword">current_timestamp</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> coupon (coupon_code, percent_off) <span class="keyword">VALUES</span>(<span class="string">'CXNEHD-746353'</span>,<span class="number">20</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> coupon (coupon_code, percent_off)  <span class="keyword">VALUES</span>(<span class="string">'CXNEHD-653834'</span>,<span class="number">30</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> coupon (coupon_code, percent_off)  <span class="keyword">VALUES</span>(<span class="string">'CXNEHD-538463'</span>,<span class="number">40</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> coupon (coupon_code, percent_off)  <span class="keyword">VALUES</span>(<span class="string">'CXNEHD-493567'</span>,<span class="number">50</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="keyword">INTO</span> coupon (coupon_code, percent_off)  <span class="keyword">VALUES</span>(<span class="string">'CXNEHD-384756'</span>,<span class="number">95</span>);</span><br></pre></td></tr></table></figure>
-
-<p>The tables now look like:<br><img src="/images/coupon-and-subscriber.png" alt="trigger-function"></p>
-<p>Say one subscriber redeems a coupon code, we would need a <code>FUNCTION</code> to check if the redeemed coupon code is valid (ie. Exists in coupon table). If valid, we will update the subscriber table with the coupon code redeemed and at the same time update the coupon table to indicate which subscriber redeemed the coupon and at what time.</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">OR</span> <span class="keyword">REPLACE</span> <span class="keyword">FUNCTION</span> redeem_coupon() <span class="keyword">RETURNS</span> <span class="keyword">trigger</span> <span class="keyword">AS</span> $redeem_coupon$</span><br><span class="line">    <span class="keyword">BEGIN</span></span><br><span class="line">    <span class="keyword">IF</span> <span class="keyword">EXISTS</span> ( <span class="keyword">SELECT</span> <span class="number">1</span> <span class="keyword">FROM</span> coupon c <span class="keyword">where</span> c.coupon_code = NEW.coupon_code_redeemed ) <span class="keyword">THEN</span></span><br><span class="line">        <span class="keyword">UPDATE</span> coupon <span class="keyword">SET</span> redeemed_by=OLD.first_name, time_redeemed=<span class="string">'2019-09-20 16:00:00'</span> <span class="keyword">where</span>  coupon_code = NEW.coupon_code_redeemed;</span><br><span class="line">    ELSE</span><br><span class="line">        RAISE EXCEPTION 'coupon code does not exist';</span><br><span class="line">    <span class="keyword">END</span> <span class="keyword">IF</span>;</span><br><span class="line">        RETURN NEW;</span><br><span class="line">    <span class="keyword">END</span>;</span><br><span class="line">$redeem_coupon$ LANGUAGE plpgsql;</span><br></pre></td></tr></table></figure>
-
-<p>we need to define a <code>TRIGGER</code>, which is invoked BEFORE UPDATE, to check the validity of a given coupon code.</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TRIGGER</span> redeem_coupon_trigger</span><br><span class="line">  <span class="keyword">BEFORE</span> <span class="keyword">UPDATE</span></span><br><span class="line">  <span class="keyword">ON</span> subscriber</span><br><span class="line">  <span class="keyword">FOR</span> <span class="keyword">EACH</span> <span class="keyword">ROW</span></span><br><span class="line">  <span class="keyword">EXECUTE</span> <span class="keyword">PROCEDURE</span> redeem_coupon();</span><br></pre></td></tr></table></figure>
-
-<p>\d+ subscriber should look like this:</p>
-<p><img src="/images/trigger_table.png" alt="trigger-function"></p>
-<p>Let’s have some users redeem invalid coupon codes and as expected, an exception will be raised if coupon code is not valid.</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">UPDATE</span> subscriber <span class="keyword">set</span> coupon_code_redeemed=<span class="string">'12345678'</span> <span class="keyword">where</span> first_name=<span class="string">'Cary'</span>;</span><br><span class="line"><span class="keyword">UPDATE</span> subscriber <span class="keyword">set</span> coupon_code_redeemed=<span class="string">'87654321'</span> <span class="keyword">where</span> first_name=<span class="string">'Nick'</span>;</span><br><span class="line"><span class="keyword">UPDATE</span> subscriber <span class="keyword">set</span> coupon_code_redeemed=<span class="string">'55555555'</span> <span class="keyword">where</span> first_name=<span class="string">'Joe'</span>;</span><br></pre></td></tr></table></figure>
-
-<p><img src="/images/invalid-coupon.png" alt="trigger-function"></p>
-<p>Let’s correct the above and redeem only the valid coupon codes and there should not be any error.</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">UPDATE</span> subscriber <span class="keyword">set</span> coupon_code_redeemed=<span class="string">'CXNEHD-493567'</span> <span class="keyword">where</span> first_name=<span class="string">'Cary'</span>;</span><br><span class="line"><span class="keyword">UPDATE</span> subscriber <span class="keyword">set</span> coupon_code_redeemed=<span class="string">'CXNEHD-653834'</span> <span class="keyword">where</span> first_name=<span class="string">'Nick'</span>;</span><br><span class="line"><span class="keyword">UPDATE</span> subscriber <span class="keyword">set</span> coupon_code_redeemed=<span class="string">'CXNEHD-384756'</span> <span class="keyword">where</span> first_name=<span class="string">'Joe'</span>;</span><br></pre></td></tr></table></figure>
-<p><img src="/images/valid-coupon.png" alt="trigger-function"></p>
-<p>Now both table should look like this, and now both table have information cross-related.</p>
-<p><img src="/images/coupon-redeemed.png" alt="trigger-function"></p>
-<p>And there you have it, a basic trigger function executed before each update.</p>
-<h3 id="5-Summary"><a href="#5-Summary" class="headerlink" title="5. Summary"></a>5. Summary</h3><p>With the support of partitioned table defined by value range, we are able to define a condition for postgres to automatically split the load of a very large table across many smaller partitions. This has a lot of benefits in terms of performance boost and more efficient data management.</p>
-<p>Having postgres <code>FUNCTION</code>  and <code>TRIGGER</code> working together as a duo, we are able to make general queries and updates more dynamic and automatic to achieve more complex operations. As some of the complex logics can be defined and handled as <code>FUNCTION</code>, which is then invoked at appropriate moment defined by <code>TRIGGER</code>, the application integrated to Postgres will have much less logics to implement. </p>
-
-        </div>
-        
-        <div class="level is-size-7 is-uppercase">
-            <div class="level-start">
-                <div class="level-item">
-                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
-                    <a class="has-link-grey -link" href="/tags/partition/" rel="tag">partition</a>, <a class="has-link-grey -link" href="/tags/trigger/" rel="tag">trigger</a>
-                </div>
-            </div>
         </div>
         
         
@@ -255,43 +210,9 @@
 
 
 
-<div class="card card-transparent">
-    <div class="level post-navigation is-flex-wrap is-mobile">
-        
-        <div class="level-start">
-            <a class="level level-item has-link-grey  article-nav-prev" href="/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/">
-                <i class="level-item fas fa-chevron-left"></i>
-                <span class="level-item">A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres</span>
-            </a>
-        </div>
-        
-        
-        <div class="level-end">
-            <a class="level level-item has-link-grey  article-nav-next" href="/2019/07/04/Types-of-SNMP-OIDs-Explained/">
-                <span class="level-item">Types of SNMP OIDs Explained</span>
-                <i class="level-item fas fa-chevron-right"></i>
-            </a>
-        </div>
-        
-    </div>
-</div>
 
 
 
-<div class="card">
-    <div class="card-content">
-        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
-        <script>(function(d, s, id) {
-    var js, fjs = d.getElementsByTagName(s)[0];
-    if (d.getElementById(id)) return;
-    js = d.createElement(s); js.id = id;
-    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
-    fjs.parentNode.insertBefore(js, fjs);
-}(document, 'script', 'facebook-jssdk'));</script>
-<div class="fb-comments" data-width="100%" data-href="http://yoursite.com/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/" data-num-posts="5"></div>
-
-    </div>
-</div>
 </div>
                 
 
@@ -965,7 +886,7 @@
             <div class="level-start has-text-centered-mobile">
                 <a class="footer-logo is-block has-mb-6" href="/">
                 
-                    <img src="/images/Simplicity-design-logo.jpg" alt="A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function" height="28">
+                    <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
                 
                 </a>
                 <p class="is-size-7">
