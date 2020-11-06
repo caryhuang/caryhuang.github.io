@@ -19,7 +19,7 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://yoursite.com/images/view8.jpg">
 <meta property="article:published_time" content="2020-01-20T21:47:59.000Z">
-<meta property="article:modified_time" content="2020-06-16T20:07:10.574Z">
+<meta property="article:modified_time" content="2020-10-19T19:26:36.454Z">
 <meta property="article:author" content="Cary Huang">
 <meta property="article:tag" content="networking">
 <meta property="article:tag" content="security">
@@ -154,7 +154,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    25 minutes read (About 3809 words)
+                    26 minutes read (About 3840 words)
                 </span>
                 
                 
@@ -263,7 +263,7 @@
 <figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">ssl_min_protocol_version = <span class="string">'TLSv1.2'</span></span><br><span class="line">ssl_max_protocol_version = <span class="string">''</span></span><br></pre></td></tr></table></figure>
 <p>These 2 lines configure the minimum and maximum TLS versions to accept. By default the server will only serve the TLS client using TLSv1.2 and above. TLSv1.2 is a very secured TLS version and it is widely used in the world. Normally, we only change the minimum TLS version with assumption that all future versions will be more secured and for this reason, we normally don’t put restriction on the max version.</p>
 <p>TLSv1.3 is recently introduced that has new ciphersuite support and has more improvement in the handshake process. To enforce TLSv1.3 to be used, set the <code>ssl_min_protocol_version</code> to ‘TLSv1.3’ will suffice.</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#ssl_dh_params_file &#x3D; &#39;&#39;</span><br><span class="line">#ssl_passphrase_command &#x3D; &#39;&#39;</span><br><span class="line">#ssl_passphrase_command_supports_reload &#x3D; off</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">ssl_dh_params_file = <span class="string">''</span></span><br><span class="line">ssl_passphrase_command = <span class="string">''</span></span><br><span class="line">ssl_passphrase_command_supports_reload = off</span><br></pre></td></tr></table></figure>
 
 <p><code>ssl_dh_params_file</code> points to a file that contains custom diffie-hellman key exchange algorithm parameter. This is an optional parameter and is only useful if the ciphersuite uses DHE key exchange algorithm. If left empty, compiled-in defaults will be used. Custom DH parameters can be generated using command <code>openssl dhparam -out dhparams.pem 2048</code> and will normally reduce the attack exposure as attacker will have hard time cracking the key exchange process using custom parameter instead of the well-known default. </p>
 <p><code>ssl_passphrase_command</code> is the command to obtain the password for the private key file specified by <code>ssl_key_file</code>. There is an option to add a password to a private key file during its generation and if password is used, <code>ssl_passphrase_command</code> must be set with the system command that will retrieve such password. Otherwise, TLS handshake will abort as PostgreSQL will not be able to access private key without password.</p>
@@ -274,7 +274,7 @@
 <p>The usage in Case 4 is the most secured because both server and client will verify each other’s certificate and decide if both can be mutually trusted. The common name field in the certificate is checked against the server hostname; certificate validity period is checked, organization details are checked; certificate trust chain is checked; revocation list is checked.</p>
 <p>Please note that PostgreSQL server with TLS enabled by default does not force the client to present a TLS certificate for verification. If client presents one like in Case 4 above, the server will verify and deny connection is certificate is bad. If client does not provide a certificate like in Case 1 ~ 3, the server will skip the client certificate verification as there is nothing to verify, which is less secure.</p>
 <p>To enforce the connecting client to present a TLS certificate for verification, we will need to add a special <code>clientcert=1</code> argument in existing authentication rules defined in <code>pg_hba.conf</code>. </p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># TYPE  DATABASE         USER                 ADDRESS                 METHOD</span></span><br><span class="line">hostssl production_team     production_user      0.0.0.0/0            pam clientcert=1</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="comment"># TYPE  DATABASE         USER                 ADDRESS                 METHOD</span></span><br><span class="line">hostssl production    production_user      0.0.0.0/0            trust clientcert=1</span><br><span class="line">hostssl marketing     marketing_user       0.0.0.0/0            pam   clientcert=1</span><br><span class="line">hostssl sales         sales_user           0.0.0.0/0            md5   clientcert=1</span><br><span class="line">hostssl software      software_user        0.0.0.0/0            password clientcert=1</span><br><span class="line">hostssl hardware      hardware_user        0.0.0.0/0            scram-sha-256 clientcert=1</span><br><span class="line">hostssl hardware      hardware_user        0.0.0.0/0            cert  clientcert=1</span><br></pre></td></tr></table></figure>
 <p>The example above will enforce connecting client to present TLS certificate to access <code>production_team</code> database as <code>production_user</code>. If a TLS certificate is not provided by client, the connection will abort.</p>
 <h3 id="5-TLS-Connect-Examples"><a href="#5-TLS-Connect-Examples" class="headerlink" title="5. TLS Connect Examples"></a>5. TLS Connect Examples</h3><figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">$ psql -U user -h localhost -d <span class="string">"sslmode=require dbname=postgres"</span></span><br><span class="line">psql (13devel)</span><br><span class="line">SSL connection (protocol: TLSv1.2, cipher: ECDHE-RSA-AES256-GCM-SHA384, bits: 256, compression: off)</span><br><span class="line">Type <span class="string">"help"</span> <span class="keyword">for</span> <span class="built_in">help</span>.</span><br><span class="line"></span><br><span class="line">postgres=<span class="comment">#</span></span><br></pre></td></tr></table></figure>
 
@@ -402,7 +402,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            16
+                            17
                         </p>
                     </a>
                 </div>
@@ -553,7 +553,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">15</span>
+                <span class="level-item tag">16</span>
             </span>
         </a></li>
             </ul>
@@ -566,7 +566,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 10px;">pluggable storage</a> <a href="/tags/postgresql/" style="font-size: 13.33px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 16.67px;">replication</a> <a href="/tags/security/" style="font-size: 20px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 13.33px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 10px;">pluggable storage</a> <a href="/tags/postgresql/" style="font-size: 16.67px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 16.67px;">replication</a> <a href="/tags/security/" style="font-size: 20px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -575,6 +575,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/gdb-core-debug-cover.png" alt="How to Analyze a PostgreSQL Crash Dump File">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-11-06T18:03:42.000Z">2020-11-06</time></div>
+                    <a href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How to Analyze a PostgreSQL Crash Dump File</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -652,25 +671,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/kms.png" alt="Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-05-14T20:18:25.000Z">2020-05-14</time></div>
-                    <a href="/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -681,6 +681,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/11/">
+                <span class="level-start">
+                    <span class="level-item">November 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2020/09/">
@@ -854,7 +865,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/gdb/">
                         <span class="tag">gdb</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 
@@ -952,7 +963,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 

@@ -140,6 +140,97 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/" class="image is-7by1">
+            <img class="thumbnail" src="/images/gdb-core-debug-cover.png" alt="How to Analyze a PostgreSQL Crash Dump File">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-11-06T18:03:42.000Z">2020-11-06</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    17 minutes read (About 2557 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/">How to Analyze a PostgreSQL Crash Dump File</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>In this blog post, I will talk about how to enable the generation of crash dump file (also known as core dump) and some common GDB commands to help a developer troubleshoot a crash-related issues within PostgreSQL and also other applications. Proper analysis of the issue normally will take time and certain degree of knowledge about the application source code. From experience, sometimes it may be better to look at the bigger environment instead of looking at the point of crash.</p>
+<h3 id="2-What-is-a-Crash-Dump-File"><a href="#2-What-is-a-Crash-Dump-File" class="headerlink" title="2. What is a Crash Dump File?"></a>2. What is a Crash Dump File?</h3><p>A crash dump file is a file that consists of the recorded state of the working memory of a application when it crashes. This state is represented by stacks of memory addresses and CPU registers and normally it is extremely difficult to debug with only memory addresses and CPU registers becuase they tell you no informtion about the application logic. Considering the core dump contents below, which shows the backtrace of memory addresses to the point of crash. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">#1  0x00687a3d in ?? ()</span><br><span class="line">#2  0x00d37f06 in ?? ()</span><br><span class="line">#3  0x00bf0ba4 in ?? ()</span><br><span class="line">#4  0x00d3333b in ?? ()</span><br><span class="line">#5  0x00d3f682 in ?? ()</span><br><span class="line">#6  0x00d3407b in ?? ()</span><br><span class="line">#7  0x00d3f2f7 in ?? ()</span><br></pre></td></tr></table></figure>
+<p>Not very useful is it? So, when we see a crash dump file that looks like this, it means the application is not built with debugging symbols, making this crash dump file useless. If this is the case, you will need to install the debug version of the application or re-build the application with debugging enabled.  </p>
+<h3 id="3-How-to-Generate-a-Useful-Crash-Dump-File"><a href="#3-How-to-Generate-a-Useful-Crash-Dump-File" class="headerlink" title="3. How to Generate a Useful Crash Dump File"></a>3. How to Generate a Useful Crash Dump File</h3><p>Before the generation of crash dump file, we need to ensure the application is built with debugging symbols. This can be done by executing the <code>./configure</code> script like this:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">.&#x2F;configure enable-debug</span><br></pre></td></tr></table></figure>
+<p>This adds the <code>-g</code> argument to CFLAGS in <code>src/Makefile.global</code> with optimization level set to 2 (<code>-O2</code>). My preference is to also change the optimization to 0 (<code>-O0</code>) so when we are traversing the stack using GDB, the traveral will make much more sense rather than jumping around and we will be able to print out most variables values in memory instead of getting <code>optimized out</code> error in GDB.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">CFLAGS &#x3D; -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror&#x3D;vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough&#x3D;3 -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision&#x3D;standard -Wno-format-truncation -g -O0</span><br></pre></td></tr></table></figure>
+
+<p>Now, we can enable the crash dump generation. This can be done by the user limit command. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">ulimit -c unlimited</span><br></pre></td></tr></table></figure>
+
+<p>to disable:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">ulimit -c 0</span><br></pre></td></tr></table></figure>
+
+<p>Make sure there is enough disk space because crash dump file is normally very large as it records all the memory execution states from start to crash, and make sure the <code>ulimit</code> is set up in the shell before starting PostgreSQL. When PostgreSQL crashes, a core dump file named <code>core</code> will be genreated in <code>$PGDATA</code></p>
+<h3 id="4-Analyzing-the-Dump-File-using-GDB"><a href="#4-Analyzing-the-Dump-File-using-GDB" class="headerlink" title="4. Analyzing the Dump File using GDB"></a>4. Analyzing the Dump File using GDB</h3><p>GDB (GNU Debugger) is a portable debugger that runs on many Unix-like systems and can work with many programming languages and is my favorite tool to analyze a crash dump file. To demonstrate this, I will intentionally add a line in PostgreSQL source code that will result in <code>segmentation fault</code> crash type when a <code>CREATE TABLE</code> command is run. </p>
+<p>Assuming the PostgreSQL has already crashed and generated a core dumpe file <code>core</code> in this location <code>~/highgo/git/postgres/postgresdb/core</code>. I would first use the <code>file</code> utility to understand more about the core file. Information such as the kernel info, and the program that generated it.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">caryh@HGPC01:~$ file &#x2F;home&#x2F;caryh&#x2F;highgo&#x2F;git&#x2F;postgres&#x2F;postgresdb&#x2F;core</span><br><span class="line">postgresdb&#x2F;core: ELF 64-bit LSB core file x86-64, version 1 (SYSV), SVR4-style, from &#39;postgres: cary cary [local] CREATE TABLE&#39;, real uid: 1000, effective uid: 1000, real gid: 1000, effective gid: 1000, execfn: &#39;&#x2F;home&#x2F;caryh&#x2F;highgo&#x2F;git&#x2F;postgres&#x2F;highgo&#x2F;bin&#x2F;postgres&#39;, platform: &#39;x86_64&#39;</span><br><span class="line">caryh@HGPC01:~$</span><br></pre></td></tr></table></figure>
+
+<p>The <code>file</code> utility tells me that the core file is generated by this application <code>/home/caryh/highgo/git/postgres/highgo/bin/postgres</code>, so I would execute <code>gdb</code> like this:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb &#x2F;home&#x2F;caryh&#x2F;highgo&#x2F;git&#x2F;postgres&#x2F;highgo&#x2F;bin&#x2F;postgres -c  &#x2F;home&#x2F;caryh&#x2F;highgo&#x2F;git&#x2F;postgres&#x2F;postgresdb&#x2F;core</span><br><span class="line"></span><br><span class="line">GNU gdb (Ubuntu 8.1-0ubuntu3) 8.1.0.20180409-git</span><br><span class="line">Copyright (C) 2018 Free Software Foundation, Inc.</span><br><span class="line">License GPLv3+: GNU GPL version 3 or later &lt;http:&#x2F;&#x2F;gnu.org&#x2F;licenses&#x2F;gpl.html&gt;</span><br><span class="line">This is free software: you are free to change and redistribute it.</span><br><span class="line">There is NO WARRANTY, to the extent permitted by law.  Type &quot;show copying&quot;</span><br><span class="line">and &quot;show warranty&quot; for details.</span><br><span class="line">This GDB was configured as &quot;x86_64-linux-gnu&quot;.</span><br><span class="line">Type &quot;show configuration&quot; for configuration details.</span><br><span class="line">For bug reporting instructions, please see:</span><br><span class="line">&lt;http:&#x2F;&#x2F;www.gnu.org&#x2F;software&#x2F;gdb&#x2F;bugs&#x2F;&gt;.</span><br><span class="line">Find the GDB manual and other documentation resources online at:</span><br><span class="line">&lt;http:&#x2F;&#x2F;www.gnu.org&#x2F;software&#x2F;gdb&#x2F;documentation&#x2F;&gt;.</span><br><span class="line">For help, type &quot;help&quot;.</span><br><span class="line">Type &quot;apropos word&quot; to search for commands related to &quot;word&quot;...</span><br><span class="line">Reading symbols from &#x2F;home&#x2F;caryh&#x2F;highgo&#x2F;git&#x2F;postgres&#x2F;highgo&#x2F;bin&#x2F;postgres...done.</span><br><span class="line">[New LWP 27417]</span><br><span class="line">[Thread debugging using libthread_db enabled]</span><br><span class="line">Using host libthread_db library &quot;&#x2F;lib&#x2F;x86_64-linux-gnu&#x2F;libthread_db.so.1&quot;.</span><br><span class="line">Core was generated by &#96;postgres: cary cary [local] CREATE TABLE                                 &#39;.</span><br><span class="line">Program terminated with signal SIGSEGV, Segmentation fault.</span><br><span class="line">#0  heap_insert (relation&#x3D;relation@entry&#x3D;0x7f872f532228, tup&#x3D;tup@entry&#x3D;0x55ba8290f778, cid&#x3D;0, options&#x3D;options@entry&#x3D;0,</span><br><span class="line">    bistate&#x3D;bistate@entry&#x3D;0x0) at heapam.c:1840</span><br><span class="line">1840            ereport(LOG,(errmsg(&quot;heap tuple len &#x3D; %d&quot;, heaptup-&gt;t_len)));</span><br><span class="line">(gdb)</span><br></pre></td></tr></table></figure>
+
+<p>Immediately after running <code>gdb</code> on the <code>core</code> file, it shows the location of the crash at <code>heapam.c:1840</code> and that is exactly the line I have intentionally added to cause a crash.</p>
+<h3 id="5-Useful-GDB-Commands"><a href="#5-Useful-GDB-Commands" class="headerlink" title="5. Useful GDB Commands"></a>5. Useful GDB Commands</h3><p>With <code>gdb</code>, it is very easy to identify the location of a crash, because it tells you immediately after running <code>gdb</code> on the <code>core</code> file. Unfortunately, 95% of the time, the location of the crash is not the real cause of the problem. This is why I mentioned earlier that sometimes it may be better to look at the bigger environment instead of looking at the point of crash. The crash is likely caused by a mistake in the application logic some where else in the application before it hits the point of crash. Even if you fix the crash, the mistake in application logic still exists and most likely, the application will crash somewhere else later or yield unsatisfatory results. Therefore, it is worth awhile to understand some of the powerful GDB commands that could help us understand the callstacks better to identify the real root cause.</p>
+<h4 id="5-1-The-bt-Back-Trace-command"><a href="#5-1-The-bt-Back-Trace-command" class="headerlink" title="5.1 The bt (Back Trace) command"></a>5.1 The <code>bt</code> (Back Trace) command</h4><p>The <code>bt</code> command shows a series of call stacks since the beginning of the application all the way to the point of crash. With full debugging enabled, you will be able to see the function arguments and values being passed in to each function calls as well as the source file and line numbers where they were called. This allows developer to travel backwards to check for any potential application logic mistake in the earlier processing. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line"></span><br><span class="line">(gdb) bt</span><br><span class="line">#0  heap_insert (relation&#x3D;relation@entry&#x3D;0x7f872f532228, tup&#x3D;tup@entry&#x3D;0x55ba8290f778, cid&#x3D;0, options&#x3D;options@entry&#x3D;0,</span><br><span class="line">    bistate&#x3D;bistate@entry&#x3D;0x0) at heapam.c:1840</span><br><span class="line">#1  0x000055ba81ccde3e in simple_heap_insert (relation&#x3D;relation@entry&#x3D;0x7f872f532228, tup&#x3D;tup@entry&#x3D;0x55ba8290f778)</span><br><span class="line">    at heapam.c:2356</span><br><span class="line">#2  0x000055ba81d7826d in CatalogTupleInsert (heapRel&#x3D;0x7f872f532228, tup&#x3D;0x55ba8290f778) at indexing.c:228</span><br><span class="line">#3  0x000055ba81d946ea in TypeCreate (newTypeOid&#x3D;newTypeOid@entry&#x3D;0, typeName&#x3D;typeName@entry&#x3D;0x7ffcf56ef820 &quot;test&quot;,</span><br><span class="line">    typeNamespace&#x3D;typeNamespace@entry&#x3D;2200, relationOid&#x3D;relationOid@entry&#x3D;16392, relationKind&#x3D;relationKind@entry&#x3D;114 &#39;r&#39;,</span><br><span class="line">    ownerId&#x3D;ownerId@entry&#x3D;16385, internalSize&#x3D;-1, typeType&#x3D;99 &#39;c&#39;, typeCategory&#x3D;67 &#39;C&#39;, typePreferred&#x3D;false,</span><br><span class="line">    typDelim&#x3D;44 &#39;,&#39;, inputProcedure&#x3D;2290, outputProcedure&#x3D;2291, receiveProcedure&#x3D;2402, sendProcedure&#x3D;2403,</span><br><span class="line">    typmodinProcedure&#x3D;0, typmodoutProcedure&#x3D;0, analyzeProcedure&#x3D;0, elementType&#x3D;0, isImplicitArray&#x3D;false, arrayType&#x3D;16393,</span><br><span class="line">    baseType&#x3D;0, defaultTypeValue&#x3D;0x0, defaultTypeBin&#x3D;0x0, passedByValue&#x3D;false, alignment&#x3D;100 &#39;d&#39;, storage&#x3D;120 &#39;x&#39;,</span><br><span class="line">    typeMod&#x3D;-1, typNDims&#x3D;0, typeNotNull&#x3D;false, typeCollation&#x3D;0) at pg_type.c:484</span><br><span class="line">#4  0x000055ba81d710bc in AddNewRelationType (new_array_type&#x3D;16393, new_row_type&#x3D;&lt;optimized out&gt;, ownerid&#x3D;&lt;optimized out&gt;,</span><br><span class="line">    new_rel_kind&#x3D;&lt;optimized out&gt;, new_rel_oid&#x3D;&lt;optimized out&gt;, typeNamespace&#x3D;2200, typeName&#x3D;0x7ffcf56ef820 &quot;test&quot;)</span><br><span class="line">    at heap.c:1033</span><br><span class="line">#5  heap_create_with_catalog (relname&#x3D;relname@entry&#x3D;0x7ffcf56ef820 &quot;test&quot;, relnamespace&#x3D;relnamespace@entry&#x3D;2200,</span><br><span class="line">    reltablespace&#x3D;reltablespace@entry&#x3D;0, relid&#x3D;16392, relid@entry&#x3D;0, reltypeid&#x3D;reltypeid@entry&#x3D;0,</span><br><span class="line">    reloftypeid&#x3D;reloftypeid@entry&#x3D;0, ownerid&#x3D;16385, accessmtd&#x3D;2, tupdesc&#x3D;0x55ba8287c620, cooked_constraints&#x3D;0x0,</span><br><span class="line">    relkind&#x3D;114 &#39;r&#39;, relpersistence&#x3D;112 &#39;p&#39;, shared_relation&#x3D;false, mapped_relation&#x3D;false, oncommit&#x3D;ONCOMMIT_NOOP,</span><br><span class="line">    reloptions&#x3D;0, use_user_acl&#x3D;true, allow_system_table_mods&#x3D;false, is_internal&#x3D;false, relrewrite&#x3D;0, typaddress&#x3D;0x0)</span><br><span class="line">    at heap.c:1294</span><br><span class="line">#6  0x000055ba81e3782a in DefineRelation (stmt&#x3D;stmt@entry&#x3D;0x55ba82876658, relkind&#x3D;relkind@entry&#x3D;114 &#39;r&#39;, ownerId&#x3D;16385,</span><br><span class="line">    ownerId@entry&#x3D;0, typaddress&#x3D;typaddress@entry&#x3D;0x0,</span><br><span class="line">    queryString&#x3D;queryString@entry&#x3D;0x55ba82855648 &quot;create table test (a int, b char(10)) using heap;&quot;) at tablecmds.c:885</span><br><span class="line">#7  0x000055ba81fd5b2f in ProcessUtilitySlow (pstate&#x3D;pstate@entry&#x3D;0x55ba82876548, pstmt&#x3D;pstmt@entry&#x3D;0x55ba828565a0,</span><br><span class="line">    queryString&#x3D;queryString@entry&#x3D;0x55ba82855648 &quot;create table test (a int, b char(10)) using heap;&quot;,</span><br><span class="line">    context&#x3D;context@entry&#x3D;PROCESS_UTILITY_TOPLEVEL, params&#x3D;params@entry&#x3D;0x0, queryEnv&#x3D;queryEnv@entry&#x3D;0x0, qc&#x3D;0x7ffcf56efe50,</span><br><span class="line">    dest&#x3D;0x55ba82856860) at utility.c:1161</span><br><span class="line">#8  0x000055ba81fd4120 in standard_ProcessUtility (pstmt&#x3D;0x55ba828565a0,</span><br><span class="line">    queryString&#x3D;0x55ba82855648 &quot;create table test (a int, b char(10)) using heap;&quot;, context&#x3D;PROCESS_UTILITY_TOPLEVEL,</span><br><span class="line">    params&#x3D;0x0, queryEnv&#x3D;0x0, dest&#x3D;0x55ba82856860, qc&#x3D;0x7ffcf56efe50) at utility.c:1069</span><br><span class="line">#9  0x000055ba81fd1962 in PortalRunUtility (portal&#x3D;0x55ba828b7dd8, pstmt&#x3D;0x55ba828565a0, isTopLevel&#x3D;&lt;optimized out&gt;,</span><br><span class="line">    setHoldSnapshot&#x3D;&lt;optimized out&gt;, dest&#x3D;&lt;optimized out&gt;, qc&#x3D;0x7ffcf56efe50) at pquery.c:1157</span><br><span class="line">#10 0x000055ba81fd23e3 in PortalRunMulti (portal&#x3D;portal@entry&#x3D;0x55ba828b7dd8, isTopLevel&#x3D;isTopLevel@entry&#x3D;true,</span><br><span class="line">    setHoldSnapshot&#x3D;setHoldSnapshot@entry&#x3D;false, dest&#x3D;dest@entry&#x3D;0x55ba82856860, altdest&#x3D;altdest@entry&#x3D;0x55ba82856860,</span><br><span class="line">    qc&#x3D;qc@entry&#x3D;0x7ffcf56efe50) at pquery.c:1310</span><br><span class="line">#11 0x000055ba81fd2f51 in PortalRun (portal&#x3D;portal@entry&#x3D;0x55ba828b7dd8, count&#x3D;count@entry&#x3D;9223372036854775807,</span><br><span class="line">    isTopLevel&#x3D;isTopLevel@entry&#x3D;true, run_once&#x3D;run_once@entry&#x3D;true, dest&#x3D;dest@entry&#x3D;0x55ba82856860,</span><br><span class="line">    altdest&#x3D;altdest@entry&#x3D;0x55ba82856860, qc&#x3D;0x7ffcf56efe50) at pquery.c:779</span><br><span class="line">#12 0x000055ba81fce967 in exec_simple_query (query_string&#x3D;0x55ba82855648 &quot;create table test (a int, b char(10)) using heap;&quot;)</span><br><span class="line">    at postgres.c:1239</span><br><span class="line">#13 0x000055ba81fd0d7e in PostgresMain (argc&#x3D;&lt;optimized out&gt;, argv&#x3D;argv@entry&#x3D;0x55ba8287fdb0, dbname&#x3D;&lt;optimized out&gt;,</span><br><span class="line">    username&#x3D;&lt;optimized out&gt;) at postgres.c:4315</span><br><span class="line">#14 0x000055ba81f4f52a in BackendRun (port&#x3D;0x55ba82877110, port&#x3D;0x55ba82877110) at postmaster.c:4536</span><br><span class="line">#15 BackendStartup (port&#x3D;0x55ba82877110) at postmaster.c:4220</span><br><span class="line">#16 ServerLoop () at postmaster.c:1739</span><br><span class="line">#17 0x000055ba81f5063f in PostmasterMain (argc&#x3D;3, argv&#x3D;0x55ba8284fee0) at postmaster.c:1412</span><br><span class="line">#18 0x000055ba81c91c04 in main (argc&#x3D;3, argv&#x3D;0x55ba8284fee0) at main.c:210</span><br><span class="line">(gdb)</span><br></pre></td></tr></table></figure>
+
+<h4 id="5-1-The-f-Fly-command"><a href="#5-1-The-f-Fly-command" class="headerlink" title="5.1 The f (Fly) command"></a>5.1 The <code>f</code> (Fly) command</h4><p>The <code>f</code> command followed by a stack number allows gdb to jump to a particular callstack listed by the <code>bt</code> command and allows you to print other variable in that particular stack. For example:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">(gdb) f 3</span><br><span class="line">#3  0x000055ba81d946ea in TypeCreate (newTypeOid&#x3D;newTypeOid@entry&#x3D;0, typeName&#x3D;typeName@entry&#x3D;0x7ffcf56ef820 &quot;test&quot;,</span><br><span class="line">    typeNamespace&#x3D;typeNamespace@entry&#x3D;2200, relationOid&#x3D;relationOid@entry&#x3D;16392, relationKind&#x3D;relationKind@entry&#x3D;114 &#39;r&#39;,</span><br><span class="line">    ownerId&#x3D;ownerId@entry&#x3D;16385, internalSize&#x3D;-1, typeType&#x3D;99 &#39;c&#39;, typeCategory&#x3D;67 &#39;C&#39;, typePreferred&#x3D;false,</span><br><span class="line">    typDelim&#x3D;44 &#39;,&#39;, inputProcedure&#x3D;2290, outputProcedure&#x3D;2291, receiveProcedure&#x3D;2402, sendProcedure&#x3D;2403,</span><br><span class="line">    typmodinProcedure&#x3D;0, typmodoutProcedure&#x3D;0, analyzeProcedure&#x3D;0, elementType&#x3D;0, isImplicitArray&#x3D;false, arrayType&#x3D;16393,</span><br><span class="line">    baseType&#x3D;0, defaultTypeValue&#x3D;0x0, defaultTypeBin&#x3D;0x0, passedByValue&#x3D;false, alignment&#x3D;100 &#39;d&#39;, storage&#x3D;120 &#39;x&#39;,</span><br><span class="line">    typeMod&#x3D;-1, typNDims&#x3D;0, typeNotNull&#x3D;false, typeCollation&#x3D;0) at pg_type.c:484</span><br><span class="line">484                     CatalogTupleInsert(pg_type_desc, tup);</span><br><span class="line">(gdb)</span><br></pre></td></tr></table></figure>
+
+<p>This forces <code>gdb</code> to jump to stack number 3, which is at pg_type.c:484. In here, you can examine all other variables in this frame (in function TypeCreate).</p>
+<h4 id="5-2-The-p-Print-command"><a href="#5-2-The-p-Print-command" class="headerlink" title="5.2 The p (Print) command"></a>5.2 The <code>p</code> (Print) command</h4><p>The most popular command in <code>gdb</code>, which can be used to print variable addresses and values</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">(gdb) p tup</span><br><span class="line">$1 &#x3D; (HeapTuple) 0x55ba8290f778</span><br><span class="line">(gdb) p pg_type_desc</span><br><span class="line">$2 &#x3D; (Relation) 0x7f872f532228</span><br><span class="line"></span><br><span class="line">(gdb)  p * tup</span><br><span class="line">$3 &#x3D; &#123;t_len &#x3D; 176, t_self &#x3D; &#123;ip_blkid &#x3D; &#123;bi_hi &#x3D; 65535, bi_lo &#x3D; 65535&#125;, ip_posid &#x3D; 0&#125;, t_tableOid &#x3D; 0,</span><br><span class="line">  t_data &#x3D; 0x55ba8290f790&#125;</span><br><span class="line"></span><br><span class="line">(gdb) p * pg_type_desc</span><br><span class="line">$4 &#x3D; &#123;rd_node &#x3D; &#123;spcNode &#x3D; 1663, dbNode &#x3D; 16384, relNode &#x3D; 1247&#125;, rd_smgr &#x3D; 0x55ba828e2a38, rd_refcnt &#x3D; 2, rd_backend &#x3D; -1,</span><br><span class="line">  rd_islocaltemp &#x3D; false, rd_isnailed &#x3D; true, rd_isvalid &#x3D; true, rd_indexvalid &#x3D; true, rd_statvalid &#x3D; false,</span><br><span class="line">  rd_createSubid &#x3D; 0, rd_newRelfilenodeSubid &#x3D; 0, rd_firstRelfilenodeSubid &#x3D; 0, rd_droppedSubid &#x3D; 0,</span><br><span class="line">  rd_rel &#x3D; 0x7f872f532438, rd_att &#x3D; 0x7f872f532548, rd_id &#x3D; 1247, rd_lockInfo &#x3D; &#123;lockRelId &#x3D; &#123;relId &#x3D; 1247, dbId &#x3D; 16384&#125;&#125;,</span><br><span class="line">  rd_rules &#x3D; 0x0, rd_rulescxt &#x3D; 0x0, trigdesc &#x3D; 0x0, rd_rsdesc &#x3D; 0x0, rd_fkeylist &#x3D; 0x0, rd_fkeyvalid &#x3D; false,</span><br><span class="line">  rd_partkey &#x3D; 0x0, rd_partkeycxt &#x3D; 0x0, rd_partdesc &#x3D; 0x0, rd_pdcxt &#x3D; 0x0, rd_partcheck &#x3D; 0x0, rd_partcheckvalid &#x3D; false,</span><br><span class="line">  rd_partcheckcxt &#x3D; 0x0, rd_indexlist &#x3D; 0x7f872f477d00, rd_pkindex &#x3D; 0, rd_replidindex &#x3D; 0, rd_statlist &#x3D; 0x0,</span><br><span class="line">  rd_indexattr &#x3D; 0x0, rd_keyattr &#x3D; 0x0, rd_pkattr &#x3D; 0x0, rd_idattr &#x3D; 0x0, rd_pubactions &#x3D; 0x0, rd_options &#x3D; 0x0,</span><br><span class="line">  rd_amhandler &#x3D; 0, rd_tableam &#x3D; 0x55ba82562c20 &lt;heapam_methods&gt;, rd_index &#x3D; 0x0, rd_indextuple &#x3D; 0x0, rd_indexcxt &#x3D; 0x0,</span><br><span class="line">  rd_indam &#x3D; 0x0, rd_opfamily &#x3D; 0x0, rd_opcintype &#x3D; 0x0, rd_support &#x3D; 0x0, rd_supportinfo &#x3D; 0x0, rd_indoption &#x3D; 0x0,</span><br><span class="line">  rd_indexprs &#x3D; 0x0, rd_indpred &#x3D; 0x0, rd_exclops &#x3D; 0x0, rd_exclprocs &#x3D; 0x0, rd_exclstrats &#x3D; 0x0, rd_indcollation &#x3D; 0x0,</span><br><span class="line">  rd_opcoptions &#x3D; 0x0, rd_amcache &#x3D; 0x0, rd_fdwroutine &#x3D; 0x0, rd_toastoid &#x3D; 0, pgstat_info &#x3D; 0x55ba828d5cb0&#125;</span><br><span class="line">(gdb)</span><br></pre></td></tr></table></figure>
+
+<p>With the asteroid, you can tell the <code>p</code> command to either print the address of a pointer or the values pointed by the pointer.</p>
+<h4 id="5-3-The-x-examine-command"><a href="#5-3-The-x-examine-command" class="headerlink" title="5.3 The x (examine) command"></a>5.3 The <code>x</code> (examine) command</h4><p>The <code>x</code> command is used to examine a memory block contents with specified size and format. The following example tries to examine the <code>t_data</code> values inside a <code>HeapTuple</code> structure. Note that we first print the <code>*tup</code> pointer to learn the size of <code>t_data</code> is 176, then we use the <code>x</code> command to examine the first 176 bytes pointed by <code>t_data</code></p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">(gdb)  p *tup</span><br><span class="line">$6 &#x3D; &#123;t_len &#x3D; 176, t_self &#x3D; &#123;ip_blkid &#x3D; &#123;bi_hi &#x3D; 65535, bi_lo &#x3D; 65535&#125;, ip_posid &#x3D; 0&#125;, t_tableOid &#x3D; 0,</span><br><span class="line">  t_data &#x3D; 0x55ba8290f790&#125;</span><br><span class="line"></span><br><span class="line">(gdb)  p tup-&gt;t_data</span><br><span class="line">$7 &#x3D; (HeapTupleHeader) 0x55ba8290f790</span><br><span class="line">(gdb) x&#x2F;176bx  tup-&gt;t_data</span><br><span class="line">0x55ba8290f790: 0xc0    0x02    0x00    0x00    0xff    0xff    0xff    0xff</span><br><span class="line">0x55ba8290f798: 0x47    0x00    0x00    0x00    0xff    0xff    0xff    0xff</span><br><span class="line">0x55ba8290f7a0: 0x00    0x00    0x1f    0x00    0x01    0x00    0x20    0xff</span><br><span class="line">0x55ba8290f7a8: 0xff    0xff    0x0f    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f7b0: 0x0a    0x40    0x00    0x00    0x74    0x65    0x73    0x74</span><br><span class="line">0x55ba8290f7b8: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f7c0: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f7c8: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f7d0: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f7d8: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f7e0: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f7e8: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f7f0: 0x00    0x00    0x00    0x00    0x98    0x08    0x00    0x00</span><br><span class="line">0x55ba8290f7f8: 0x01    0x40    0x00    0x00    0xff    0xff    0x00    0x63</span><br><span class="line">0x55ba8290f800: 0x43    0x00    0x01    0x2c    0x08    0x40    0x00    0x00</span><br><span class="line">0x55ba8290f808: 0x00    0x00    0x00    0x00    0x09    0x40    0x00    0x00</span><br><span class="line">0x55ba8290f810: 0xf2    0x08    0x00    0x00    0xf3    0x08    0x00    0x00</span><br><span class="line">0x55ba8290f818: 0x62    0x09    0x00    0x00    0x63    0x09    0x00    0x00</span><br><span class="line">0x55ba8290f820: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">0x55ba8290f828: 0x00    0x00    0x00    0x00    0x64    0x78    0x00    0x00</span><br><span class="line">0x55ba8290f830: 0x00    0x00    0x00    0x00    0xff    0xff    0xff    0xff</span><br><span class="line">0x55ba8290f838: 0x00    0x00    0x00    0x00    0x00    0x00    0x00    0x00</span><br><span class="line">(gdb)</span><br></pre></td></tr></table></figure>
+
+<h3 id="7-Conclusion"><a href="#7-Conclusion" class="headerlink" title="7. Conclusion"></a>7. Conclusion</h3><p>In this blog, we have discussed about how to generate a useful crash dump file with sufficient debug symbols to help developers troubleshoot a crash issue in PostgreSQL and also in other applications. We have also discussed about a very powerful and useful debugger <code>gdb</code> and shared some of the most common commands that can be utilized to troubleshoot a crash issue from a core file. I hope the information here can help some developers out there to troubleshoot issues better.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="image is-7by1">
             <img class="thumbnail" src="/images/view4.jpg" alt="Trace-Postgres-query-processing-internals-with-debugger">
         </a>
@@ -241,7 +332,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            16
+                            17
                         </p>
                     </a>
                 </div>
@@ -392,7 +483,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">15</span>
+                <span class="level-item tag">16</span>
             </span>
         </a></li>
             </ul>
@@ -405,7 +496,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 10px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 10px;">pluggable storage</a> <a href="/tags/postgresql/" style="font-size: 13.33px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 16.67px;">replication</a> <a href="/tags/security/" style="font-size: 20px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 13.33px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 20px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 10px;">pluggable storage</a> <a href="/tags/postgresql/" style="font-size: 16.67px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 16.67px;">replication</a> <a href="/tags/security/" style="font-size: 20px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -414,6 +505,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/gdb-core-debug-cover.png" alt="How to Analyze a PostgreSQL Crash Dump File">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-11-06T18:03:42.000Z">2020-11-06</time></div>
+                    <a href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How to Analyze a PostgreSQL Crash Dump File</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -491,25 +601,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/kms.png" alt="Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-05-14T20:18:25.000Z">2020-05-14</time></div>
-                    <a href="/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -520,6 +611,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/11/">
+                <span class="level-start">
+                    <span class="level-item">November 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2020/09/">
@@ -693,7 +795,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/gdb/">
                         <span class="tag">gdb</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 
@@ -791,7 +893,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
