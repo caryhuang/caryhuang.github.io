@@ -7,23 +7,18 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres - Cary&#39;s Blog</title>
+<title>Tag: table access method - Cary&#39;s Blog</title>
 
 
-    <meta name="description" content="1. OverviewPostgres is a huge database system consisting of a wide range of built-in data types, functions, features and operators that can be utilized to solve many common to complex problems. Howeve">
-<meta property="og:type" content="article">
-<meta property="og:title" content="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres">
-<meta property="og:url" content="http://yoursite.com/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/index.html">
+    <meta property="og:type" content="website">
+<meta property="og:title" content="Cary&#39;s Blog">
+<meta property="og:url" content="http://yoursite.com/tags/table-access-method/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
-<meta property="og:description" content="1. OverviewPostgres is a huge database system consisting of a wide range of built-in data types, functions, features and operators that can be utilized to solve many common to complex problems. Howeve">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://yoursite.com/images/view5.jpg">
-<meta property="article:published_time" content="2019-09-26T06:36:03.000Z">
-<meta property="article:modified_time" content="2020-01-13T23:40:00.000Z">
+<meta property="og:image" content="http://yoursite.com/images/og_image.png">
 <meta property="article:author" content="Cary Huang">
-<meta property="article:tag" content="extension">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://yoursite.com/images/view5.jpg">
+<meta name="twitter:image" content="http://yoursite.com/images/og_image.png">
 
 
 
@@ -81,7 +76,7 @@
         <div class="navbar-brand is-flex-center">
             <a class="navbar-item navbar-logo" href="/">
             
-                <img src="/images/Simplicity-design-logo.jpg" alt="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres" height="28">
+                <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
             
             </a>
         </div>
@@ -130,20 +125,31 @@
     <section class="section">
         <div class="container">
             <div class="columns">
-                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
+                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main"><div class="card">
+    <div class="card-content">
+        <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="/tags">Tags</a></li>
+            <li class="is-active"><a href="#" aria-current="page">table access method</a></li>
+        </ul>
+        </nav>
+    </div>
+</div>
+
+    
 <div class="card">
     
     <div class="card-image">
-        <span  class="image is-7by1">
-            <img class="thumbnail" src="/images/view5.jpg" alt="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres">
-        </span>
+        <a href="/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Pluggable-Table-Access-Methods-APIs/" class="image is-7by1">
+            <img class="thumbnail" src="/images/seqscan.png" alt="How PostgreSQL Executes Sequential Scans with the Help of Pluggable Table Access Methods APIs">
+        </a>
     </div>
     
     <div class="card-content article ">
         
         <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
             <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-09-26T06:36:03.000Z">2019-09-25</time>
+                <time class="level-item has-text-grey" datetime="2021-01-14T22:27:59.000Z">2021-01-14</time>
                 
                 <div class="level-item">
                 <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
@@ -153,7 +159,7 @@
                 <span class="level-item has-text-grey">
                     
                     
-                    13 minutes read (About 1940 words)
+                    7 minutes read (About 1006 words)
                 </span>
                 
                 
@@ -162,135 +168,31 @@
         
         <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
             
-                A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres
+                <a class="has-link-black-ter" href="/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Pluggable-Table-Access-Methods-APIs/">How PostgreSQL Executes Sequential Scans with the Help of Pluggable Table Access Methods APIs</a>
             
         </h1>
         <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>Postgres is a huge database system consisting of a wide range of built-in data types, functions, features and operators that can be utilized to solve many common to complex problems. However, in the world full of complex problems, sometimes these are just not enough depending on the use case complexities.</p>
-<p>Worry not, since Postgres version 9, it is possible to extend Postgres’s existing functionalities with the use of “extensions”</p>
-<p>In this article, I will show you how to create your own extensions and add to Postgres.</p>
-<p>Please note that this article is based on Postgres version 12 running on Ubuntu 18.04 and before you can create your own extensions, PG must have been built and installed first</p>
-<a id="more"></a>
-<h3 id="2-Built-in-Extensions"><a href="#2-Built-in-Extensions" class="headerlink" title="2. Built-in Extensions"></a>2. Built-in Extensions</h3><p>Before we jump into creating your own extensions, it is important to know that there is already a list of  extensions available from the PG community included in the Postgres software distribution. </p>
-<p>The detailed information of community supplied extensions can be found in this link: <a href="https://www.postgresql.org/docs/9.1/contrib.html">https://www.postgresql.org/docs/9.1/contrib.html</a></p>
-<h3 id="3-Build-and-Install-PG-Default-Extensions"><a href="#3-Build-and-Install-PG-Default-Extensions" class="headerlink" title="3. Build and Install PG Default Extensions"></a>3. Build and Install PG Default Extensions</h3><p>All the PG community extensions are located in the directory below. This is also where we will be adding our own extensions</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="variable">$PG_SOURCE_DIR</span>/postgres/contrib</span><br></pre></td></tr></table></figure>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>There are many approaches for PostgreSQL to retrieve the data back to the user. Depending on the user’s input query, the planner module is responsible for selecting the most optimum approach to retrieve the requested data. Sequential scan is one of these appraoches that is mostly selected when the user requests a large volume of data (for example, “SELECT * from tablename;”) or when a table has no index declared. Sequential scan is mostly handled by the table access method API within PostgreSQL and <code>heap</code> access method is the default one PostgreSQL uses today. In this short post, I will show you how sequential scan is done in the table access method API. </p>
+<h3 id="2-Table-Access-Method-APIs-in-PostgreSQL"><a href="#2-Table-Access-Method-APIs-in-PostgreSQL" class="headerlink" title="2. Table Access Method APIs in PostgreSQL"></a>2. Table Access Method APIs in PostgreSQL</h3><p>Pluggable table access method API has been made availabe since PostgreSQL 12, which allows a developer to redefine how PostgreSQL stores / retrieves table data. This API contains a total of 42 routines that need to be implemented in order to complete the implementation and honestly it is no easy task to understand all of them and to implement them. This API structure is defined in <code>tableam.h</code> under the name <code>typedef struct TableAmRoutine</code></p>
+<p>Today I will describe the routines related to sequential scan and I hope it could help you if you are someone looking to create your own table access method.</p>
+<h3 id="3-Sequential-Scan-Overall-Call-Flow"><a href="#3-Sequential-Scan-Overall-Call-Flow" class="headerlink" title="3. Sequential Scan Overall Call Flow"></a>3. Sequential Scan Overall Call Flow</h3><p>Few of the 42 routines will be called by executor just to complete a sequential scan request. This section will describe these routines in the order they are called.</p>
+<h4 id="3-1-relation-size"><a href="#3-1-relation-size" class="headerlink" title="3.1 relation_size"></a>3.1 relation_size</h4><figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">uint64		(*relation_size) (Relation rel, ForkNumber forkNumber);</span><br></pre></td></tr></table></figure>
+<p><code>relation_size</code> is the first routine to be called and it is relatively simple. The caller will expect the routine to return the total size of the relation described by <code>rel</code> and <code>forkNumber</code>. The default <code>heap</code> access method will simply invoke the storage manager <code>smgr</code> to find the number of data blocks this particular relation physically occupies on disk and multiplies that number with the size of each block <code>BLCKSZ</code> (default is 8k). If you are not sure about the relationship between relation and its fork number, you could refer to this <a href="https://www.highgo.ca/2020/10/23/free-space-mapping-file-in-details/">blog</a> to get more information. </p>
+<p>The size returned by this routine basically sets the boundary of our sequential scan.</p>
+<h4 id="3-2-slot-callbacks"><a href="#3-2-slot-callbacks" class="headerlink" title="3.2 slot_callbacks"></a>3.2 slot_callbacks</h4><figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">const TupleTableSlotOps *(*slot_callbacks) (Relation rel);</span><br></pre></td></tr></table></figure>
+<p>Next, the executor needs to find out which set of tuple table slot (TTS) callback operation this table access method is compatible with. TTS is a set of routines that ensures the tuple storage is compatible between the executor and your access method. The executor will execute the TTS callback to <code>translate</code> your tuple strucutre to <code>TupleTableSlot</code> format in which the executor will understand. The default <code>heap</code> access method uses <code>TTSOpsBufferHeapTuple</code> defined in <code>execTuples.c</code> to handle this operation</p>
+<h4 id="3-3-scan-begin"><a href="#3-3-scan-begin" class="headerlink" title="3.3 scan_begin"></a>3.3 scan_begin</h4><figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">TableScanDesc (*scan_begin) (Relation rel,</span><br><span class="line">							 Snapshot snapshot,</span><br><span class="line">							 int nkeys, struct ScanKeyData *key,</span><br><span class="line">							 ParallelTableScanDesc pscan,</span><br><span class="line">							 uint32 flags);</span><br></pre></td></tr></table></figure>
+<p>Now the scan can officially begin. This is sequential scan’s initialization routine in which it will allocate a new scan descriptor using the parameters passed in by the executor. The purpose of scan descriptor structure is to keep track of the sequential scan while it is being executed. For example, to track where the scan should begin,; when was the block number of the last scan; which block should we resume scanning and how many blocks have been scanned…etc. scan descriptor will be destroyed once the sequential scan has completed.</p>
+<p>The executor expects the routine to return a fully allocated and initialize pointer to <code>TableScanDesc</code> struct</p>
+<h4 id="3-4-scan-getnextslot"><a href="#3-4-scan-getnextslot" class="headerlink" title="3.4 scan_getnextslot"></a>3.4 scan_getnextslot</h4><figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">bool		(*scan_getnextslot) (TableScanDesc scan,</span><br><span class="line">								 ScanDirection direction,</span><br><span class="line">								 TupleTableSlot *slot);</span><br></pre></td></tr></table></figure>
+<p>This is the main routine for sequential scan where the caller expects the routine to fetch one tuple from the buffer manager, converts it to the TTS format in which executor understands and save it in the input poiner called <code>slot</code>. Each call to this routine will results in one tuple to be returned. If a table contains 1000 tuples, this function will be called 1000 times. The boolean return code is the indication to the caller if the routine has more tuples to return, as soon as <code>false</code> is returned, it signals the executor that we have exhausted all the tuples and it should stop calling this function.</p>
+<p>In normal sequential scan case, this routine works in per-page mode. This means it will read one full block from buffer manager and scan it to get all the tuple addresses and their offsets in the scan descriptor, so in the subsequent calls to the same function, it will not load the full page again from buffer manage all the time; it will only start to load the next block when all the tuples on the current block have been scanned and returned. </p>
+<p>As you can see, the scan descriptor plays an important role here as most of the control information is saved there and is regularly updated whenever a call the <code>scan_getnextslot</code> is made.</p>
+<h4 id="3-5-scan-end"><a href="#3-5-scan-end" class="headerlink" title="3.5 scan_end"></a>3.5 scan_end</h4><figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">void		(*scan_end) (TableScanDesc scan);</span><br></pre></td></tr></table></figure>
+<p>This is the last routine to be called to basically clean up the table scan descriptor, which was used heavily during the sequential scan. At this point, the executor should already have all the tuple information from the sequential scan methods. </p>
+<h3 id="4-Prepare-the-Data-to-Return"><a href="#4-Prepare-the-Data-to-Return" class="headerlink" title="4. Prepare the Data to Return"></a>4. Prepare the Data to Return</h3><p>Now, the executor is finished with the table access method and has already had access to all the tuples for a particular relation. It then needs to go through another round of filtering to determine which of these tuples satisfy the condition set by the user, (for example, when user gives the WHERE clause to limit the scan results). This is done in another infinite <code>for</code> loop in <code>execScan.c</code> to perform <code>ExecQual</code> on each TTS. Finally, the end results will be sent to the end user.</p>
+<h3 id="5-Summary"><a href="#5-Summary" class="headerlink" title="5. Summary"></a>5. Summary</h3><p>What we have discussed here is the basic call flow of a simple sequential scan. If we were to visualize the process, it should look something like this:<br><img src="/images/sequential-scan.png" alt="Sequential Scan"></p>
 
-<p>where [PG SOURCE DIR] is the directory to your PG source code</p>
-<p>These modules are not built automatically unless you build the ‘world’ target. To Manually build and install them, use these commands.</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">cd</span> contrib</span><br><span class="line">make</span><br><span class="line">sudo make install</span><br></pre></td></tr></table></figure>
-
-<p>The above command will install the extensions to </p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="variable">$SHAREDIR</span>/extension</span><br></pre></td></tr></table></figure>
-<p>and required C shared libraries to </p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="variable">$LIBDIR</span></span><br></pre></td></tr></table></figure>
-<p>where $SHAREDIR and $LIBDIR are the values returned by pg_config</p>
-<p>For the extensions that utilize the C language as implementation, there will be a C shared libraries (.so) being produced by the make command. This C shared library contains all the methods supported by the extension. </p>
-<p>With default extensions and libraries installed, we can then see the installed extensions by the following queries</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> pg_available_extensions();</span><br><span class="line"><span class="keyword">SELECT</span> pg_available_extension_versions();</span><br></pre></td></tr></table></figure>
-
-<h3 id="4-Create-Extension-Using-plpqsql-Language"><a href="#4-Create-Extension-Using-plpqsql-Language" class="headerlink" title="4. Create Extension Using plpqsql Language"></a>4. Create Extension Using plpqsql Language</h3><p>For this example, we will create a very simple extension that will count the number of specified character of a given string. This extension takes 2 input arguments, first being the string, and second being the desired character. It will return an integer indicating the number of occurance of the desired characters presented in the string</p>
-<p>first, let’s navigate to the contrib directory to add our extension</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">cd</span> [PG SOURCE DIR]/contrib</span><br></pre></td></tr></table></figure>
-
-<p>let’s create a new directory called char_count. This will be the name of the extension</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">mkdir char_count</span><br><span class="line"><span class="built_in">cd</span> char_count</span><br></pre></td></tr></table></figure>
-
-<p>create the folders for defining testcases later</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">mkdir sql</span><br><span class="line">mkdir expected</span><br></pre></td></tr></table></figure>
-
-<p>create and an extension control file using this naming convention:</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">[Extension name].control</span><br></pre></td></tr></table></figure>
-
-<figure class="highlight bash"><figcaption><span>char_count.control</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="comment"># char_count extension</span></span><br><span class="line">comment = <span class="string">'function to count number of specified characters'</span></span><br><span class="line">default_version = <span class="string">'1.0'</span></span><br><span class="line">module_pathname = <span class="string">'$libdir/char_count'</span></span><br><span class="line">relocatable = <span class="literal">true</span></span><br></pre></td></tr></table></figure>
-
-<p>create a data sql file using this naming convention:</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">[Extension name]--[Extension version].sql</span><br></pre></td></tr></table></figure>
-
-<figure class="highlight sql"><figcaption><span>char_count--1.0.sql</span></figcaption><table><tr><td class="code"><pre><span class="line">\echo <span class="keyword">Use</span> <span class="string">"CREATE EXTENSION char_count"</span> <span class="keyword">to</span> <span class="keyword">load</span> this file. \quit</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">FUNCTION</span> char_count(<span class="built_in">TEXT</span>, <span class="built_in">CHAR</span>)</span><br><span class="line"><span class="keyword">RETURNS</span> <span class="built_in">INTEGER</span></span><br><span class="line"><span class="keyword">LANGUAGE</span> plpgsql IMMUTABLE <span class="keyword">STRICT</span></span><br><span class="line">  <span class="keyword">AS</span> $$</span><br><span class="line">    <span class="keyword">DECLARE</span></span><br><span class="line">      charCount <span class="built_in">INTEGER</span> := <span class="number">0</span>;</span><br><span class="line">      i INTEGER := 0;</span><br><span class="line">      inputText TEXT := $1;</span><br><span class="line">      targetChar CHAR := $2;</span><br><span class="line">    <span class="keyword">BEGIN</span></span><br><span class="line">    <span class="keyword">WHILE</span> i &lt;= <span class="keyword">length</span>(inputText) <span class="keyword">LOOP</span></span><br><span class="line">      <span class="keyword">IF</span> <span class="keyword">substring</span>( inputText <span class="keyword">from</span> i <span class="keyword">for</span> <span class="number">1</span>) = targetChar <span class="keyword">THEN</span></span><br><span class="line">        charCount := charCount + <span class="number">1</span>;</span><br><span class="line">      <span class="keyword">END</span> <span class="keyword">IF</span>;</span><br><span class="line">        i := i + 1;</span><br><span class="line">      <span class="keyword">END</span> <span class="keyword">LOOP</span>;</span><br><span class="line"></span><br><span class="line">    RETURN(charCount);</span><br><span class="line">    <span class="keyword">END</span>;</span><br><span class="line">  $$;</span><br></pre></td></tr></table></figure>
-
-<p>Please note that the first echo line enforces the function to be loaded as extension</p>
-<p>Create a Makefile</p>
-<figure class="highlight bash"><figcaption><span>Makefile</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="comment"># contrib/char_count/Makefile</span></span><br><span class="line"></span><br><span class="line">EXTENSION = char_count</span><br><span class="line">DATA = char_count--1.0.sql</span><br><span class="line">PGFILEDESC = <span class="string">"char_count - count number of specified character"</span></span><br><span class="line">REGRESS = char_count</span><br><span class="line"></span><br><span class="line">ifdef USE_PGXS</span><br><span class="line">PG_CONFIG = pg_config</span><br><span class="line">PGXS := $(shell $(PG_CONFIG) --pgxs)</span><br><span class="line">include $(PGXS)</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">subdir = contrib/char_count</span><br><span class="line">top_builddir = ../..</span><br><span class="line">include $(top_builddir)/src/Makefile.global</span><br><span class="line">include $(top_srcdir)/contrib/contrib-global.mk</span><br><span class="line">endif</span><br></pre></td></tr></table></figure>
-
-<p>With the files in place ,we can go ahread and run within the char_count extension folder</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">sudo make install</span><br></pre></td></tr></table></figure>
-<p>This will install char_count extension to  $SHAREDIR</p>
-<p>Now we can connect to the PG server and make use of the new extension that we have just added:</p>
-<p><img src="/images/char_count-extension.png" alt="extension"></p>
-<h3 id="5-Create-a-Test-Case-for-the-New-Extension"><a href="#5-Create-a-Test-Case-for-the-New-Extension" class="headerlink" title="5. Create a Test Case for the New Extension"></a>5. Create a Test Case for the New Extension</h3><p>We have already created a sql folder from previous steps, let’s create a new .sql file for our test case</p>
-<figure class="highlight sql"><figcaption><span>char_count.sql</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> EXTENSION char_count;</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'a'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'b'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'c'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'x'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'c'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'b'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'5'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'3'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'2'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'1'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'0'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'asd'</span>);</span><br></pre></td></tr></table></figure>
-
-<p>Please note that in the Makefile, we have to also specifiy the name of the regression tests with this line:</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">REGRESS = char_count</span><br></pre></td></tr></table></figure>
-
-<p>Run the testcase and Obtain Results</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">make installcheck</span><br></pre></td></tr></table></figure>
-
-<p>For the first time, the regression test will fail, because we have not provided the expected output file (.out file) for the test case. A new folder “results” is created upon running the regression test, and there is a (.out) file inside containing all the output from the test case</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> EXTENSION char_count;</span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'a'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          4</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'b'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          7</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'c'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          2</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'x'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          0</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'c'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          2</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'b'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          7</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'5'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          5</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'3'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          7</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'2'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          7</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'1'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          4</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'0'</span>);</span><br><span class="line"> char_count </span><br><span class="line"><span class="comment">------------</span></span><br><span class="line">          1</span><br><span class="line">(1 row)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> char_count(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'asd'</span>);</span><br><span class="line">ERROR:  value too long for type character(1)</span><br><span class="line">CONTEXT:  PL/pgSQL function char_count(text,character) line 7 during statement block local variable initialization</span><br></pre></td></tr></table></figure>
-
-<p>We should examine this .out file and made sure the outputs are all correct and we will copy it over to the expected folder</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">cp char_count/results/char_count.out char_count/expected</span><br></pre></td></tr></table></figure>
-
-<h3 id="6-Create-your-Own-Extension-Using-C-Language"><a href="#6-Create-your-Own-Extension-Using-C-Language" class="headerlink" title="6. Create your Own Extension Using C Language"></a>6. Create your Own Extension Using C Language</h3><p>In the previous section, we created a extension using plpgsql function language. This is in many ways very similar to the ‘CREATE FUNCTION’ commands except that in the above example, we specifically states that the function can only be loaded through the CREATE EXTENSION command.</p>
-<p>In most cases, the custom extensions are mostly built in C codes because of its flexibility and performance benefits.</p>
-<p>To demonstrate this, we will create a new extension called char_count_c. Let’s repeat some of the process above:</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line"><span class="built_in">cd</span> [PG_SOURCE_DIR]/contrib</span><br><span class="line">mkdir char_count_c</span><br><span class="line"><span class="built_in">cd</span> char_count_c</span><br><span class="line">mkdir expected</span><br><span class="line">mkdir sql</span><br></pre></td></tr></table></figure>
-
-<p>create a control file:</p>
-<figure class="highlight bash"><figcaption><span>char_count_c.control</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="comment"># char_count_c extension</span></span><br><span class="line">comment = <span class="string">'c function to count number of specified characters'</span></span><br><span class="line">default_version = <span class="string">'1.0'</span></span><br><span class="line">module_pathname = <span class="string">'$libdir/char_count_c'</span></span><br><span class="line">relocatable = <span class="literal">true</span></span><br></pre></td></tr></table></figure>
-
-<p>create a data sql file </p>
-<figure class="highlight bash"><figcaption><span>char_count_c--1.0.sql</span></figcaption><table><tr><td class="code"><pre><span class="line">\<span class="built_in">echo</span> Use <span class="string">"CREATE EXTENSION char_count"</span> to load this file. \quit</span><br><span class="line">CREATE FUNCTION char_count_c(TEXT, TEXT) RETURNS INTEGER</span><br><span class="line">AS <span class="string">'$libdir/char_count_c'</span></span><br><span class="line">LANGUAGE C IMMUTABLE STRICT</span><br></pre></td></tr></table></figure>
-
-<p>This is where it differs from the previous method to add extension. In here we specifically set the LANGUAGE to be C as oppose to plpgsql.</p>
-<p>$libdir/char_count_c is important as this is the path in which the PG will try to find a corresponding C share library when char_count_c extension is loaded.</p>
-<p>Now, create a Makefile</p>
-<figure class="highlight bash"><figcaption><span>Makefile</span></figcaption><table><tr><td class="code"><pre><span class="line">MODULES = char_count_c</span><br><span class="line">EXTENSION = char_count_c</span><br><span class="line">DATA = char_count_c--1.0.sql</span><br><span class="line">PGFILEDESC = <span class="string">"char_count_c - count number of specified character"</span></span><br><span class="line">REGRESS = char_count_c</span><br><span class="line"></span><br><span class="line">ifdef USE_PGXS</span><br><span class="line">PG_CONFIG = pg_config</span><br><span class="line">PGXS := $(shell $(PG_CONFIG) --pgxs)</span><br><span class="line">include $(PGXS)</span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">subdir = contrib/char_count_c</span><br><span class="line">top_builddir = ../..</span><br><span class="line">include $(top_builddir)/src/Makefile.global</span><br><span class="line">include $(top_srcdir)/contrib/contrib-global.mk</span><br><span class="line">endif</span><br></pre></td></tr></table></figure>
-
-<p>Here we added a new line called MODULES = char_count_c. This line will actually compile your C code into a shared library (.so) file which will be used by PG when char_count_c extension is loaded.</p>
-<p>Create a new C source file</p>
-<figure class="highlight c"><figcaption><span>char_count_c.c</span></figcaption><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"postgres.h"</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"fmgr.h"</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"utils/builtins.h"</span></span></span><br><span class="line"></span><br><span class="line">PG_MODULE_MAGIC;</span><br><span class="line"></span><br><span class="line">PG_FUNCTION_INFO_V1(char_count_c);</span><br><span class="line"></span><br><span class="line">Datum</span><br><span class="line">char_count_c(PG_FUNCTION_ARGS)</span><br><span class="line">&#123;</span><br><span class="line">        <span class="keyword">int</span> charCount = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">int</span> i = <span class="number">0</span>;</span><br><span class="line">        <span class="built_in">text</span> * inputText = PG_GETARG_TEXT_PP(<span class="number">0</span>);</span><br><span class="line">        <span class="built_in">text</span> * targetChar = PG_GETARG_TEXT_PP(<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">int</span> inputText_sz = VARSIZE(inputText)-VARHDRSZ;</span><br><span class="line">        <span class="keyword">int</span> targetChar_sz = VARSIZE(targetChar)-VARHDRSZ;</span><br><span class="line">        <span class="keyword">char</span> * cp_inputText = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="keyword">char</span> * cp_targetChar = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> ( targetChar_sz &gt; <span class="number">1</span> )</span><br><span class="line">        &#123;</span><br><span class="line">                elog(ERROR, <span class="string">"arg1 must be 1 char long"</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        cp_inputText = (<span class="keyword">char</span> *) palloc ( inputText_sz + <span class="number">1</span>);</span><br><span class="line">        cp_targetChar = (<span class="keyword">char</span> *) palloc ( targetChar_sz + <span class="number">1</span>);</span><br><span class="line">        <span class="built_in">memcpy</span>(cp_inputText, VARDATA(inputText), inputText_sz);</span><br><span class="line">        <span class="built_in">memcpy</span>(cp_targetChar, VARDATA(targetChar), targetChar_sz);</span><br><span class="line"></span><br><span class="line">        elog(INFO, <span class="string">"arg0 length is %d, value %s"</span>, (<span class="keyword">int</span>)<span class="built_in">strlen</span>(cp_inputText), cp_inputText );</span><br><span class="line">        elog(INFO, <span class="string">"arg1 length is %d, value %s"</span>, (<span class="keyword">int</span>)<span class="built_in">strlen</span>(cp_targetChar), cp_targetChar );</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> ( i &lt; <span class="built_in">strlen</span>(cp_inputText) )</span><br><span class="line">        &#123;</span><br><span class="line">                <span class="keyword">if</span>( cp_inputText[i] == cp_targetChar[<span class="number">0</span>] )</span><br><span class="line">                        charCount++;</span><br><span class="line">                i++;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        pfree(cp_inputText);</span><br><span class="line">        pfree(cp_targetChar);</span><br><span class="line">        PG_RETURN_INT32(charCount);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>Now we can compile the extension</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">make</span><br></pre></td></tr></table></figure>
-
-<p>If make is successful, there should be a new C shared library created</p>
-<p><img src="/images/c-make-shared.png" alt="extension"></p>
-<p>Let’s go ahread and install</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">sudo make install</span><br></pre></td></tr></table></figure>
-<p>This will copy the<br>char_count_c–1.0.sql and char_count_c.control to $SHAREDIR/extension<br>and char_count_c.so to $LIBDIR</p>
-<p>Make sure char_count_c.so is indeed installed to the $LIBDIR, otherwise, PG will not be able to find it when the extension is loaded.</p>
-<p>With the extension installed, we can connect to the PG server and use the new extension</p>
-<p><img src="/images/char_count_c_load.png" alt="extension"></p>
-<p>Create a new test case in char_count_c/sql</p>
-<p>let’s make a copy of the test case from previous “char_count” example and change the names to “char_count_c”</p>
-<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> EXTENSION char_count_c;</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'a'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'b'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc'</span>,<span class="string">'c'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'x'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'c'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'b'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'5'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'3'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'2'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'1'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'0'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> char_count_c(<span class="string">'aaaabbbbbbbcc1111222222233333335555590'</span>,<span class="string">'asd'</span>);</span><br></pre></td></tr></table></figure>
-
-<p>Please note that in the Makefile, we have to also specifiy the name of the regression tests with this line:</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">REGRESS = char_count_c</span><br></pre></td></tr></table></figure>
-
-<p>Run the test case</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">make installcheck</span><br></pre></td></tr></table></figure>
-
-<p>copy the .out file to expected folder</p>
-<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">cp char_count_c/results/char_count_c.out char_count_c/expected</span><br></pre></td></tr></table></figure>
-
-<h3 id="7-Add-the-new-extensions-to-global-Makefile"><a href="#7-Add-the-new-extensions-to-global-Makefile" class="headerlink" title="7. Add the new extensions to global Makefile"></a>7. Add the new extensions to global Makefile</h3><p>If you would like to have your extensions built along with the community ones, instead of building individually, you will need to modify the global extension Makefile located in [PG SOURCE DIR]/contrib/Makefile, and add:</p>
-<p>char_count and char_count_c in SUBDIRS parameter</p>
-<h3 id="8-Summary"><a href="#8-Summary" class="headerlink" title="8. Summary"></a>8. Summary</h3><p>Postgres is a very flexibile and powerful database system that provides different ways for the end users to extend existing functionalities to fulfill his or her business needs.</p>
-<p>From the examples above, we have learned that since Postgres version 9, we are able to create new extensions using either plpgsql or C language and be able to create regression tests as part of the extension build to ensure the extensions will work as intended.</p>
-
-        </div>
-        
-        <div class="level is-size-7 is-uppercase">
-            <div class="level-start">
-                <div class="level-item">
-                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
-                    <a class="has-link-grey -link" href="/tags/extension/" rel="tag">extension</a>
-                </div>
-            </div>
         </div>
         
         
@@ -302,43 +204,9 @@
 
 
 
-<div class="card card-transparent">
-    <div class="level post-navigation is-flex-wrap is-mobile">
-        
-        <div class="level-start">
-            <a class="level level-item has-link-grey  article-nav-prev" href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/">
-                <i class="level-item fas fa-chevron-left"></i>
-                <span class="level-item">Trace-Postgres-query-processing-internals-with-debugger</span>
-            </a>
-        </div>
-        
-        
-        <div class="level-end">
-            <a class="level level-item has-link-grey  article-nav-next" href="/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/">
-                <span class="level-item">A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function</span>
-                <i class="level-item fas fa-chevron-right"></i>
-            </a>
-        </div>
-        
-    </div>
-</div>
 
 
 
-<div class="card">
-    <div class="card-content">
-        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
-        <script>(function(d, s, id) {
-    var js, fjs = d.getElementsByTagName(s)[0];
-    if (d.getElementById(id)) return;
-    js = d.createElement(s); js.id = id;
-    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
-    fjs.parentNode.insertBefore(js, fjs);
-}(document, 'script', 'facebook-jssdk'));</script>
-<div class="fb-comments" data-width="100%" data-href="http://yoursite.com/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/" data-num-posts="5"></div>
-
-    </div>
-</div>
 </div>
                 
 
@@ -1073,7 +941,7 @@
             <div class="level-start has-text-centered-mobile">
                 <a class="footer-logo is-block has-mb-6" href="/">
                 
-                    <img src="/images/Simplicity-design-logo.jpg" alt="A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres" height="28">
+                    <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
                 
                 </a>
                 <p class="is-size-7">
