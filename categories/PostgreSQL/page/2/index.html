@@ -141,6 +141,67 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-mongo-blog-banner-canva.jpg" alt="Logical Replication Between PostgreSQL and MongoDB">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-03-12T18:17:22.000Z">2020-03-12</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    16 minutes read (About 2389 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/">Logical Replication Between PostgreSQL and MongoDB</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL and MongoDB are two popular open source relational (SQL) and non-relational (NoSQL) databases available today. Both are maintained by groups of very experienced development teams globally and are widely used in many popular industries for adminitration and analytical purposes. MongoDB is a NoSQL Document-oriented Database which stores the data in form of key-value pairs expressed in JSON or BSON; it provides high performance and scalability along with data modelling and data management of huge sets of data in an enterprise application. PostgreSQL is a SQL database designed to handle a range of workloads in many applications supporting many concurrent users; it is a feature-rich database with high extensibility, which allows users to create custom plugins, extensions, data types, common table expressions to expand existing features </p>
+<p>I have recently been involved in the development of a MongoDB Decoder Plugin for PostgreSQL, which can be paired with a logical replication slot to publish WAL changes to a subscriber in a format that MongoDB can understand. Basically, we would like to enable logical replication between MongoDB (as subscriber) and PostgreSQL (as publisher) in an automatic fashion. Since both databases are very different in nature, physical replication of WAL files is not applicable in this case. The logical replication supported by PostgreSQL is a method of replicating data objects changes based on replication identity (usually a primary key) and it would be the ideal choice for this purpose as it is designed to allow sharing the object changes between PostgreSQL and multiple other databases. The MongoDB Decoder Plugin will play a very important role as it is directly responsible for producing a series of WAL changes in a format that MongoDB can understand (ie. Javascript and JSON).</p>
+<p>In this blog, I would like to share some of my initial research and design approach towards the development of MongoDB Decoder Plugin.</p>
+        </div>
+        
+        
+        <div class="level is-mobile">
+            <div class="level-start">
+                <div class="level-item">
+                <a class="button is-size-7 is-light" href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/#more">Read More</a>
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/" class="image is-7by1">
             <img class="thumbnail" src="/images/view8.jpg" alt="Understanding Security Features in PostgreSQL - Part 3">
         </a>
@@ -696,7 +757,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            20
+                            21
                         </p>
                     </a>
                 </div>
@@ -720,7 +781,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            34
+                            38
                         </p>
                     </a>
                 </div>
@@ -847,7 +908,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">18</span>
+                <span class="level-item tag">19</span>
             </span>
         </a></li>
             </ul>
@@ -860,7 +921,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 12.5px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 12.5px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -869,6 +930,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/banner-2021-03-03.png" alt="How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-03-03T20:17:11.000Z">2021-03-03</time></div>
+                    <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -946,25 +1026,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/pg-mem-table-cover.png" alt="In-Memory Table with Pluggable Storage API">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-09-23T21:02:38.000Z">2020-09-23</time></div>
-                    <a href="/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/" class="title has-link-black-ter is-size-6 has-text-weight-normal">In-Memory Table with Pluggable Storage API</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -975,6 +1036,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2021/02/">
@@ -1293,7 +1365,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">5</span>
+                        <span class="tag is-grey">6</span>
                     </a>
                 </div>
                 
@@ -1319,6 +1391,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/savepoint/">
+                        <span class="tag">savepoint</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/security/">
                         <span class="tag">security</span>
                         <span class="tag is-grey">4</span>
@@ -1335,6 +1414,20 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/snmp/">
                         <span class="tag">snmp</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/streaming-replication/">
+                        <span class="tag">streaming replication</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/subtransaction/">
+                        <span class="tag">subtransaction</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
@@ -1370,6 +1463,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/trigger/">
                         <span class="tag">trigger</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility/">
+                        <span class="tag">visibility</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>

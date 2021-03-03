@@ -140,6 +140,82 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="image is-7by1">
+            <img class="thumbnail" src="/images/banner-2021-03-03.png" alt="How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-03-03T20:17:11.000Z">2021-03-03</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    12 minutes read (About 1846 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/">How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>As an experienced PostgreSQL user, you may have a lot of experience in setting up streaming replication in your database clusters to make multiple backups of your data. But have you wondered how the standby is able to correctly determine if a tuple sent from the primary should be visible to the user or not. In the case where a transaction contains multiple subtransactions, how does the standby determine the visibility in this case? You might say… well it is PostgreSQL so it will just work… This is true. If you are someone who is curious and interested in knowing how PostgreSQL does certain things internally, then this blog may be interesting for you as we will talk about normally transaction and subtransactions and how both affect the standby’s ability to determine tuple visibility.</p>
+<h3 id="2-How-is-Tuple-Visibility-Determined"><a href="#2-How-is-Tuple-Visibility-Determined" class="headerlink" title="2. How is Tuple Visibility Determined?"></a>2. How is Tuple Visibility Determined?</h3><p>PostgreSQL determines a tuple’s visibility based on the concept of transaction ID (a.k.a <code>txid</code>) and it is normally stored in a tuple’s header as either <code>xmin</code> or <code>xmax</code> where <code>xmin</code> holds the <code>txid</code> of the transaction that inserted this tuple and <code>t_xmax</code> holds the <code>txid</code> of the transaction that deleted or updated this tuple. If a tuple has not been deleted, its <code>t_xmax</code> is 0. There is also another mechanism called commit log (a.k.a <code>clog</code>) where it has information of currently active transaction IDs. When an inserted tuple has a valid <code>t_xmin</code> and invalid <code>t_xmax</code>, PostgreSQL will have to consult the <code>clog</code> first to determine if the <code>txid</code> stored in <code>t_xmin</code> is visible or not, then the result will be stored in the tuple’s <code>hint_bit</code> field about the visibility information such that it does not always have to consult the <code>clog</code> which could be resource intensive. If a tuple has a valid <code>t_xmax</code>, then there is no need to consult the <code>clog</code> as the tuple must be invisible. </p>
+<p>This is just the basic ideas of how visibility is determined but it is enough for me to continue with this blog. For more information about visibility, you could refer to this <a href="http://www.interdb.jp/pg/pgsql05.html#_5.7.">resource</a></p>
+<h3 id="3-What-is-a-Subtransaction"><a href="#3-What-is-a-Subtransaction" class="headerlink" title="3. What is a Subtransaction?"></a>3. What is a Subtransaction?</h3><p>As the name suggests, it is a smaller transaction that exists within a regular transaction and it can be created using the <code>SAVEPOINT</code> keyword after your <code>BEGIN</code> statement. Normally, when you have issued a <code>BEGIN</code> statement, all the tuples created from the subsequent DML statements such as <code>INSERT</code> or <code>UPDATE</code> will have a <code>txid</code> associated with these tuples and they will all be the same. </p>
+<p>When you issue a <code>SAVEPOINT</code> statement within this transaction, all the tuples created from the subsequent DML statements will have a different <code>txid</code> that is normally larger than the main transaction’s <code>txid</code>. When you issue the <code>SAVEPOINT</code> statement again, the <code>txid</code> changes again. </p>
+<p>The advantage of Subtransaction is that in a very large transaction, the entire transaction will not be aborted due to an error. It allows you to rollback to the previously created <code>SAVEPOINT</code> and continue to execute the main transaction. </p>
+<p>The biggest difference between a subtransaction and a regular transaction is that there is not a concept of <code>commit</code> associated with subtransactions and it will not be recorded in the WAL file. However, if subtransaction is aborted, it will be recorded in the WAL file and subsequently be sent to the standby.</p>
+<h3 id="4-How-Does-a-Standby-Determines-Visibility-Information-In-a-Regular-Transaction"><a href="#4-How-Does-a-Standby-Determines-Visibility-Information-In-a-Regular-Transaction" class="headerlink" title="4. How Does a Standby Determines Visibility Information In a Regular Transaction?"></a>4. How Does a Standby Determines Visibility Information In a Regular Transaction?</h3><p>Here’s an example of a regular transaction without any subtransactions:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">BEGIN;</span><br><span class="line">INSERT INTO test VALUES(111,111111);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,222222);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,333333);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">COMMIT;   &#x3D;&gt; a XLOG_XACT_COMMIT WAL record having t_xmin &#x3D; 500 is sent to standby</span><br></pre></td></tr></table></figure>
+
+<p>In a general case, the above queries will send at least 4 WAL records to the standby during streaming replication. First 3 contain the actual tuple information with <code>t_xmin</code> set to the current transaction ID which is 500 in the example. In other words, before the <code>COMMIT</code> is issued, the standby should have already received 3 WAL records from primary and completed the redo, meaning that the 3 tuples already exist in standby’s memory buffer. However, they are not visible yet because transaction ID 500 does not exist in the standby. It is until the <code>COMMIT</code> is issued in the primary that will subsequently generate a <code>XLOG_XACT_COMMIT</code> WAL record to be sent to standby to notify that transaction ID 500 is now committed and valid. When standby receives the <code>XLOG_XACT_COMMIT</code> WAL record, it will eventually update to its <code>clog</code> so the subsequent <code>SELECT</code> queries can do visibility check against. </p>
+<h3 id="5-How-Does-a-Standby-Process-Visibility-Information-In-a-Regular-Transaction-Containing-Subtransactions"><a href="#5-How-Does-a-Standby-Process-Visibility-Information-In-a-Regular-Transaction-Containing-Subtransactions" class="headerlink" title="5. How Does a Standby Process Visibility Information In a Regular Transaction Containing Subtransactions?"></a>5. How Does a Standby Process Visibility Information In a Regular Transaction Containing Subtransactions?</h3><p>Now, let’s use the same example but add some <code>SAVEPOINT</code> to create subtransactions</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">BEGIN;</span><br><span class="line">INSERT INTO test VALUES(111,111111);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,222222);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,333333);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">SAVEPOINT A;</span><br><span class="line">INSERT INTO test VALUES(111,444444);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,555555);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,666666);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby</span><br><span class="line">SAVEPOINT B;</span><br><span class="line">INSERT INTO test VALUES(111,777777);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,888888);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,999999);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby</span><br><span class="line">COMMIT;   &#x3D;&gt; a XLOG_XACT_COMMIT WAL record having t_xmin &#x3D; 500 is sent to standby</span><br></pre></td></tr></table></figure>
+
+<p>As you can see, after the creation of <code>SAVEPOINT</code>, the tuple’s <code>t_xmin</code> value will be changed and is no longer equal to the current transaction ID, which is 500 in the example. Before the <code>COMMIT</code> is issued, the standby should have received 9 WAL records, 3 having <code>t_xmin</code> = 500, 3 having <code>t_xmin</code> = 501 and 3 having <code>t_xmin</code> = 502. None of them is visible yet in the standby because these transaction IDs do not exist yet. When the primary issues the <code>COMMIT</code> statement, it will generate a <code>XLOG_XACT_COMMIT</code> WAL record and send to standby containing only the current transaction ID 500 without the 501 and 502. </p>
+<p>After the commit, the standby is able to see all 9 tuples that are replicated from the primary. Now, you may be asking…. why? How come the standby knows that <code>txid</code> = 501 and 502 are also visible even though the primary never send a <code>XLOG_XACT_COMMIT</code> WAL record to tell the standby that 501 and 502 are also committed. Keep reading to find out.</p>
+<p>Using the similar example, if we rollback to one of the SAVEPOINTs, the primary will send a XLOG_XACT_ABORT WAL record to notify the standby a transaction ID has become invalid.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">BEGIN;</span><br><span class="line">INSERT INTO test VALUES(111,111111);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,222222);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,333333);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby</span><br><span class="line">SAVEPOINT A;</span><br><span class="line">INSERT INTO test VALUES(111,444444);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,555555);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,666666);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby</span><br><span class="line">SAVEPOINT B;</span><br><span class="line">INSERT INTO test VALUES(111,777777);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,888888);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby</span><br><span class="line">INSERT INTO test VALUES(111,999999);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby</span><br><span class="line">ROLLBACK TO SAVEPOINT B;  &#x3D;&gt; a XLOG_XACT_ABORT WAL record having t_xmin &#x3D; 502 is sent to standby</span><br><span class="line">COMMIT;   &#x3D;&gt; a XLOG_XACT_COMMIT WAL record having t_xmin &#x3D; 500 is sent to standby</span><br></pre></td></tr></table></figure>
+
+<p>In this example, when doing a <code>ROLLBACK</code> to <code>SAVEPOINT</code> B, a XLOG_XACT_ABORT WAL record will be sent to the standby to invalidate that the transaction ID 502 is invalid. So when primary commits, records having <code>txid</code>=502 will not be visible as primary has notified.</p>
+<h3 id="6-The-Secret-of-Standby’s-KnownAssignedTransactionIds"><a href="#6-The-Secret-of-Standby’s-KnownAssignedTransactionIds" class="headerlink" title="6. The Secret of Standby’s KnownAssignedTransactionIds"></a>6. The Secret of Standby’s KnownAssignedTransactionIds</h3><p>In addition to handling the XLOG_XACT_COMMIT and XLOG_XACT_ABORT WAL records to determine if a <code>txid</code> is valid or not, it actually manages a global <code>txid</code> list called <code>KnownAssignedTransactionIds</code>. Whenever a standby receives a heap_redo WAL record, it will save its <code>xmin</code> to <code>KnownAssignedTransactionIds</code>. Using the same example as above again here:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">BEGIN;</span><br><span class="line">INSERT INTO test VALUES(111,111111);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby, and standby puts 500 in KnownAssignedTransactionIds</span><br><span class="line">INSERT INTO test VALUES(111,222222);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby, and standby puts 500 in KnownAssignedTransactionIds</span><br><span class="line">INSERT INTO test VALUES(111,333333);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 500 is sent to standby, and standby puts 500 in KnownAssignedTransactionIds</span><br><span class="line">SAVEPOINT A;</span><br><span class="line">INSERT INTO test VALUES(111,444444);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby, and standby puts 501 in KnownAssignedTransactionIds</span><br><span class="line">INSERT INTO test VALUES(111,555555);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby, and standby puts 501 in KnownAssignedTransactionIds</span><br><span class="line">INSERT INTO test VALUES(111,666666);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 501 is sent to standby, and standby puts 501 in KnownAssignedTransactionIds</span><br><span class="line">SAVEPOINT B;</span><br><span class="line">INSERT INTO test VALUES(111,777777);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby, and standby puts 502 in KnownAssignedTransactionIds</span><br><span class="line">INSERT INTO test VALUES(111,888888);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby, and standby puts 502 in KnownAssignedTransactionIds</span><br><span class="line">INSERT INTO test VALUES(111,999999);    &#x3D;&gt; a heap_redo WAL record having t_xmin &#x3D; 502 is sent to standby, and standby puts 502 in KnownAssignedTransactionIds</span><br><span class="line">COMMIT;   &#x3D;&gt; a XLOG_XACT_COMMIT WAL record having t_xmin &#x3D; 500 is sent to standby and standby submits 500, 501 and 502 to clog as valid.</span><br></pre></td></tr></table></figure>
+
+<p>Before the <code>COMMIT</code> is issued on the primary, the standby already has <code>txid</code> 500, 501, and 502 present in the <code>KnownAssignedTransactionIds</code>. When the standby receives <code>XLOG_XACT_COMMIT WAL</code>, it will actually submit <code>txid</code> 500 from the WAL plus the 501 and 502 from <code>KnownAssignedTransactionIds</code> to the <code>clog</code>. So that the subsequent <code>SELECT</code> query consult the <code>clog</code> it will say <code>txid</code> 500, 501, and 502 are visible. If the primary sends <code>XLOG_XACT_ABORT</code> as a result of rolling back to a previous <code>SAVEPOINT</code>, that invalid <code>txid</code> will be removed from the <code>KnownAssignedTransactionIds</code>, so when the transaction commits, the invalid <code>txid</code> will not be submit to <code>clog</code>.</p>
+<h3 id="7-Summary"><a href="#7-Summary" class="headerlink" title="7. Summary"></a>7. Summary</h3><p>So this is how PostgreSQL determines a tuple’s visibility within subtransactions in a streaming replication setup. Of course, there is more details to what is discussed here in this blog, but I hope today’s discussion can help you get a general understanding of how PostgreSQL determines the visibility and maybe it will help you in your current work on PostgreSQL.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2021/02/02/How-PostgreSQL-Inserts-A-New-Record-With-The-help-of-Table-Access-Method-API-and-Buffer-Manager/" class="image is-7by1">
             <img class="thumbnail" src="/images/tuple-insert-banner.png" alt="How PostgreSQL Inserts A New Record With The help of Table Access Method API and Buffer Manager">
         </a>
@@ -562,7 +638,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            20
+                            21
                         </p>
                     </a>
                 </div>
@@ -586,7 +662,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            34
+                            38
                         </p>
                     </a>
                 </div>
@@ -713,7 +789,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">18</span>
+                <span class="level-item tag">19</span>
             </span>
         </a></li>
             </ul>
@@ -726,7 +802,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 12.5px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 12.5px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -735,6 +811,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/banner-2021-03-03.png" alt="How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-03-03T20:17:11.000Z">2021-03-03</time></div>
+                    <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -812,25 +907,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/pg-mem-table-cover.png" alt="In-Memory Table with Pluggable Storage API">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-09-23T21:02:38.000Z">2020-09-23</time></div>
-                    <a href="/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/" class="title has-link-black-ter is-size-6 has-text-weight-normal">In-Memory Table with Pluggable Storage API</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -841,6 +917,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2021/02/">
@@ -1159,7 +1246,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">5</span>
+                        <span class="tag is-grey">6</span>
                     </a>
                 </div>
                 
@@ -1185,6 +1272,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/savepoint/">
+                        <span class="tag">savepoint</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/security/">
                         <span class="tag">security</span>
                         <span class="tag is-grey">4</span>
@@ -1201,6 +1295,20 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/snmp/">
                         <span class="tag">snmp</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/streaming-replication/">
+                        <span class="tag">streaming replication</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/subtransaction/">
+                        <span class="tag">subtransaction</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
@@ -1236,6 +1344,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/trigger/">
                         <span class="tag">trigger</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility/">
+                        <span class="tag">visibility</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
