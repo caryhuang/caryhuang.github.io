@@ -3,11 +3,11 @@
   <title>Cary&#39;s Blog</title>
   
   
-  <link href="http://yoursite.com/atom.xml" rel="self"/>
+  <link href="http://caryhuang.github.io/atom.xml" rel="self"/>
   
-  <link href="http://yoursite.com/"/>
+  <link href="http://caryhuang.github.io/"/>
   <updated>2021-03-03T23:03:10.945Z</updated>
-  <id>http://yoursite.com/</id>
+  <id>http://caryhuang.github.io/</id>
   
   <author>
     <name>Cary Huang</name>
@@ -18,8 +18,8 @@
   
   <entry>
     <title>How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?</title>
-    <link href="http://yoursite.com/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/"/>
-    <id>http://yoursite.com/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/</id>
+    <link href="http://caryhuang.github.io/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/"/>
+    <id>http://caryhuang.github.io/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/</id>
     <published>2021-03-03T20:17:11.000Z</published>
     <updated>2021-03-03T23:03:10.945Z</updated>
     
@@ -33,25 +33,25 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="postgresql" scheme="http://yoursite.com/tags/postgresql/"/>
+    <category term="postgresql" scheme="http://caryhuang.github.io/tags/postgresql/"/>
     
-    <category term="visibility" scheme="http://yoursite.com/tags/visibility/"/>
+    <category term="visibility" scheme="http://caryhuang.github.io/tags/visibility/"/>
     
-    <category term="streaming replication" scheme="http://yoursite.com/tags/streaming-replication/"/>
+    <category term="streaming replication" scheme="http://caryhuang.github.io/tags/streaming-replication/"/>
     
-    <category term="savepoint" scheme="http://yoursite.com/tags/savepoint/"/>
+    <category term="savepoint" scheme="http://caryhuang.github.io/tags/savepoint/"/>
     
-    <category term="subtransaction" scheme="http://yoursite.com/tags/subtransaction/"/>
+    <category term="subtransaction" scheme="http://caryhuang.github.io/tags/subtransaction/"/>
     
   </entry>
   
   <entry>
     <title>How PostgreSQL Inserts A New Record With The help of Table Access Method API and Buffer Manager</title>
-    <link href="http://yoursite.com/2021/02/02/How-PostgreSQL-Inserts-A-New-Record-With-The-help-of-Table-Access-Method-API-and-Buffer-Manager/"/>
-    <id>http://yoursite.com/2021/02/02/How-PostgreSQL-Inserts-A-New-Record-With-The-help-of-Table-Access-Method-API-and-Buffer-Manager/</id>
+    <link href="http://caryhuang.github.io/2021/02/02/How-PostgreSQL-Inserts-A-New-Record-With-The-help-of-Table-Access-Method-API-and-Buffer-Manager/"/>
+    <id>http://caryhuang.github.io/2021/02/02/How-PostgreSQL-Inserts-A-New-Record-With-The-help-of-Table-Access-Method-API-and-Buffer-Manager/</id>
     <published>2021-02-02T19:35:31.000Z</published>
     <updated>2021-02-03T20:31:38.277Z</updated>
     
@@ -65,23 +65,23 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="postgresql" scheme="http://yoursite.com/tags/postgresql/"/>
+    <category term="postgresql" scheme="http://caryhuang.github.io/tags/postgresql/"/>
     
-    <category term="pluggable storage" scheme="http://yoursite.com/tags/pluggable-storage/"/>
+    <category term="pluggable storage" scheme="http://caryhuang.github.io/tags/pluggable-storage/"/>
     
-    <category term="table access method" scheme="http://yoursite.com/tags/table-access-method/"/>
+    <category term="table access method" scheme="http://caryhuang.github.io/tags/table-access-method/"/>
     
-    <category term="buffer manager" scheme="http://yoursite.com/tags/buffer-manager/"/>
+    <category term="buffer manager" scheme="http://caryhuang.github.io/tags/buffer-manager/"/>
     
   </entry>
   
   <entry>
     <title>How PostgreSQL Executes Sequential Scans with the Help of Table Access Methods APIs</title>
-    <link href="http://yoursite.com/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Table-Access-Methods-APIs/"/>
-    <id>http://yoursite.com/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Table-Access-Methods-APIs/</id>
+    <link href="http://caryhuang.github.io/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Table-Access-Methods-APIs/"/>
+    <id>http://caryhuang.github.io/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Table-Access-Methods-APIs/</id>
     <published>2021-01-14T22:27:59.000Z</published>
     <updated>2021-01-15T20:02:11.745Z</updated>
     
@@ -95,21 +95,21 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="postgresql" scheme="http://yoursite.com/tags/postgresql/"/>
+    <category term="postgresql" scheme="http://caryhuang.github.io/tags/postgresql/"/>
     
-    <category term="pluggable storage" scheme="http://yoursite.com/tags/pluggable-storage/"/>
+    <category term="pluggable storage" scheme="http://caryhuang.github.io/tags/pluggable-storage/"/>
     
-    <category term="table access method" scheme="http://yoursite.com/tags/table-access-method/"/>
+    <category term="table access method" scheme="http://caryhuang.github.io/tags/table-access-method/"/>
     
   </entry>
   
   <entry>
     <title>2020 PG Asia Conference Ended Successfully at an Unprecedented Scale!</title>
-    <link href="http://yoursite.com/2020/11/27/2020%20PG%20Asia%20Conference%20Ended%20Successfully%20at%20an%20Unprecedented%20Scale!/"/>
-    <id>http://yoursite.com/2020/11/27/2020%20PG%20Asia%20Conference%20Ended%20Successfully%20at%20an%20Unprecedented%20Scale!/</id>
+    <link href="http://caryhuang.github.io/2020/11/27/2020%20PG%20Asia%20Conference%20Ended%20Successfully%20at%20an%20Unprecedented%20Scale!/"/>
+    <id>http://caryhuang.github.io/2020/11/27/2020%20PG%20Asia%20Conference%20Ended%20Successfully%20at%20an%20Unprecedented%20Scale!/</id>
     <published>2020-11-27T19:21:47.000Z</published>
     <updated>2020-12-02T21:16:39.319Z</updated>
     
@@ -124,14 +124,14 @@
     
     
     
-    <category term="postgres" scheme="http://yoursite.com/tags/postgres/"/>
+    <category term="postgres" scheme="http://caryhuang.github.io/tags/postgres/"/>
     
   </entry>
   
   <entry>
     <title>How to Analyze a PostgreSQL Crash Dump File</title>
-    <link href="http://yoursite.com/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/"/>
-    <id>http://yoursite.com/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/</id>
+    <link href="http://caryhuang.github.io/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/"/>
+    <id>http://caryhuang.github.io/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/</id>
     <published>2020-11-06T18:03:42.000Z</published>
     <updated>2020-11-06T23:31:38.114Z</updated>
     
@@ -145,19 +145,19 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="gdb" scheme="http://yoursite.com/tags/gdb/"/>
+    <category term="gdb" scheme="http://caryhuang.github.io/tags/gdb/"/>
     
-    <category term="postgresql" scheme="http://yoursite.com/tags/postgresql/"/>
+    <category term="postgresql" scheme="http://caryhuang.github.io/tags/postgresql/"/>
     
   </entry>
   
   <entry>
     <title>In-Memory Table with Pluggable Storage API</title>
-    <link href="http://yoursite.com/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/"/>
-    <id>http://yoursite.com/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/</id>
+    <link href="http://caryhuang.github.io/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/"/>
+    <id>http://caryhuang.github.io/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/</id>
     <published>2020-09-23T21:02:38.000Z</published>
     <updated>2020-09-25T21:02:58.453Z</updated>
     
@@ -171,21 +171,21 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="postgresql" scheme="http://yoursite.com/tags/postgresql/"/>
+    <category term="postgresql" scheme="http://caryhuang.github.io/tags/postgresql/"/>
     
-    <category term="in-memory" scheme="http://yoursite.com/tags/in-memory/"/>
+    <category term="in-memory" scheme="http://caryhuang.github.io/tags/in-memory/"/>
     
-    <category term="pluggable storage" scheme="http://yoursite.com/tags/pluggable-storage/"/>
+    <category term="pluggable storage" scheme="http://caryhuang.github.io/tags/pluggable-storage/"/>
     
   </entry>
   
   <entry>
     <title>TLS Related Updates in PostgreSQL 13</title>
-    <link href="http://yoursite.com/2020/08/21/TLS-Related-Updates-in-PostgreSQL-13/"/>
-    <id>http://yoursite.com/2020/08/21/TLS-Related-Updates-in-PostgreSQL-13/</id>
+    <link href="http://caryhuang.github.io/2020/08/21/TLS-Related-Updates-in-PostgreSQL-13/"/>
+    <id>http://caryhuang.github.io/2020/08/21/TLS-Related-Updates-in-PostgreSQL-13/</id>
     <published>2020-08-21T18:30:21.000Z</published>
     <updated>2020-08-21T23:06:48.813Z</updated>
     
@@ -199,21 +199,21 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="postgresql" scheme="http://yoursite.com/tags/postgresql/"/>
+    <category term="postgresql" scheme="http://caryhuang.github.io/tags/postgresql/"/>
     
-    <category term="tls" scheme="http://yoursite.com/tags/tls/"/>
+    <category term="tls" scheme="http://caryhuang.github.io/tags/tls/"/>
     
-    <category term="pg13" scheme="http://yoursite.com/tags/pg13/"/>
+    <category term="pg13" scheme="http://caryhuang.github.io/tags/pg13/"/>
     
   </entry>
   
   <entry>
     <title>Approaches to Achieve in-memory table storage with PostgreSQL pluggable API</title>
-    <link href="http://yoursite.com/2020/07/23/Approaches-to-Achieve-in-memory-table-storage-with-PostgreSQL-pluggable-API/"/>
-    <id>http://yoursite.com/2020/07/23/Approaches-to-Achieve-in-memory-table-storage-with-PostgreSQL-pluggable-API/</id>
+    <link href="http://caryhuang.github.io/2020/07/23/Approaches-to-Achieve-in-memory-table-storage-with-PostgreSQL-pluggable-API/"/>
+    <id>http://caryhuang.github.io/2020/07/23/Approaches-to-Achieve-in-memory-table-storage-with-PostgreSQL-pluggable-API/</id>
     <published>2020-07-23T20:06:49.000Z</published>
     <updated>2020-07-24T21:53:51.956Z</updated>
     
@@ -227,19 +227,19 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="pluggable api" scheme="http://yoursite.com/tags/pluggable-api/"/>
+    <category term="pluggable api" scheme="http://caryhuang.github.io/tags/pluggable-api/"/>
     
-    <category term="in-memory table" scheme="http://yoursite.com/tags/in-memory-table/"/>
+    <category term="in-memory table" scheme="http://caryhuang.github.io/tags/in-memory-table/"/>
     
   </entry>
   
   <entry>
     <title>An Overview of PostgreSQL Backend Architecture</title>
-    <link href="http://yoursite.com/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/"/>
-    <id>http://yoursite.com/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/</id>
+    <link href="http://caryhuang.github.io/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/"/>
+    <id>http://caryhuang.github.io/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/</id>
     <published>2020-06-15T18:06:09.000Z</published>
     <updated>2020-06-16T20:08:07.916Z</updated>
     
@@ -251,21 +251,21 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="postmaster" scheme="http://yoursite.com/tags/postmaster/"/>
+    <category term="postmaster" scheme="http://caryhuang.github.io/tags/postmaster/"/>
     
-    <category term="backend" scheme="http://yoursite.com/tags/backend/"/>
+    <category term="backend" scheme="http://caryhuang.github.io/tags/backend/"/>
     
-    <category term="architecture" scheme="http://yoursite.com/tags/architecture/"/>
+    <category term="architecture" scheme="http://caryhuang.github.io/tags/architecture/"/>
     
   </entry>
   
   <entry>
     <title>Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL</title>
-    <link href="http://yoursite.com/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/"/>
-    <id>http://yoursite.com/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/</id>
+    <link href="http://caryhuang.github.io/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/"/>
+    <id>http://caryhuang.github.io/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/</id>
     <published>2020-05-14T20:18:25.000Z</published>
     <updated>2020-05-15T20:52:22.806Z</updated>
     
@@ -277,23 +277,23 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="security" scheme="http://yoursite.com/tags/security/"/>
+    <category term="security" scheme="http://caryhuang.github.io/tags/security/"/>
     
-    <category term="key management system" scheme="http://yoursite.com/tags/key-management-system/"/>
+    <category term="key management system" scheme="http://caryhuang.github.io/tags/key-management-system/"/>
     
-    <category term="external key management system" scheme="http://yoursite.com/tags/external-key-management-system/"/>
+    <category term="external key management system" scheme="http://caryhuang.github.io/tags/external-key-management-system/"/>
     
-    <category term="tde" scheme="http://yoursite.com/tags/tde/"/>
+    <category term="tde" scheme="http://caryhuang.github.io/tags/tde/"/>
     
   </entry>
   
   <entry>
     <title>Can Sequence Relation be Logically Replicated?</title>
-    <link href="http://yoursite.com/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/"/>
-    <id>http://yoursite.com/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/</id>
+    <link href="http://caryhuang.github.io/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/"/>
+    <id>http://caryhuang.github.io/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/</id>
     <published>2020-04-22T17:56:57.000Z</published>
     <updated>2020-04-23T17:09:01.368Z</updated>
     
@@ -304,21 +304,21 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="logical replication" scheme="http://yoursite.com/tags/logical-replication/"/>
+    <category term="logical replication" scheme="http://caryhuang.github.io/tags/logical-replication/"/>
     
-    <category term="logical decoding" scheme="http://yoursite.com/tags/logical-decoding/"/>
+    <category term="logical decoding" scheme="http://caryhuang.github.io/tags/logical-decoding/"/>
     
-    <category term="sequence" scheme="http://yoursite.com/tags/sequence/"/>
+    <category term="sequence" scheme="http://caryhuang.github.io/tags/sequence/"/>
     
   </entry>
   
   <entry>
     <title>Logical Replication Between PostgreSQL and MongoDB</title>
-    <link href="http://yoursite.com/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/"/>
-    <id>http://yoursite.com/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/</id>
+    <link href="http://caryhuang.github.io/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/"/>
+    <id>http://caryhuang.github.io/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/</id>
     <published>2020-03-12T18:17:22.000Z</published>
     <updated>2020-03-24T18:11:21.323Z</updated>
     
@@ -331,21 +331,21 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="replication" scheme="http://yoursite.com/tags/replication/"/>
+    <category term="replication" scheme="http://caryhuang.github.io/tags/replication/"/>
     
-    <category term="mongodb" scheme="http://yoursite.com/tags/mongodb/"/>
+    <category term="mongodb" scheme="http://caryhuang.github.io/tags/mongodb/"/>
     
-    <category term="wal2mongo" scheme="http://yoursite.com/tags/wal2mongo/"/>
+    <category term="wal2mongo" scheme="http://caryhuang.github.io/tags/wal2mongo/"/>
     
   </entry>
   
   <entry>
     <title>Understanding Security Features in PostgreSQL - Part 3</title>
-    <link href="http://yoursite.com/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/"/>
-    <id>http://yoursite.com/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/</id>
+    <link href="http://caryhuang.github.io/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/"/>
+    <id>http://caryhuang.github.io/2020/01/20/Understanding-Security-Features-in-PostgreSQL-Part3/</id>
     <published>2020-01-20T21:47:59.000Z</published>
     <updated>2020-10-19T19:26:36.454Z</updated>
     
@@ -356,19 +356,19 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="networking" scheme="http://yoursite.com/tags/networking/"/>
+    <category term="networking" scheme="http://caryhuang.github.io/tags/networking/"/>
     
-    <category term="security" scheme="http://yoursite.com/tags/security/"/>
+    <category term="security" scheme="http://caryhuang.github.io/tags/security/"/>
     
   </entry>
   
   <entry>
     <title>Understanding Security Features in PostgreSQL - Part 2</title>
-    <link href="http://yoursite.com/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/"/>
-    <id>http://yoursite.com/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/</id>
+    <link href="http://caryhuang.github.io/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/"/>
+    <id>http://caryhuang.github.io/2020/01/13/Understanding-Security-Features-in-PostgreSQL-Part2/</id>
     <published>2020-01-13T23:58:47.000Z</published>
     <updated>2020-06-16T20:07:10.578Z</updated>
     
@@ -380,19 +380,19 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="networking" scheme="http://yoursite.com/tags/networking/"/>
+    <category term="networking" scheme="http://caryhuang.github.io/tags/networking/"/>
     
-    <category term="security" scheme="http://yoursite.com/tags/security/"/>
+    <category term="security" scheme="http://caryhuang.github.io/tags/security/"/>
     
   </entry>
   
   <entry>
     <title>Understanding Security Features in PostgreSQL - Part 1</title>
-    <link href="http://yoursite.com/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/"/>
-    <id>http://yoursite.com/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/</id>
+    <link href="http://caryhuang.github.io/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/"/>
+    <id>http://caryhuang.github.io/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/</id>
     <published>2020-01-10T22:02:06.000Z</published>
     <updated>2020-06-16T20:07:10.584Z</updated>
     
@@ -406,19 +406,19 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="networking" scheme="http://yoursite.com/tags/networking/"/>
+    <category term="networking" scheme="http://caryhuang.github.io/tags/networking/"/>
     
-    <category term="security" scheme="http://yoursite.com/tags/security/"/>
+    <category term="security" scheme="http://caryhuang.github.io/tags/security/"/>
     
   </entry>
   
   <entry>
     <title>Steaming-Replication-Setup-in-PG12-How-to-do-it-right</title>
-    <link href="http://yoursite.com/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/"/>
-    <id>http://yoursite.com/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/</id>
+    <link href="http://caryhuang.github.io/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/"/>
+    <id>http://caryhuang.github.io/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/</id>
     <published>2019-10-30T06:36:39.000Z</published>
     <updated>2020-01-13T23:39:22.000Z</updated>
     
@@ -431,17 +431,17 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="replication" scheme="http://yoursite.com/tags/replication/"/>
+    <category term="replication" scheme="http://caryhuang.github.io/tags/replication/"/>
     
   </entry>
   
   <entry>
     <title>Replication-Failover-with-pg_rewind-in-PG12</title>
-    <link href="http://yoursite.com/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/"/>
-    <id>http://yoursite.com/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/</id>
+    <link href="http://caryhuang.github.io/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/"/>
+    <id>http://caryhuang.github.io/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/</id>
     <published>2019-09-28T06:36:52.000Z</published>
     <updated>2020-01-13T23:39:42.000Z</updated>
     
@@ -463,21 +463,21 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="replication" scheme="http://yoursite.com/tags/replication/"/>
+    <category term="replication" scheme="http://caryhuang.github.io/tags/replication/"/>
     
-    <category term="pg_rewind" scheme="http://yoursite.com/tags/pg-rewind/"/>
+    <category term="pg_rewind" scheme="http://caryhuang.github.io/tags/pg-rewind/"/>
     
-    <category term="failover" scheme="http://yoursite.com/tags/failover/"/>
+    <category term="failover" scheme="http://caryhuang.github.io/tags/failover/"/>
     
   </entry>
   
   <entry>
     <title>Trace-Postgres-query-processing-internals-with-debugger</title>
-    <link href="http://yoursite.com/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/"/>
-    <id>http://yoursite.com/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/</id>
+    <link href="http://caryhuang.github.io/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/"/>
+    <id>http://caryhuang.github.io/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/</id>
     <published>2019-09-28T06:36:24.000Z</published>
     <updated>2020-01-13T23:39:56.000Z</updated>
     
@@ -489,21 +489,21 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="gdb" scheme="http://yoursite.com/tags/gdb/"/>
+    <category term="gdb" scheme="http://caryhuang.github.io/tags/gdb/"/>
     
-    <category term="trace" scheme="http://yoursite.com/tags/trace/"/>
+    <category term="trace" scheme="http://caryhuang.github.io/tags/trace/"/>
     
-    <category term="query processing" scheme="http://yoursite.com/tags/query-processing/"/>
+    <category term="query processing" scheme="http://caryhuang.github.io/tags/query-processing/"/>
     
   </entry>
   
   <entry>
     <title>A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres</title>
-    <link href="http://yoursite.com/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/"/>
-    <id>http://yoursite.com/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/</id>
+    <link href="http://caryhuang.github.io/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/"/>
+    <id>http://caryhuang.github.io/2019/09/25/A-Guide-to-Create-User-Defined-Extension-Modules-to-Postgres/</id>
     <published>2019-09-26T06:36:03.000Z</published>
     <updated>2020-01-13T23:40:00.000Z</updated>
     
@@ -517,17 +517,17 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="extension" scheme="http://yoursite.com/tags/extension/"/>
+    <category term="extension" scheme="http://caryhuang.github.io/tags/extension/"/>
     
   </entry>
   
   <entry>
     <title>A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function</title>
-    <link href="http://yoursite.com/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/"/>
-    <id>http://yoursite.com/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/</id>
+    <link href="http://caryhuang.github.io/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/"/>
+    <id>http://caryhuang.github.io/2019/09/25/A-Guide-to-Basic-Postgres-Partition-Table-and-Trigger-Function/</id>
     <published>2019-09-26T05:32:25.000Z</published>
     <updated>2020-01-13T23:40:06.000Z</updated>
     
@@ -540,12 +540,12 @@
     
     
     
-    <category term="PostgreSQL" scheme="http://yoursite.com/categories/PostgreSQL/"/>
+    <category term="PostgreSQL" scheme="http://caryhuang.github.io/categories/PostgreSQL/"/>
     
     
-    <category term="partition" scheme="http://yoursite.com/tags/partition/"/>
+    <category term="partition" scheme="http://caryhuang.github.io/tags/partition/"/>
     
-    <category term="trigger" scheme="http://yoursite.com/tags/trigger/"/>
+    <category term="trigger" scheme="http://caryhuang.github.io/tags/trigger/"/>
     
   </entry>
   
