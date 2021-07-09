@@ -141,6 +141,98 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="image is-7by1">
+            <img class="thumbnail" src="/images/gdb-debug-banner.png" alt="Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-07-09T18:41:55.000Z">2021-07-09</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    9 minutes read (About 1372 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/">Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>I am working on a new PostgreSQL feature that redefines the way a tuple’s visibility status is determined. The feature is working very nicely until I start doing a large SELECT query, which triggers PostgreSQL to spawn multiple parallel workers to process the request. When this happens, the feature I am working on start to yield incorrect results. A good portion of the data tuples returned are missing because they are considered as invisible, while some portion of it remains visible. It immediately came to my attention that the new feature I am working on does not work in parallel worker mode and somehow I need to find a way to debug into a spawned parallel worker to examine how it is computing the visibility and what is missing inside.</p>
+<p>In this blog, I would like to share with you how I use GDB to debug and trace into a new parallel worker spawned by Postmaster in order to fix the visibility issue.</p>
+<h3 id="2-GDB-Basics"><a href="#2-GDB-Basics" class="headerlink" title="2. GDB Basics"></a>2. GDB Basics</h3><p>I wrote another blog previously that shows how to use GDB to trace and debug a PostgreSQL issues and share some of the most common commands that I use every day to resolve software issues. If you are new to GDB, I suggest giving this blog a read <a href="https://www.highgo.ca/2020/11/07/how-to-analyze-a-postgresql-crash-dump-file/">here</a></p>
+<h3 id="3-How-and-When-does-PG-Spawn-A-New-Parallel-Worker"><a href="#3-How-and-When-does-PG-Spawn-A-New-Parallel-Worker" class="headerlink" title="3. How and When does PG Spawn A New Parallel Worker"></a>3. How and When does PG Spawn A New Parallel Worker</h3><p>When you use <code>psql</code> to connect to a PostgreSQL database, it will spawn a new backend worker process to serve this connecting client. Most of the queries you provide will be processed by this backend process, includes SELECT, UPDATE, INSERT…etc. By default, if your SELECT query will require doing a sequential scan over 8MB of data, it will try to use a parallel worker to help speed up the processing. This 8MB threshold can be configured by the <code>min_parallel_table_scan_size</code> parameter in <code>postgresql.conf</code> . There is another configuration parameter <code>max_parallel_workers</code> that controls the maximum number of parallel workers is allowed to be spawned. The default is 8. </p>
+<p>Technically, I can avoid my visibility issues simply by either setting <code>min_parallel_table_scan_size</code> to a huge number, or setting <code>max_parallel_workers</code> to 0. But this is really not my style, I would like to keep all these goodies that PG provides while being able to solve the problem. </p>
+<p>To spawn a parallel worker, the psql backend will initialize a parallel worker context in the global process table and a message queue based on shared memory for communication with the backend. Then it sends a signal to postmaster to notify that the global process table has been updated. </p>
+<p>When postmaster receives the signal, it will load the global process table and found that it needs to spawn a new parallel worker. It will proceed to <code>fork</code> a new parallel worker according to the context information supplied. This information determines the entry point for the parallel worker and what to do once spawned. During processing, the parallel worker and the psql backend use the message queue to communicate tuples back and forth and finally the psql backend will gather together all the data tuples and produce a final result back to the user.</p>
+<h3 id="4-Can-We-Use-GDB-to-attach-This-Parallel-Worker’s-PID-When-Spawned"><a href="#4-Can-We-Use-GDB-to-attach-This-Parallel-Worker’s-PID-When-Spawned" class="headerlink" title="4. Can We Use GDB to attach This Parallel Worker’s PID When Spawned?"></a>4. Can We Use GDB to attach This Parallel Worker’s PID When Spawned?</h3><p>Technically yes, but the life time of this parallel worker may be very short, by the time you see its PID from the <code>ps -ef</code> command, the worker may have already done its job and exited. This means, it is too late for me to start GDB and attach to its PID. </p>
+<p>Instead, the technique I am going to show you today will trace the parallel worker from the moment it starts. </p>
+<h3 id="5-Tracing-the-Parallel-Worker"><a href="#5-Tracing-the-Parallel-Worker" class="headerlink" title="5. Tracing the Parallel Worker"></a>5. Tracing the Parallel Worker</h3><p>I will be using this instance of PostgreSQL server (version 12.5) as an example where PID 11976 is the psql backend process serving the psql client. </p>
+<p><img src="/images/mypids.png" alt="img"></p>
+<h4 id="Pre-Condition"><a href="#Pre-Condition" class="headerlink" title="Pre-Condition:"></a>Pre-Condition:</h4><p>Connect psql to the PostgreSQL server, create an example table and inserted about 2.5M rows of data. This will for sure trigger parallel workers.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ psql -d postgres -U postgres -p 6660</span><br><span class="line">psql (12.5)</span><br><span class="line">Type &quot;help&quot; for help.</span><br><span class="line"></span><br><span class="line">postgres&#x3D;# create table test(a int, b int);</span><br><span class="line">CREATE TABLE</span><br><span class="line">postgres&#x3D;# insert into test values(generate_series(1,500000),1);</span><br><span class="line">INSERT 0 500000</span><br><span class="line">postgres&#x3D;# insert into test values(generate_series(1,500000),1);</span><br><span class="line">INSERT 0 500000</span><br><span class="line">postgres&#x3D;# insert into test values(generate_series(1,500000),1);</span><br><span class="line">INSERT 0 500000</span><br><span class="line">postgres&#x3D;# insert into test values(generate_series(1,500000),1);</span><br><span class="line">INSERT 0 500000</span><br><span class="line">postgres&#x3D;# insert into test values(generate_series(1,500000),1);</span><br><span class="line">INSERT 0 500000</span><br><span class="line">postgres&#x3D;#</span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-1-Attach-GDB-to-the-psql-backend-having-PID-11976-and-Set-a-Break-Point"><a href="#Step-1-Attach-GDB-to-the-psql-backend-having-PID-11976-and-Set-a-Break-Point" class="headerlink" title="Step 1: Attach GDB to the psql backend having PID = 11976 and Set a Break Point"></a>Step 1: Attach GDB to the psql backend having PID = 11976 and Set a Break Point</h4><p>I am setting a break point at the function <code>RegisterDynamicBackgroundWorker</code>. This is called when parallel worker is required to complete the query. Setting a breakpoint allows us more control as to when to proceed with a parallel worker spawn. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb postgres</span><br><span class="line">(gdb) attach 11976</span><br><span class="line">(gdb) b RegisterDynamicBackgroundWorker</span><br></pre></td></tr></table></figure>
+
+
+<h4 id="Step-2-Attach-GDB-to-the-Postmaster-having-PID-11959-and-Set-2-Break-Points"><a href="#Step-2-Attach-GDB-to-the-Postmaster-having-PID-11959-and-Set-2-Break-Points" class="headerlink" title="Step 2: Attach GDB to the Postmaster having PID = 11959 and Set 2 Break Points"></a>Step 2: Attach GDB to the Postmaster having PID = 11959 and Set 2 Break Points</h4><p>We are using a second GDB to attach to the postmaster and set 2 break points there. <code>fork_process</code> is the function before postmaster actually spawns a new parallel worker using the system <code>fork()</code> call.  <code>ParallelWorkerMain</code> is the main function for the parallel worker after it has been spawned. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">gdb postgres</span><br><span class="line">(gdb) attach 11959</span><br><span class="line">(gdb) b fork_process</span><br><span class="line">(gdb) b ParallelWorkerMain</span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-3-Execute-a-Large-SELECT-Query-On-psql-To-Trigger-the-Break-Points"><a href="#Step-3-Execute-a-Large-SELECT-Query-On-psql-To-Trigger-the-Break-Points" class="headerlink" title="Step 3: Execute a Large SELECT Query On psql To Trigger the Break Points"></a>Step 3: Execute a Large SELECT Query On psql To Trigger the Break Points</h4><figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">postgres&#x3D;# select count(*) from test;</span><br></pre></td></tr></table></figure>
+
+<p>The <code>RegisterDynamicBackgroundWorker</code> break point will be hit on the first GDB session having attached PID = 11959</p>
+<p>Use the <code>continue</code> or <code>c</code> GDB command to continue to spawn the worker</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Breakpoint 1, RegisterDynamicBackgroundWorker (worker&#x3D;0x7ffd867f3c80, handle&#x3D;0x55a009b77388) at bgworker.c:1002</span><br><span class="line">1002            bool            success &#x3D; false;</span><br><span class="line">(gdb) c</span><br><span class="line">Continuing.</span><br></pre></td></tr></table></figure>
+
+<p>As you continue the first GDB session, the second GDB session will pause due to receipt of a <code>SIGUSR1</code> signal. This signal tells postmaster to reload the global process table and then spawn a parallel worker. Using the <code>continue</code> command will hit the first break point at <code>fork_process</code></p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Program received signal SIGUSR1, User defined signal 1.</span><br><span class="line">0x00007f301b97d0f7 in __GI___select (nfds&#x3D;5, readfds&#x3D;0x7ffd867f47d0, writefds&#x3D;0x0, exceptfds&#x3D;0x0, timeout&#x3D;0x7ffd867f4740)</span><br><span class="line">    at ..&#x2F;sysdeps&#x2F;unix&#x2F;sysv&#x2F;linux&#x2F;select.c:41</span><br><span class="line">41      in ..&#x2F;sysdeps&#x2F;unix&#x2F;sysv&#x2F;linux&#x2F;select.c</span><br><span class="line">(gdb) c</span><br><span class="line">Continuing.</span><br><span class="line"></span><br><span class="line">Breakpoint 1, fork_process () at fork_process.c:47</span><br><span class="line">47              fflush(stdout);</span><br><span class="line"></span><br><span class="line">(gdb)</span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-4-Tell-Postmaster-GDB-To-Follow-Child-Process-Instead-Of-Parent"><a href="#Step-4-Tell-Postmaster-GDB-To-Follow-Child-Process-Instead-Of-Parent" class="headerlink" title="Step 4: Tell Postmaster GDB To Follow Child Process Instead Of Parent"></a>Step 4: Tell Postmaster GDB To Follow Child Process Instead Of Parent</h4><p>At this point, the postmaster GDB is now waiting at the <code>fork_process</code> call, which is right before spawning a parallel worker. This is a good time now to tell GDB to follow the child process instead of staying at parent when the process calls <code>fork()</code>. The reason we want to set this late at this moment is because postmaster is occasionally  spawning other backend processes such as <code>walsender</code> and <code>walreceiver</code>. Setting to follow child process early may cause our GDB to follow to another backend process that we are not interested in.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">(gdb) set follow-fork-mode child</span><br></pre></td></tr></table></figure>
+
+<p>You may use the <code>continue</code> command after setting it to follow child. Then immediately the GDB will switch to the new child process having PID = 12198 below and hit our second break point <code>ParallelWorkerMain</code>. So, Now the GDB is debugging the parallel worker process instead of the original postmaster.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">(gdb) c</span><br><span class="line">Continuing.</span><br><span class="line">[New process 12198]</span><br><span class="line">[Thread debugging using libthread_db enabled]</span><br><span class="line">Using host libthread_db library &quot;&#x2F;lib&#x2F;x86_64-linux-gnu&#x2F;libthread_db.so.1&quot;.</span><br><span class="line">[Switching to Thread 0x7f301ca79740 (LWP 12198)]</span><br><span class="line"></span><br><span class="line">Thread 2.1 &quot;postgres&quot; hit Breakpoint 2, ParallelWorkerMain (main_arg&#x3D;1544458234) at parallel.c:1207</span><br><span class="line">1207    &#123;</span><br></pre></td></tr></table></figure>
+
+<h4 id="Step-5-Continue-To-Debug-The-Parallel-Process"><a href="#Step-5-Continue-To-Debug-The-Parallel-Process" class="headerlink" title="Step 5: Continue To Debug The Parallel Process"></a>Step 5: Continue To Debug The Parallel Process</h4><p>Using the <code>ps -ef | grep postgres</code> command, we can see a new parallel worker being spawned having PID = 12198</p>
+<p><img src="/images/mypids2.png" alt="img"></p>
+<p>At this point, you are free to explore the process flow of the parallel worker. For me, I am debugging the visibility issues, so I will set additional break points at <code>HeapTupleSatisfiesMVCC</code> and <code>TransactionIdIsCurrentTransactionId</code>. In your case, you may be debugging some other functionalities. </p>
+<p>Being able to debugging into a parallel worker with GDB allows me to see the problems I was having and being able to fix quickly.</p>
+<p>If you are having trouble tracing into a parallel workers spawned by PostgreSQL during run time, I hope this blog will be helpful to you.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/" class="image is-7by1">
             <img class="thumbnail" src="/images/gdb-core-debug-cover.png" alt="How to Analyze a PostgreSQL Crash Dump File">
         </a>
@@ -333,7 +425,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            21
+                            22
                         </p>
                     </a>
                 </div>
@@ -357,7 +449,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            38
+                            39
                         </p>
                     </a>
                 </div>
@@ -484,7 +576,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">19</span>
+                <span class="level-item tag">20</span>
             </span>
         </a></li>
             </ul>
@@ -497,7 +589,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 12.5px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 10px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -506,6 +598,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/gdb-debug-banner.png" alt="Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-07-09T18:41:55.000Z">2021-07-09</time></div>
+                    <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -583,25 +694,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/gdb-core-debug-cover.png" alt="How to Analyze a PostgreSQL Crash Dump File">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-11-06T18:03:42.000Z">2020-11-06</time></div>
-                    <a href="/2020/11/06/How-to-Analyze-a-PostgreSQL-Crash-Dump-File/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How to Analyze a PostgreSQL Crash Dump File</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -612,6 +704,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2021/03/">
@@ -836,7 +939,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/gdb/">
                         <span class="tag">gdb</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
@@ -897,6 +1000,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/parallel-worker/">
+                        <span class="tag">parallel worker</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/partition/">
                         <span class="tag">partition</span>
                         <span class="tag is-grey">1</span>
@@ -941,14 +1051,14 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">6</span>
+                        <span class="tag is-grey">7</span>
                     </a>
                 </div>
                 
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postmaster/">
                         <span class="tag">postmaster</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 
