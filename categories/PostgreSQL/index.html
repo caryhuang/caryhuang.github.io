@@ -142,6 +142,95 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-08-06T19:04:08.000Z">2021-08-06</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    4 minutes read (About 670 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/">Understanding the Security Around PostgreSQL</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-What-Is-Security"><a href="#1-What-Is-Security" class="headerlink" title="1. What Is Security?"></a>1. What Is Security?</h3><p>The word “Security” is a very broad concept and could refer to completely different procedures and methodology to achieve. Knowing what security means to your application is very important, so you could execute proper security practices and procedures to ensure the safety of your company’s assets. Data compromises could often lead to financial loss, reputation damage, consumer confidence disintegration, brand erosion, and non-compliance of government and industry regulation. </p>
+<p>For this reason, the security on infrastructure software such as PostgreSQL is even more important because any data compromises could have nation or city-wide impacts, which are often difficult to completely recover.</p>
+<h3 id="2-Common-Database-Compromises"><a href="#2-Common-Database-Compromises" class="headerlink" title="2. Common Database Compromises"></a>2. Common Database Compromises</h3><p>User Compromises:</p>
+<ul>
+<li>Excessive privileges</li>
+<li>Privilege abuse</li>
+<li>Weak user authentication</li>
+<li>Weak password</li>
+<li>Default privilege too open</li>
+</ul>
+<p>Data Compromises:</p>
+<ul>
+<li>Unmanaged and unprotected sensitive data</li>
+<li>Backup data exposure</li>
+<li>Stolen hard disks</li>
+<li>Unmanaged encryption keys</li>
+</ul>
+<p>Network Compromises:</p>
+<ul>
+<li>Firewall rules</li>
+<li>Deep Packet Inspection (DPS)</li>
+<li>Vulnerability prevention</li>
+<li>Denial of Service (DOS) attack</li>
+</ul>
+<p>Vulnerability:</p>
+<ul>
+<li>Software bug</li>
+<li>Buffer overflow</li>
+<li>SQL injection</li>
+<li>Privileged escalation</li>
+</ul>
+<h3 id="3-The-Big-Picture"><a href="#3-The-Big-Picture" class="headerlink" title="3. The Big Picture"></a>3. The Big Picture</h3><p><img src="/images/thebigpicture.png" alt="img"></p>
+<p>This picture shows different types of “security” around a PostgreSQL server and there are roughly 5 types of security concpets involved here:</p>
+<h4 id="3-1-Data-Security-Over-Network"><a href="#3-1-Data-Security-Over-Network" class="headerlink" title="3.1 Data Security (Over Network)"></a>3.1 Data Security (Over Network)</h4><p>This is the security in the communication between PostgreSQL client and server that we almost always want to use TLS to encrypt the data communication in a production envrionment. TLS guarentees the mutual trust between the client and the server so each side is sure that it is communicating with the right entity instead of a rogue server. SSH tunneling is also a common option to secure a psql connection when TLS is not fully set up. SSH tunneling is also very secure as each connection forces client and server to generate and agree on an encrpytion key that is valid only for that session. Furthermode, SSH tunneling can be made more secured by setting up the public and private key pair between client and server to ensure the authenticity of the two entities. </p>
+<h4 id="3-2-Data-Security"><a href="#3-2-Data-Security" class="headerlink" title="3.2 Data Security"></a>3.2 Data Security</h4><p>This is the security between PostgreSQL and the disk in which it writes data to. This security type is often refereed as a “Cluster Data Encryption” or “Transparent Data Encryption”. Current version of PostgreSQL does not support this feature but there is a handful of talented people working on this feature right now. This security is designed to prevent data compromises directly done on the hard disk. By encrypting the data on the disk, hard disk theft will not be able to extract useful information from the hard disk. </p>
+<h4 id="3-3-Network-Security"><a href="#3-3-Network-Security" class="headerlink" title="3.3 Network Security"></a>3.3 Network Security</h4><p>This is the security that most likely will involve a firewall in between a connecting client and a server. The purpose of a firewall is to block most of the malicious connections coming from the public network and prevent unauthorized access to the server. Most advanced firewalls such as an IPS can block DOS attacks and perform deep packet examination according to a database of known malicious packet and attacks. There are also firewalls such as an IDS that perform network monitoring only and will raise alert to the operator should it detects an attack attempt.</p>
+<h4 id="3-4-Vulnerability"><a href="#3-4-Vulnerability" class="headerlink" title="3.4 Vulnerability"></a>3.4 Vulnerability</h4><p>This is the security that is mostly caused by a software bug that allows an attacker to take advantage of the server, steal data, or simply out a stop to the server and cause damage. The best way to prevent this is upgrade your PostgreSQL server to the latest version that has addressed most of the known vulnerabilities.</p>
+<h4 id="3-5-User-Security"><a href="#3-5-User-Security" class="headerlink" title="3.5 User Security"></a>3.5 User Security</h4><p>This is the security that relates mostly to the user management, sometimes called a Role-Based Access Control (RBAC). This is where a database administrator is managing each database user and setting the right previleges for the right users. Excessive privileges, weak passwords and privilege abuses are very common if not done correctly. Make sure the right users get the right privileges and use a third party authentication servers such as LDAP or Kerberos instead of simple passwords can significantly increase the security ratings of your database infrastructure.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="image is-7by1">
             <img class="thumbnail" src="/images/gdb-debug-banner.png" alt="Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query">
         </a>
@@ -843,66 +932,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/" class="image is-7by1">
-            <img class="thumbnail" src="/images/kms.png" alt="Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2020-05-14T20:18:25.000Z">2020-05-14</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    9 minutes read (About 1295 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/">Benefits of External Key Management System Over the Internal and how these could help securing PostgreSQL</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Data and user security have always been important considerations for small to large enterprises during the deployment of their database or application servers. PostgreSQL today has rich support for many network level and user level security features. These include TLS to secure database connections, internal user authentication, integration with external user authentication services such as RADIUS, LDAP and GSSAPI, and TLS certificate based user authentication …etc. However, it does not yet support Transparent Data Encryption (TDE) feature where all the database files and logs have an option to be encrypted before written to disk or decrypted when retrieving from the disk. This adds extra security measure to protect against disk theft. </p>
-<p>All these features have something in common; they all use cryptographic keys (either symmetrical or asymmetrical, statically generated or exchanged on the fly using Diffie Hellman) in some ways to achieve the security goals. It is quite common for an organization to focus entirely on the actual data encryption part but pay minimal attention to the cryptographic keys that make the encryption possible. In fact, data encryption is the easy part, the protection of the cryptographic keys is often the hardest as it has several levels of complexities. </p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2020/05/14/Benefits-of-External-Key-Management-System-Over-the-Internal-and-how-these-could-help-securing-PostgreSQL/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -918,6 +947,8 @@
             <li><a class="pagination-link is-current" href="/categories/PostgreSQL/">1</a></li>
             
             <li><a class="pagination-link has-text-black-ter" href="/categories/PostgreSQL/page/2/">2</a></li>
+            
+            <li><a class="pagination-link has-text-black-ter" href="/categories/PostgreSQL/page/3/">3</a></li>
             
         </ul>
     </nav>
@@ -967,7 +998,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            22
+                            23
                         </p>
                     </a>
                 </div>
@@ -1118,7 +1149,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">20</span>
+                <span class="level-item tag">21</span>
             </span>
         </a></li>
             </ul>
@@ -1140,6 +1171,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-08-06T19:04:08.000Z">2021-08-06</time></div>
+                    <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding the Security Around PostgreSQL</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1217,25 +1267,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2020/11/27/2020%20PG%20Asia%20Conference%20Ended%20Successfully%20at%20an%20Unprecedented%20Scale!/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/pgconf2020banner.webp" alt="2020 PG Asia Conference Ended Successfully at an Unprecedented Scale!">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2020-11-27T19:21:47.000Z">2020-11-27</time></div>
-                    <a href="/2020/11/27/2020%20PG%20Asia%20Conference%20Ended%20Successfully%20at%20an%20Unprecedented%20Scale!/" class="title has-link-black-ter is-size-6 has-text-weight-normal">2020 PG Asia Conference Ended Successfully at an Unprecedented Scale!</a>
-                    <p class="is-size-7 is-uppercase">
-                        
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1246,6 +1277,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2021/07/">
@@ -1593,7 +1635,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">7</span>
+                        <span class="tag is-grey">8</span>
                     </a>
                 </div>
                 

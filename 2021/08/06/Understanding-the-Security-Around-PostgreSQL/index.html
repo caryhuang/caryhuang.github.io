@@ -7,18 +7,23 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>Archives: 2021 - Cary&#39;s Blog</title>
+<title>Understanding the Security Around PostgreSQL - Cary&#39;s Blog</title>
 
 
-    <meta property="og:type" content="website">
-<meta property="og:title" content="Cary&#39;s Blog">
-<meta property="og:url" content="http://caryhuang.github.io/archives/2021/index.html">
+    <meta name="description" content="1. What Is Security?The word “Security” is a very broad concept and could refer to completely different procedures and methodology to achieve. Knowing what security means to your application is very i">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Understanding the Security Around PostgreSQL">
+<meta property="og:url" content="http://caryhuang.github.io/2021/08/06/Understanding-the-Security-Around-PostgreSQL/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
+<meta property="og:description" content="1. What Is Security?The word “Security” is a very broad concept and could refer to completely different procedures and methodology to achieve. Knowing what security means to your application is very i">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="http://caryhuang.github.io/images/og_image.png">
+<meta property="og:image" content="http://caryhuang.github.io/images/pg-sec-banner.png">
+<meta property="article:published_time" content="2021-08-06T19:04:08.000Z">
+<meta property="article:modified_time" content="2021-08-06T21:42:59.883Z">
 <meta property="article:author" content="Cary Huang">
+<meta property="article:tag" content="postgresql">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:image" content="http://caryhuang.github.io/images/og_image.png">
+<meta name="twitter:image" content="http://caryhuang.github.io/images/pg-sec-banner.png">
 
 
 
@@ -77,7 +82,7 @@
         <div class="navbar-brand is-flex-center">
             <a class="navbar-item navbar-logo" href="/">
             
-                <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
+                <img src="/images/Simplicity-design-logo.jpg" alt="Understanding the Security Around PostgreSQL" height="28">
             
             </a>
         </div>
@@ -127,144 +132,130 @@
         <div class="container">
             <div class="columns">
                 <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
-
-<div class="card widget">
-    <div class="card-content">
-        <h3 class="tag is-link">
-        2021
-        </h3>
-        <div class="timeline">
+<div class="card">
+    
+    <div class="card-image">
+        <span  class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
+        </span>
+    </div>
+    
+    <div class="card-content article ">
         
-            <article class="media">
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-08-06T19:04:08.000Z">2021-08-06</time>
                 
-                <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="media-left">
-                    <p class="image is-64x64">
-                        <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
-                    </p>
-                </a>
-                
-                <div class="media-content">
-                    <div class="content">
-                        <time class="has-text-grey is-size-7 is-block is-uppercase" datetime="2021-08-06T19:04:08.000Z">2021-08-06</time>
-                        <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding the Security Around PostgreSQL</a>
-                        <div class="level article-meta is-mobile">
-                            <div class="level-left">
-                                
-                                <div class="level-item is-size-7 is-uppercase">
-                                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                                </div>
-                                
-                            </div>
-                        </div>
-                    </div>
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
                 </div>
-            </article>
-        
-            <article class="media">
                 
-                <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="media-left">
-                    <p class="image is-64x64">
-                        <img class="thumbnail" src="/images/gdb-debug-banner.png" alt="Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query">
-                    </p>
-                </a>
                 
-                <div class="media-content">
-                    <div class="content">
-                        <time class="has-text-grey is-size-7 is-block is-uppercase" datetime="2021-07-09T18:41:55.000Z">2021-07-09</time>
-                        <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query</a>
-                        <div class="level article-meta is-mobile">
-                            <div class="level-left">
-                                
-                                <div class="level-item is-size-7 is-uppercase">
-                                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                                </div>
-                                
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-        
-            <article class="media">
+                <span class="level-item has-text-grey">
+                    
+                    
+                    4 minutes read (About 670 words)
+                </span>
                 
-                <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="media-left">
-                    <p class="image is-64x64">
-                        <img class="thumbnail" src="/images/banner-2021-03-03.png" alt="How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?">
-                    </p>
-                </a>
                 
-                <div class="media-content">
-                    <div class="content">
-                        <time class="has-text-grey is-size-7 is-block is-uppercase" datetime="2021-03-03T20:17:11.000Z">2021-03-03</time>
-                        <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?</a>
-                        <div class="level article-meta is-mobile">
-                            <div class="level-left">
-                                
-                                <div class="level-item is-size-7 is-uppercase">
-                                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                                </div>
-                                
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-        
-            <article class="media">
-                
-                <a href="/2021/02/02/How-PostgreSQL-Inserts-A-New-Record-With-The-help-of-Table-Access-Method-API-and-Buffer-Manager/" class="media-left">
-                    <p class="image is-64x64">
-                        <img class="thumbnail" src="/images/tuple-insert-banner.png" alt="How PostgreSQL Inserts A New Record With The help of Table Access Method API and Buffer Manager">
-                    </p>
-                </a>
-                
-                <div class="media-content">
-                    <div class="content">
-                        <time class="has-text-grey is-size-7 is-block is-uppercase" datetime="2021-02-02T19:35:31.000Z">2021-02-02</time>
-                        <a href="/2021/02/02/How-PostgreSQL-Inserts-A-New-Record-With-The-help-of-Table-Access-Method-API-and-Buffer-Manager/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How PostgreSQL Inserts A New Record With The help of Table Access Method API and Buffer Manager</a>
-                        <div class="level article-meta is-mobile">
-                            <div class="level-left">
-                                
-                                <div class="level-item is-size-7 is-uppercase">
-                                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                                </div>
-                                
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-        
-            <article class="media">
-                
-                <a href="/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Table-Access-Methods-APIs/" class="media-left">
-                    <p class="image is-64x64">
-                        <img class="thumbnail" src="/images/seqscan.png" alt="How PostgreSQL Executes Sequential Scans with the Help of Table Access Methods APIs">
-                    </p>
-                </a>
-                
-                <div class="media-content">
-                    <div class="content">
-                        <time class="has-text-grey is-size-7 is-block is-uppercase" datetime="2021-01-14T22:27:59.000Z">2021-01-14</time>
-                        <a href="/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Table-Access-Methods-APIs/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How PostgreSQL Executes Sequential Scans with the Help of Table Access Methods APIs</a>
-                        <div class="level article-meta is-mobile">
-                            <div class="level-left">
-                                
-                                <div class="level-item is-size-7 is-uppercase">
-                                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                                </div>
-                                
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-        
+            </div>
         </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                Understanding the Security Around PostgreSQL
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-What-Is-Security"><a href="#1-What-Is-Security" class="headerlink" title="1. What Is Security?"></a>1. What Is Security?</h3><p>The word “Security” is a very broad concept and could refer to completely different procedures and methodology to achieve. Knowing what security means to your application is very important, so you could execute proper security practices and procedures to ensure the safety of your company’s assets. Data compromises could often lead to financial loss, reputation damage, consumer confidence disintegration, brand erosion, and non-compliance of government and industry regulation. </p>
+<p>For this reason, the security on infrastructure software such as PostgreSQL is even more important because any data compromises could have nation or city-wide impacts, which are often difficult to completely recover.</p>
+<h3 id="2-Common-Database-Compromises"><a href="#2-Common-Database-Compromises" class="headerlink" title="2. Common Database Compromises"></a>2. Common Database Compromises</h3><p>User Compromises:</p>
+<ul>
+<li>Excessive privileges</li>
+<li>Privilege abuse</li>
+<li>Weak user authentication</li>
+<li>Weak password</li>
+<li>Default privilege too open</li>
+</ul>
+<p>Data Compromises:</p>
+<ul>
+<li>Unmanaged and unprotected sensitive data</li>
+<li>Backup data exposure</li>
+<li>Stolen hard disks</li>
+<li>Unmanaged encryption keys</li>
+</ul>
+<p>Network Compromises:</p>
+<ul>
+<li>Firewall rules</li>
+<li>Deep Packet Inspection (DPS)</li>
+<li>Vulnerability prevention</li>
+<li>Denial of Service (DOS) attack</li>
+</ul>
+<p>Vulnerability:</p>
+<ul>
+<li>Software bug</li>
+<li>Buffer overflow</li>
+<li>SQL injection</li>
+<li>Privileged escalation</li>
+</ul>
+<h3 id="3-The-Big-Picture"><a href="#3-The-Big-Picture" class="headerlink" title="3. The Big Picture"></a>3. The Big Picture</h3><p><img src="/images/thebigpicture.png" alt="img"></p>
+<p>This picture shows different types of “security” around a PostgreSQL server and there are roughly 5 types of security concpets involved here:</p>
+<h4 id="3-1-Data-Security-Over-Network"><a href="#3-1-Data-Security-Over-Network" class="headerlink" title="3.1 Data Security (Over Network)"></a>3.1 Data Security (Over Network)</h4><p>This is the security in the communication between PostgreSQL client and server that we almost always want to use TLS to encrypt the data communication in a production envrionment. TLS guarentees the mutual trust between the client and the server so each side is sure that it is communicating with the right entity instead of a rogue server. SSH tunneling is also a common option to secure a psql connection when TLS is not fully set up. SSH tunneling is also very secure as each connection forces client and server to generate and agree on an encrpytion key that is valid only for that session. Furthermode, SSH tunneling can be made more secured by setting up the public and private key pair between client and server to ensure the authenticity of the two entities. </p>
+<h4 id="3-2-Data-Security"><a href="#3-2-Data-Security" class="headerlink" title="3.2 Data Security"></a>3.2 Data Security</h4><p>This is the security between PostgreSQL and the disk in which it writes data to. This security type is often refereed as a “Cluster Data Encryption” or “Transparent Data Encryption”. Current version of PostgreSQL does not support this feature but there is a handful of talented people working on this feature right now. This security is designed to prevent data compromises directly done on the hard disk. By encrypting the data on the disk, hard disk theft will not be able to extract useful information from the hard disk. </p>
+<h4 id="3-3-Network-Security"><a href="#3-3-Network-Security" class="headerlink" title="3.3 Network Security"></a>3.3 Network Security</h4><p>This is the security that most likely will involve a firewall in between a connecting client and a server. The purpose of a firewall is to block most of the malicious connections coming from the public network and prevent unauthorized access to the server. Most advanced firewalls such as an IPS can block DOS attacks and perform deep packet examination according to a database of known malicious packet and attacks. There are also firewalls such as an IDS that perform network monitoring only and will raise alert to the operator should it detects an attack attempt.</p>
+<h4 id="3-4-Vulnerability"><a href="#3-4-Vulnerability" class="headerlink" title="3.4 Vulnerability"></a>3.4 Vulnerability</h4><p>This is the security that is mostly caused by a software bug that allows an attacker to take advantage of the server, steal data, or simply out a stop to the server and cause damage. The best way to prevent this is upgrade your PostgreSQL server to the latest version that has addressed most of the known vulnerabilities.</p>
+<h4 id="3-5-User-Security"><a href="#3-5-User-Security" class="headerlink" title="3.5 User Security"></a>3.5 User Security</h4><p>This is the security that relates mostly to the user management, sometimes called a Role-Based Access Control (RBAC). This is where a database administrator is managing each database user and setting the right previleges for the right users. Excessive privileges, weak passwords and privilege abuses are very common if not done correctly. Make sure the right users get the right privileges and use a third party authentication servers such as LDAP or Kerberos instead of simple passwords can significantly increase the security ratings of your database infrastructure.</p>
+
+        </div>
+        
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/postgresql/" rel="tag">postgresql</a>
+                </div>
+            </div>
+        </div>
+        
+        
+        
     </div>
 </div>
 
 
+
+
+
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        
+        <div class="level-end">
+            <a class="level level-item has-link-grey  article-nav-next" href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/">
+                <span class="level-item">Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query</span>
+                <i class="level-item fas fa-chevron-right"></i>
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+
+
+<div class="card">
+    <div class="card-content">
+        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
+        <script>(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+<div class="fb-comments" data-width="100%" data-href="http://caryhuang.github.io/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" data-num-posts="5"></div>
+
+    </div>
+</div>
 </div>
                 
 
@@ -1085,7 +1076,7 @@
             <div class="level-start has-text-centered-mobile">
                 <a class="footer-logo is-block has-mb-6" href="/">
                 
-                    <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
+                    <img src="/images/Simplicity-design-logo.jpg" alt="Understanding the Security Around PostgreSQL" height="28">
                 
                 </a>
                 <p class="is-size-7">
