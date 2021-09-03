@@ -142,6 +142,82 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/" class="image is-7by1">
+            <img class="thumbnail" src="/images/fdw-foreign.png" alt="How to Implement Foreign Scan With FDW Interface API">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-09-03T16:47:45.000Z">2021-09-03</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    7 minutes read (About 1049 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/">How to Implement Foreign Scan With FDW Interface API</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Recently I have been tasked to familiarize myself with the Foreign Data Wrapper (FDW) interface API to build a new FDW capable of doing vertical / columnar sharding, meaning that the FDW is capable of collecting column information from multiple sources and combine them together as a result query. I will document and blog about the vertical sharding in later posts. Now, in this blog, I would like to share some of the key findings and understanding of FDW interface related to foreign scan.</p>
+<h3 id="2-Scan-related-API-Routines"><a href="#2-Scan-related-API-Routines" class="headerlink" title="2. Scan-related API Routines"></a>2. Scan-related API Routines</h3><p>FDW foreign scan API routines have some similarities to the table access method API’s sequential scan routines. You can learn more about it in the blog post <a href="https://www.highgo.ca/2021/01/15/how-postgresql-executes-sequential-scans-with-the-help-of-table-access-methods-apis/">here</a>. Most noticeable difference is that the FDW routines require us to take part during the planning stage, so we have to come out with a foreign plan for the exectuor so it knows what and how to perform the foreign scan.</p>
+<p>In order to complete a foreign scan, the following FDW routines are invoked in order:</p>
+<ul>
+<li>IsForeignScanParallelSafe</li>
+<li>GetForeignRelSize</li>
+<li>GetForeignPaths</li>
+<li>GetForeignPlan</li>
+<li>BeginForeignScan</li>
+<li>IterateForeignScan</li>
+<li>…</li>
+<li>IterateForeignScan</li>
+<li>EndForeignScan</li>
+</ul>
+<h4 id="2-1-IsForeignScanParallelSafe"><a href="#2-1-IsForeignScanParallelSafe" class="headerlink" title="2.1 IsForeignScanParallelSafe"></a>2.1 IsForeignScanParallelSafe</h4><p>In this routine, you have to tell PG whether or not the foreign scan can support parallel Scan by returning true to indicate it is supported, or false otherwise. Parallel scan is invokved by the planner when a scan query involves retrieving a large amount of data. Depending on the foreign server and your implementation, you have to decide whether or not parallel scan is supported.</p>
+<h4 id="2-2-GetForeignRelSize"><a href="#2-2-GetForeignRelSize" class="headerlink" title="2.2 GetForeignRelSize"></a>2.2 GetForeignRelSize</h4><p>Similar to the table access method’s <code>relation_estimate_size()</code> API, this routine requires you to provide an estimate of the amount of tuples/rows would be involved during this round of scanning. This information is very important because it directly affects the planner’s decision to execute the query. For example, if you say foreign relation has 1 million tuples to be fetched, then the planner is most likely to use parallel scan to complete the scan for performance reasons if you answer “true” in the <code>IsForeignScanParallelSafe()</code> function call.</p>
+<h4 id="2-3-GetForeignPaths"><a href="#2-3-GetForeignPaths" class="headerlink" title="2.3 GetForeignPaths"></a>2.3 GetForeignPaths</h4><p>In this routine, we are required to provide a list of possible paths to complete the required foreign scan. Paths simply means ways to execute. For example, you can complete a foreign scan by doing a sequential scan by fetching 1 tuple at a time, or you can complete the same scan using index to look-up a target tuple if the table has an index defined and user gives specific <code>WHERE</code> clause to pinpoint a tuple. If user provides a <code>WHERE</code> clause to filter the result, you also have an option to estimate whether the <code>WHERE</code> can be executed by the foreign server or by the local server as it fetches a tuple.</p>
+<p>All these are possible <code>pathnodes</code> are required by the planner to decide on the optimal path to execute the scan. Each <code>pathnode</code> requires you to provide the <code>startup cost</code>, <code>total cost</code>, <code>number of rows</code> and <code>path keys</code> if any. The official documentation suggests that you should use <code>add_path</code> and <code>create_foreignscan_path</code> routines to prepare a list of path nodes.</p>
+<h4 id="2-4-GetForeignPlan"><a href="#2-4-GetForeignPlan" class="headerlink" title="2.4 GetForeignPlan"></a>2.4 GetForeignPlan</h4><p>Having provided all the possible <code>pathnodes</code>, planner will pick one that is the most optimal and pass that <code>pathnode</code> to this routine and ask you to make a foreign scan plan for the executor. This is a very important function because whatever plan that we provide here directly affects how the executor is going to function, so be cautious here.</p>
+<p>In this function, the planner will give you everything about the query such as the target attribute list and the restricting clauses (<code>WHERE</code> clauses) and also the information about the foreign relation, such as its OID, and each column’s data types. Official PostgreSQL documentation suggests using <code>make_foreignscan()</code> routine with the desired arguments to create the foreign plan.</p>
+<p>In here, you also will have an option to <code>push down</code> the restricting clauses or not. In other words, you can choose to send all the <code>WHERE</code> clauses to the foreign server to process if it can support it. This results in much less data communication. You can also choose having all the <code>WHERE</code> clauses to be processed locally, but this requires the FDW to fetch every single row from the foreign server, resulting in more data communication. This decision is controlled by the <code>List *qpqual</code> argument to the <code>make_foreignscan()</code> function. If this list contains the list of your restricting clauses, the local server will perform the <code>WHERE</code> evaluation locally; if this list is empty, then the local server assumes the FDW will do the <code>WHERE</code> evaluation on the foreign server</p>
+<h4 id="2-5-BeginForeignScan"><a href="#2-5-BeginForeignScan" class="headerlink" title="2.5 BeginForeignScan"></a>2.5 BeginForeignScan</h4><p>This routine will be called before starting the foreign scan, giving you a chance to allocate all the necessary control information required for your foreign scan. You can define your own control information, for example, cursor location, remote connection structure, current offset…etc. and store in <code>node-&gt;fdw_state</code> and it will be passed down to the <code>IterateForeignScan</code> as the scan is begin completed.</p>
+<h4 id="2-6-IterateForeignScan"><a href="#2-6-IterateForeignScan" class="headerlink" title="2.6 IterateForeignScan"></a>2.6 IterateForeignScan</h4><p>This is the main routine to perform the actual scan. You need to put the proper logic here depending on your use case to fetch one or more rows from the foreign server. When you have the row data, you will need to convert that to a <code>TupleTableSlot</code> strucutre in which the PG internals can understand. We normally use <code>ExecStoreHeapTuple()</code> routine to convert a HeapTuple into a <code>TupleTableSlot</code>. This routine will be continuously called by the PG executor as long as you still have data to fetch and it will only stop once you return an empty <code>TupleTableSlot</code>.</p>
+<h4 id="2-7-EndForeignScan"><a href="#2-7-EndForeignScan" class="headerlink" title="2.7 EndForeignScan"></a>2.7 EndForeignScan</h4><p>This routine will be called at the end of foreign scan, giving you the opportunity to clean up the control information allocated in <code>BeginForeignScan()</code>. This marks the end of foreign scan via FDW.</p>
+<h3 id="3-Summary"><a href="#3-Summary" class="headerlink" title="3. Summary"></a>3. Summary</h3><p>There is a lot of information and articals out there related to PostgreSQL’s FDW API interface. This blog is merely a quick summary of what I have learned during the FDW evaluation and there is much more to what’s discussed here. For more detail, you can refer to the official documentation about the FDW callback functons <a href="https://www.postgresql.org/docs/current/fdw-callbacks.html">here</a> </p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="image is-7by1">
             <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
         </a>
@@ -206,12 +282,12 @@
 <li>Privileged escalation</li>
 </ul>
 <h3 id="3-The-Big-Picture"><a href="#3-The-Big-Picture" class="headerlink" title="3. The Big Picture"></a>3. The Big Picture</h3><p><img src="/images/thebigpicture.png" alt="img"></p>
-<p>This picture shows different types of “security” around a PostgreSQL server and there are roughly 5 types of security concpets involved here:</p>
-<h4 id="3-1-Data-Security-Over-Network"><a href="#3-1-Data-Security-Over-Network" class="headerlink" title="3.1 Data Security (Over Network)"></a>3.1 Data Security (Over Network)</h4><p>This is the security in the communication between PostgreSQL client and server that we almost always want to use TLS to encrypt the data communication in a production envrionment. TLS guarentees the mutual trust between the client and the server so each side is sure that it is communicating with the right entity instead of a rogue server. SSH tunneling is also a common option to secure a psql connection when TLS is not fully set up. SSH tunneling is also very secure as each connection forces client and server to generate and agree on an encrpytion key that is valid only for that session. Furthermode, SSH tunneling can be made more secured by setting up the public and private key pair between client and server to ensure the authenticity of the two entities. </p>
+<p>This picture shows different types of “security” around a PostgreSQL server and there are roughly 5 types of security concepts involved here:</p>
+<h4 id="3-1-Data-Security-Over-Network"><a href="#3-1-Data-Security-Over-Network" class="headerlink" title="3.1 Data Security (Over Network)"></a>3.1 Data Security (Over Network)</h4><p>This is the security in the communication between PostgreSQL client and server that we almost always want to use TLS to encrypt the data communication in a production environment. TLS guarantees the mutual trust between the client and the server so each side is sure that it is communicating with the right entity instead of a rogue server. SSH tunneling is also a common option to secure a psql connection when TLS is not fully set up. SSH tunneling is also very secure as each connection forces client and server to generate and agree on an encryption key that is valid only for that session. Furthermore, SSH tunneling can be made more secured by setting up the public and private key pair between client and server to ensure the authenticity of the two entities. </p>
 <h4 id="3-2-Data-Security"><a href="#3-2-Data-Security" class="headerlink" title="3.2 Data Security"></a>3.2 Data Security</h4><p>This is the security between PostgreSQL and the disk in which it writes data to. This security type is often refereed as a “Cluster Data Encryption” or “Transparent Data Encryption”. Current version of PostgreSQL does not support this feature but there is a handful of talented people working on this feature right now. This security is designed to prevent data compromises directly done on the hard disk. By encrypting the data on the disk, hard disk theft will not be able to extract useful information from the hard disk. </p>
 <h4 id="3-3-Network-Security"><a href="#3-3-Network-Security" class="headerlink" title="3.3 Network Security"></a>3.3 Network Security</h4><p>This is the security that most likely will involve a firewall in between a connecting client and a server. The purpose of a firewall is to block most of the malicious connections coming from the public network and prevent unauthorized access to the server. Most advanced firewalls such as an IPS can block DOS attacks and perform deep packet examination according to a database of known malicious packet and attacks. There are also firewalls such as an IDS that perform network monitoring only and will raise alert to the operator should it detects an attack attempt.</p>
 <h4 id="3-4-Vulnerability"><a href="#3-4-Vulnerability" class="headerlink" title="3.4 Vulnerability"></a>3.4 Vulnerability</h4><p>This is the security that is mostly caused by a software bug that allows an attacker to take advantage of the server, steal data, or simply out a stop to the server and cause damage. The best way to prevent this is upgrade your PostgreSQL server to the latest version that has addressed most of the known vulnerabilities.</p>
-<h4 id="3-5-User-Security"><a href="#3-5-User-Security" class="headerlink" title="3.5 User Security"></a>3.5 User Security</h4><p>This is the security that relates mostly to the user management, sometimes called a Role-Based Access Control (RBAC). This is where a database administrator is managing each database user and setting the right previleges for the right users. Excessive privileges, weak passwords and privilege abuses are very common if not done correctly. Make sure the right users get the right privileges and use a third party authentication servers such as LDAP or Kerberos instead of simple passwords can significantly increase the security ratings of your database infrastructure.</p>
+<h4 id="3-5-User-Security"><a href="#3-5-User-Security" class="headerlink" title="3.5 User Security"></a>3.5 User Security</h4><p>This is the security that relates mostly to the user management, sometimes called a Role-Based Access Control (RBAC). This is where a database administrator is managing each database user and setting the right privileges for the right users. Excessive privileges, weak passwords and privilege abuses are very common if not done correctly. Make sure the right users get the right privileges and use a third party authentication servers such as LDAP or Kerberos instead of simple passwords can significantly increase the security ratings of your database infrastructure.</p>
 
         </div>
         
@@ -872,66 +948,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/" class="image is-7by1">
-            <img class="thumbnail" src="/images/pg-arch-cover.png" alt="An Overview of PostgreSQL Backend Architecture">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2020-06-15T18:06:09.000Z">2020-06-15</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    20 minutes read (About 3069 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/">An Overview of PostgreSQL Backend Architecture</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL backend is a collection of processes forked from the main process called <code>Postmaster</code>. Each forked process has different roles and responsibilities in the backend. This article describes the responsibility of core backend processes that power the PostgreSQL system as we know it today. The overall PostgreSQL backend architecture can be illustrated by the image below:</p>
-<p><img src="/images/pg-arch.png" alt="pg-backend-architecture"></p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -998,7 +1014,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            23
+                            24
                         </p>
                     </a>
                 </div>
@@ -1022,7 +1038,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            39
+                            40
                         </p>
                     </a>
                 </div>
@@ -1149,7 +1165,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">21</span>
+                <span class="level-item tag">22</span>
             </span>
         </a></li>
             </ul>
@@ -1162,7 +1178,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -1171,6 +1187,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/fdw-foreign.png" alt="How to Implement Foreign Scan With FDW Interface API">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-09-03T16:47:45.000Z">2021-09-03</time></div>
+                    <a href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How to Implement Foreign Scan With FDW Interface API</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1248,25 +1283,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Table-Access-Methods-APIs/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/seqscan.png" alt="How PostgreSQL Executes Sequential Scans with the Help of Table Access Methods APIs">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-01-14T22:27:59.000Z">2021-01-14</time></div>
-                    <a href="/2021/01/14/How-PostgreSQL-Executes-Sequential-Scans-with-the-Help-of-Table-Access-Methods-APIs/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How PostgreSQL Executes Sequential Scans with the Help of Table Access Methods APIs</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1277,6 +1293,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2021/08/">
@@ -1521,6 +1548,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/fdw/">
+                        <span class="tag">fdw</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/gdb/">
                         <span class="tag">gdb</span>
                         <span class="tag is-grey">3</span>
@@ -1635,7 +1669,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">8</span>
+                        <span class="tag is-grey">9</span>
                     </a>
                 </div>
                 
