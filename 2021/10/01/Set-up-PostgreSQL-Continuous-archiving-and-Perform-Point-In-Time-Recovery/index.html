@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html  lang="en">
+<head>
+    <meta charset="utf-8" />
+
+<meta name="generator" content="Hexo 4.2.0" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+
+<title>PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial - Cary&#39;s Blog</title>
+
+
+    <meta name="description" content="1. IntroductionRecently I have been practicing the internals of PostgreSQL continuous archiving and the point in time recovery features that are required for my current development work. Today I would">
+<meta property="og:type" content="article">
+<meta property="og:title" content="PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial">
+<meta property="og:url" content="http://caryhuang.github.io/2021/10/01/Set-up-PostgreSQL-Continuous-archiving-and-Perform-Point-In-Time-Recovery/index.html">
+<meta property="og:site_name" content="Cary&#39;s Blog">
+<meta property="og:description" content="1. IntroductionRecently I have been practicing the internals of PostgreSQL continuous archiving and the point in time recovery features that are required for my current development work. Today I would">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://caryhuang.github.io/images/pitr.png">
+<meta property="article:published_time" content="2021-10-01T18:33:13.000Z">
+<meta property="article:modified_time" content="2021-10-01T21:17:07.010Z">
+<meta property="article:author" content="Cary Huang">
+<meta property="article:tag" content="postgresql">
+<meta property="article:tag" content="pitr">
+<meta property="article:tag" content="recovery">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://caryhuang.github.io/images/pitr.png">
+
+
+
+
+
+
+
+<link rel="icon" href="/images/favicon.svg">
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.7.2/css/bulma.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu:400,600|Source+Code+Pro">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css">
+
+
+    
+    
+<style>body>.footer,body>.navbar,body>.section{opacity:0}</style>
+
+    
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css">
+
+    
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.css">
+
+    
+    
+    
+    
+<link rel="stylesheet" href="/css/back-to-top.css">
+
+    
+    
+    
+    
+    
+    
+    
+    <link rel="stylesheet" href="/css/progressbar.css">
+<script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script>
+    
+    
+    
+
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="alternate" href="/atom.xml" title="Cary's Blog" type="application/atom+xml">
+</head>
+<body class="is-2-column">
+    <nav class="navbar navbar-main">
+    <div class="container">
+        <div class="navbar-brand is-flex-center">
+            <a class="navbar-item navbar-logo" href="/">
+            
+                <img src="/images/Simplicity-design-logo.jpg" alt="PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial" height="28">
+            
+            </a>
+        </div>
+        <div class="navbar-menu">
+            
+            <div class="navbar-start">
+                
+                <a class="navbar-item"
+                href="/">Home</a>
+                
+                <a class="navbar-item"
+                href="/archives">Archives</a>
+                
+                <a class="navbar-item"
+                href="/categories">Categories</a>
+                
+                <a class="navbar-item"
+                href="/tags">Tags</a>
+                
+                <a class="navbar-item"
+                href="/about/me.html">About</a>
+                
+            </div>
+            
+            <div class="navbar-end">
+                
+                    
+                    <a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                    
+                
+                
+                
+                <a class="navbar-item search" title="Search" href="javascript:;">
+                    <i class="fas fa-search"></i>
+                </a>
+                
+            </div>
+        </div>
+    </div>
+</nav>
+    
+    <section class="section">
+        <div class="container">
+            <div class="columns">
+                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
+<div class="card">
+    
+    <div class="card-image">
+        <span  class="image is-7by1">
+            <img class="thumbnail" src="/images/pitr.png" alt="PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial">
+        </span>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-10-01T18:33:13.000Z">2021-10-01</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    8 minutes read (About 1246 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Recently I have been practicing the internals of PostgreSQL continuous archiving and the point in time recovery features that are required for my current development work. Today I would like to demonstrate these important features with the recently released PostgreSQL 14 on Ubuntu 18.04.</p>
+<h3 id="2-Write-Ahead-Log"><a href="#2-Write-Ahead-Log" class="headerlink" title="2. Write Ahead Log?"></a>2. Write Ahead Log?</h3><p>Before going into the details of continuous archiving, it is important to understand the concept of Write Ahead Log (WAL). WAL files are generated by PG that contains all of the operations done on the database since the beginning. Operations such as <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, <code>VACUUM</code> …etc are captured in WAL files. Having these WAL files, it is possible to recreate the database simply by <code>replaying</code> them, allowing an user to recover the database to a certain state in case of fault. This is the basis of continuous archiving and point in time recovery.</p>
+<h3 id="3-What-is-Continuous-Archiving"><a href="#3-What-is-Continuous-Archiving" class="headerlink" title="3. What is Continuous Archiving?"></a>3. What is Continuous Archiving?</h3><p>The generated WAL files are normally stored in the <code>pg_wal</code> directory within the PG database cluster, but they will not grow forever. The configuration parameters, <code>max_wal_size</code> and <code>min_wal_size</code> control how many WAL files can be kept in <code>pg_wal</code> directory. The checkpointer process will periodically purge the old WAL files, leaving only recent ones.</p>
+<p>So, it is important to set up continuous archiving so all these WAL files can be <code>archived</code> to somewhere else outside of PG cluster. So, when you need all the old WAL files for recovery, PG can restore them from the archive.</p>
+<p>To enable WAL archiving and restoring, set these parameters in postgresql.conf:</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">archive_mode &#x3D; on</span><br><span class="line">archive_command &#x3D; &#39;cp %p &#x2F;path&#x2F;to&#x2F;archive&#x2F;%f&#39;</span><br><span class="line">restore_command &#x3D; &#39;cp &#x2F;path&#x2F;to&#x2F;archive&#x2F;%f %p&#39;</span><br></pre></td></tr></table></figure>
+
+<p>where you should replace <code>/path/to/archive</code> with your own archive path on your system. %p and %f will be swapped with <code>path to WAL segment</code> and <code>WAL segment name</code> to complete the command.</p>
+<p>When a WAL segment is ready to be archived, PG will create a signal file in <code>pg_wal/archive_status</code> to indicate a particular WAL segment is ready for archive. </p>
+<p>In the example below, the segment <code>00000001000000000000000E</code> is ready for archive, indicated by the postfix <code>.ready</code> while all of the previous segments have been successfully archived and therefore indicated by the <code>.done</code> postfix.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ ls pgtest&#x2F;pg_wal&#x2F;archive_status&#x2F;</span><br><span class="line">000000010000000000000002.done  000000010000000000000005.done  00000001000000000000000A.done  00000001000000000000000E.ready</span><br><span class="line">000000010000000000000003.done  000000010000000000000007.done  00000001000000000000000B.done</span><br><span class="line">000000010000000000000004.done  000000010000000000000008.done  00000001000000000000000D.done</span><br></pre></td></tr></table></figure>
+
+<p>The PG’s archiver process will then be waken up to perform the archive by running the <code>archive_command</code> configured.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ps -ef | grep postgres</span><br><span class="line"></span><br><span class="line">caryh     1487     1  0 11:10 ?        00:00:00 postgres -D &#x2F;home&#x2F;caryh&#x2F;pgtest</span><br><span class="line">caryh     1510  1487  0 11:10 ?        00:00:00 postgres: checkpointer</span><br><span class="line">caryh     1511  1487  0 11:10 ?        00:00:00 postgres: background writer</span><br><span class="line">caryh     1512  1487  0 11:10 ?        00:00:00 postgres: walwriter</span><br><span class="line">caryh     1516  1487  0 11:10 ?        00:00:00 postgres: autovacuum launcher</span><br><span class="line">caryh     1520  1487  0 11:10 ?        00:00:00 postgres: archiver   archiving 00000001000000000000000E</span><br><span class="line">caryh     1521  1487  0 11:10 ?        00:00:00 postgres: stats collector</span><br><span class="line">caryh     1522  1487  0 11:10 ?        00:00:00 postgres: logical replication launcher</span><br></pre></td></tr></table></figure>
+
+<p>Note that the archiver (PID=1520) also shows its progress on the <code>ps</code> display.</p>
+<p>When done successfully, the signal file in <code>pg_wal/archive_status</code> will be updated to <code>.done</code> postfix.</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ ls pgtest&#x2F;pg_wal&#x2F;archive_status&#x2F;</span><br><span class="line">000000010000000000000002.done  000000010000000000000005.done  00000001000000000000000A.done  00000001000000000000000E.done</span><br><span class="line">000000010000000000000003.done  000000010000000000000007.done  00000001000000000000000B.done</span><br><span class="line">000000010000000000000004.done  000000010000000000000008.done  00000001000000000000000D.done</span><br></pre></td></tr></table></figure>
+
+<p>In the next checkpoint, these <code>.done</code> files will be removed so these status files will not be continuously growing as well.</p>
+<h3 id="4-What-is-Point-In-Time-Recovery-PITR"><a href="#4-What-is-Point-In-Time-Recovery-PITR" class="headerlink" title="4. What is Point In Time Recovery (PITR)?"></a>4. What is Point In Time Recovery (PITR)?</h3><p>Having all of the WAL segments backed up in a separate archive, we gained the ability to recovery the database up yo a certain point in time in the past or completely recover the whole database. This depends on your use case, if you made a major mistake and need to start again from a point of time in the past, you can have PG to recover to that particular time during recovery mode and continue the database operation from that point. This is also referred to as <code>switching  to a new time line ID</code> and we will discuss this more in the next blog.</p>
+<p>Let’s continue from the above example (which already has 1 million rows of data) and do a point in time recovery.</p>
+<ol>
+<li><p>Make a basebackup of the current database, we can use <code>pg_basebackup</code> to achieve this</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ pg_basebackup -U caryh -h 127.0.0.1 --progress -D pgtest-back</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>back to the database and continue inserting some more data, use <code>pg_switch_wal</code> to immediate write out the WAL segment and obtain a <code>LSN</code>. LSN stands for Log Sequence Number, and it logically represent a WAL entry within a WAL segment. Refer to documentation <a href="https://www.postgresql.org/docs/current/datatype-pg-lsn.html">here</a> for more information.</p>
+</li>
+</ol>
+<p>After obtaining the LSN, we again insert some more rows of data. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">insert into test values(generate_series(1,1000000), &#39;asdas&#39;);</span><br><span class="line">insert into test values(generate_series(1,1000000), &#39;asdas&#39;);</span><br><span class="line"></span><br><span class="line">pg_switch_wal();</span><br><span class="line"> pg_switch_wal</span><br><span class="line">---------------</span><br><span class="line"> 0&#x2F;13DAC308</span><br><span class="line"></span><br><span class="line">insert into test values(generate_series(1,1000000), &#39;asdas&#39;);</span><br><span class="line">insert into test values(generate_series(1,1000000), &#39;asdas&#39;);</span><br></pre></td></tr></table></figure>
+
+<p>So, in total, this table <code>test</code> should have 5 million rows of data, because it started with 1 million and we just inserted 4 million more in the example above.</p>
+<p>The WAL location indicated by LSN <code>0/13DAC308</code> indicated a time when the database only contains 3 million rows, and this is the <code>point of time</code> that we would like to recover up to in our example.</p>
+<ol start="3">
+<li><p>Stop the database server</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">pg_ctl -D pgtest stop</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>Wipe out everything in this database <code>pgtest</code></p>
+</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$ rm -rf pgtest&#x2F;</span><br></pre></td></tr></table></figure>
+
+<p>I know it sounds crazy, but remember, we made a basebackup back in (1.) + all the WAL segments in the archive, so technically we still have everything.</p>
+<ol start="5">
+<li>Copy everything from our basebackup back to <code>pgtest</code></li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">cp -r pgtest-back&#x2F;* pgtest&#x2F;</span><br></pre></td></tr></table></figure>
+
+<ol start="6">
+<li>Edit pgtest/postgresql.conf and set your recover target</li>
+</ol>
+<p>Since we are using LSN as our target, we can simply put the LSN we captured to <code>recovery_target_lsn</code> configuration</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">recovery_target_lsn &#x3D; &#39;0&#x2F;13DAC308&#39;</span><br></pre></td></tr></table></figure>
+
+<p>PG also supports other ways to define recovery target, based on timestamp, name or xid. Refer to this <a href="https://www.postgresql.org/docs/11/recovery-target-settings.html">documentation</a> for other options.</p>
+<ol start="7">
+<li>Signal the database to run in recovery mode by creating a <code>recovery.signal</code> file under the <code>pgtest</code> cluster</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$touch pgtest&#x2F;recovery.signal</span><br></pre></td></tr></table></figure>
+
+<ol start="8">
+<li>Start the server<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$pg_ctl -D pgtest start</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<p>the server will now start in recovery mode and it will restore WAL files from the archive and perform the recover. You may log in with <code>psql</code> and check that the database should contain also 3 million rows instead of 5. </p>
+<p>You may notice that even though the database has been recovered to a point of time in the past, you will encounter a <code>database in recovery</code> or <code>read only database</code> error if you intend to insert additional data. This is because we are still in the <code>recovery mode</code> but is currently <code>paused</code>.</p>
+<p>This is configured by the <code>recovery_target_action</code> option, which defaults to <code>pause</code>. This is actually intended, to allow you to have a moment to check your database and confirm that it is indeed the database state that you would like to recover to. If this is wrong, you can simply shutdown the database and reconfigure the <code>recovery_target_lsn</code> until you reach a desired state of database.</p>
+<ol start="9">
+<li>Exit the recovery mode<br>Once you are confirm the database is recovered correctly, you can exit the recovery mode by this psql command:<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">select pg_wal_replay_resume();</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<p>This command will end the recovery mode and you should be able to insert additional data to the database. The <code>recovery.signal</code> file will be removed, and the future WAL segments will have a new timeline ID.</p>
+<p>Timeline ID is also an important aspect of the recovery and we will discuss more on timeline ID in my next post.</p>
+
+        </div>
+        
+        <div class="level is-size-7 is-uppercase">
+            <div class="level-start">
+                <div class="level-item">
+                    <span class="is-size-6 has-text-grey has-mr-7">#</span>
+                    <a class="has-link-grey -link" href="/tags/pitr/" rel="tag">pitr</a>, <a class="has-link-grey -link" href="/tags/postgresql/" rel="tag">postgresql</a>, <a class="has-link-grey -link" href="/tags/recovery/" rel="tag">recovery</a>
+                </div>
+            </div>
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        
+        <div class="level-end">
+            <a class="level level-item has-link-grey  article-nav-next" href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/">
+                <span class="level-item">Implement Foreign Scan With FDW Interface API</span>
+                <i class="level-item fas fa-chevron-right"></i>
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+
+
+<div class="card">
+    <div class="card-content">
+        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
+        <script>(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+<div class="fb-comments" data-width="100%" data-href="http://caryhuang.github.io/2021/10/01/Set-up-PostgreSQL-Continuous-archiving-and-Perform-Point-In-Time-Recovery/" data-num-posts="5"></div>
+
+    </div>
+</div>
+</div>
+                
+
+
+
+
+<div class="column is-4-tablet is-4-desktop is-4-widescreen  has-order-1 column-left ">
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <nav class="level">
+            <div class="level-item has-text-centered" style="flex-shrink: 1">
+                <div>
+                    
+                    <figure class="image is-128x128 has-mb-6">
+                        <img class="" src="/images/prof-img.jpg" alt="Cary Huang">
+                    </figure>
+                    
+                    <p class="is-size-4 is-block">
+                        Cary Huang
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-block">
+                        Multi-Displined Software Developer
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-flex is-flex-center has-text-grey">
+                        <i class="fas fa-map-marker-alt has-mr-7"></i>
+                        <span>Vancouver</span>
+                    </p>
+                    
+                </div>
+            </div>
+        </nav>
+        <nav class="level is-mobile">
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Posts
+                    </p>
+                    <a href="/archives">
+                        <p class="title has-text-weight-normal">
+                            25
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Categories
+                    </p>
+                    <a href="/categories">
+                        <p class="title has-text-weight-normal">
+                            2
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Tags
+                    </p>
+                    <a href="/tags">
+                        <p class="title has-text-weight-normal">
+                            42
+                        </p>
+                    </a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="level">
+            <a class="level-item button is-link is-rounded" href="https://github.com/caryhuang" target="_blank" rel="noopener">
+                Follow</a>
+        </div>
+        
+        
+        
+        <div class="level is-mobile">
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Github" href="https://github.com/caryhuang">
+                
+                <i class="fab fa-github"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Facebook" href="https://www.facebook.com/cary.huang.35">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Twitter" href="https://twitter.com">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Dribbble" href="https://dribbble.com">
+                
+                <i class="fab fa-dribbble"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+            
+        </div>
+        
+    </div>
+</div>
+    
+        
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Links
+        </h3>
+        <ul class="menu-list">
+        
+            <li>
+                <a class="level is-mobile" href="https://hexo.io" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Hexo</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">hexo.io</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://www.etsy.com/ca/shop/ShokuninDesignCo" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Etsy Shop</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.etsy.com</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://www.highgo.ca/" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">HighGo Software Canada</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.highgo.ca</span>
+                    </span>
+                </a>
+            </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Categories
+            </h3>
+            <ul class="menu-list">
+            <li>
+        <a class="level is-marginless" href="/categories/Netsnmp/">
+            <span class="level-start">
+                <span class="level-item">Netsnmp</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">1</span>
+            </span>
+        </a></li><li>
+        <a class="level is-marginless" href="/categories/PostgreSQL/">
+            <span class="level-start">
+                <span class="level-item">PostgreSQL</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">23</span>
+            </span>
+        </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Tag Cloud
+        </h3>
+        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 10px;">recovery</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Recent
+        </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/10/01/Set-up-PostgreSQL-Continuous-archiving-and-Perform-Point-In-Time-Recovery/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pitr.png" alt="PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-10-01T18:33:13.000Z">2021-10-01</time></div>
+                    <a href="/2021/10/01/Set-up-PostgreSQL-Continuous-archiving-and-Perform-Point-In-Time-Recovery/" class="title has-link-black-ter is-size-6 has-text-weight-normal">PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/fdw-foreign.png" alt="Implement Foreign Scan With FDW Interface API">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-09-03T16:47:45.000Z">2021-09-03</time></div>
+                    <a href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Implement Foreign Scan With FDW Interface API</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-08-06T19:04:08.000Z">2021-08-06</time></div>
+                    <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding the Security Around PostgreSQL</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/gdb-debug-banner.png" alt="Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-07-09T18:41:55.000Z">2021-07-09</time></div>
+                    <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/banner-2021-03-03.png" alt="How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-03-03T20:17:11.000Z">2021-03-03</time></div>
+                    <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Archives
+        </h3>
+        <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/02/">
+                <span class="level-start">
+                    <span class="level-item">February 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/11/">
+                <span class="level-start">
+                    <span class="level-item">November 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">2</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/05/">
+                <span class="level-start">
+                    <span class="level-item">May 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/04/">
+                <span class="level-start">
+                    <span class="level-item">April 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">3</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">4</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Tags
+            </h3>
+            <div class="field is-grouped is-grouped-multiline">
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/architecture/">
+                        <span class="tag">architecture</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/backend/">
+                        <span class="tag">backend</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/buffer-manager/">
+                        <span class="tag">buffer manager</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/extension/">
+                        <span class="tag">extension</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/external-key-management-system/">
+                        <span class="tag">external key management system</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/failover/">
+                        <span class="tag">failover</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/fdw/">
+                        <span class="tag">fdw</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/gdb/">
+                        <span class="tag">gdb</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/in-memory/">
+                        <span class="tag">in-memory</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/in-memory-table/">
+                        <span class="tag">in-memory table</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/key-management-system/">
+                        <span class="tag">key management system</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/logical-decoding/">
+                        <span class="tag">logical decoding</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/logical-replication/">
+                        <span class="tag">logical replication</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/mongodb/">
+                        <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/networking/">
+                        <span class="tag">networking</span>
+                        <span class="tag is-grey">4</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/oid/">
+                        <span class="tag">oid</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/parallel-worker/">
+                        <span class="tag">parallel worker</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/partition/">
+                        <span class="tag">partition</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pg13/">
+                        <span class="tag">pg13</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pg-rewind/">
+                        <span class="tag">pg_rewind</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pitr/">
+                        <span class="tag">pitr</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pluggable-api/">
+                        <span class="tag">pluggable api</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pluggable-storage/">
+                        <span class="tag">pluggable storage</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgres/">
+                        <span class="tag">postgres</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgresql/">
+                        <span class="tag">postgresql</span>
+                        <span class="tag is-grey">10</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postmaster/">
+                        <span class="tag">postmaster</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/query-processing/">
+                        <span class="tag">query processing</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/recovery/">
+                        <span class="tag">recovery</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/replication/">
+                        <span class="tag">replication</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/savepoint/">
+                        <span class="tag">savepoint</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/security/">
+                        <span class="tag">security</span>
+                        <span class="tag is-grey">4</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/sequence/">
+                        <span class="tag">sequence</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/snmp/">
+                        <span class="tag">snmp</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/streaming-replication/">
+                        <span class="tag">streaming replication</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/subtransaction/">
+                        <span class="tag">subtransaction</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/table-access-method/">
+                        <span class="tag">table access method</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/tde/">
+                        <span class="tag">tde</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/tls/">
+                        <span class="tag">tls</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/trace/">
+                        <span class="tag">trace</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/trigger/">
+                        <span class="tag">trigger</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility/">
+                        <span class="tag">visibility</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/wal2mongo/">
+                        <span class="tag">wal2mongo</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="column-right-shadow is-hidden-widescreen ">
+        
+        </div>
+    
+</div>
+
+                
+            </div>
+        </div>
+    </section>
+    <footer class="footer">
+    <div class="container">
+        <div class="level">
+            <div class="level-start has-text-centered-mobile">
+                <a class="footer-logo is-block has-mb-6" href="/">
+                
+                    <img src="/images/Simplicity-design-logo.jpg" alt="PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial" height="28">
+                
+                </a>
+                <p class="is-size-7">
+                &copy; 2021 Cary Huang&nbsp;
+                Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> & <a
+                        href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a>
+                
+                </p>
+            </div>
+            <div class="level-end">
+            
+                <div class="field has-addons is-flex-center-mobile has-mt-5-mobile is-flex-wrap is-flex-middle">
+                
+                <p class="control">
+                    <a class="button is-white is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                </p>
+                
+                </div>
+            
+            </div>
+        </div>
+    </div>
+</footer>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script>
+<script>moment.locale("en");</script>
+
+
+<script>
+var IcarusThemeSettings = {
+    site: {
+        url: 'http://caryhuang.github.io',
+        external_link: {"enable":true,"exclude":[]}
+    },
+    article: {
+        highlight: {
+            clipboard: true,
+            fold: 'unfolded'
+        }
+    }
+};
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script>
+
+
+
+
+
+<script src="/js/animation.js"></script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script>
+<script src="/js/gallery.js" defer></script>
+
+
+
+<div id="outdated">
+    <h6>Your browser is out-of-date!</h6>
+    <p>Update your browser to view this website correctly. <a id="btnUpdateBrowser" href="http://outdatedbrowser.com/">Update
+            my browser now </a></p>
+    <p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">&times;</a></p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.js" defer></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        outdatedBrowser({
+            bgColor: '#f25648',
+            color: '#ffffff',
+            lowerThan: 'flex'
+        });
+    });
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.5/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    MathJax.Hub.Config({
+        'HTML-CSS': {
+            matchFontHeight: false
+        },
+        SVG: {
+            matchFontHeight: false
+        },
+        CommonHTML: {
+            matchFontHeight: false
+        },
+        tex2jax: {
+            inlineMath: [
+                ['$','$'],
+                ['\\(','\\)']
+            ]
+        }
+    });
+});
+</script>
+
+
+<a id="back-to-top" title="Back to Top" href="javascript:;">
+    <i class="fas fa-chevron-up"></i>
+</a>
+<script src="/js/back-to-top.js" defer></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="/js/main.js" defer></script>
+
+    
+    <div class="searchbox ins-search">
+    <div class="searchbox-container ins-search-container">
+        <div class="searchbox-input-wrapper">
+            <input type="text" class="searchbox-input ins-search-input" placeholder="Type something..." />
+            <span class="searchbox-close ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="searchbox-result-wrapper ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+    (function (window) {
+        var INSIGHT_CONFIG = {
+            TRANSLATION: {
+                POSTS: 'Posts',
+                PAGES: 'Pages',
+                CATEGORIES: 'Categories',
+                TAGS: 'Tags',
+                UNTITLED: '(Untitled)',
+            },
+            CONTENT_URL: '/content.json',
+        };
+        window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+    })(window);
+</script>
+<script src="/js/insight.js" defer></script>
+<link rel="stylesheet" href="/css/search.css">
+<link rel="stylesheet" href="/css/insight.css">
+    
+</body>
+</html>
