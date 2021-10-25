@@ -131,6 +131,77 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/" class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-mem-table-cover.png" alt="In-Memory Table with Pluggable Storage API">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-09-23T21:02:38.000Z">2020-09-23</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    6 minutes read (About 861 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/">In-Memory Table with Pluggable Storage API</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This blog is to follow up on the post I published back in July, 2020 about achieving an in-memory table storage using PostgreSQL’s pluggable storage API. In the past few months, my team and I have made some progress and did a few POC patches to prove some of the unknowns and hypothesis and today I would like to share our progress.</p>
+<h3 id="2-The-PostgreSQL-Buffer-Manager"><a href="#2-The-PostgreSQL-Buffer-Manager" class="headerlink" title="2. The PostgreSQL Buffer Manager"></a>2. The PostgreSQL Buffer Manager</h3><p>In the previous post, I mentioned that we would like to build a new in-memory based storage that is based on the existing buffer manager and its related component and hooked it up with the pluggable storage API. To achieve this, my team and I underwent an in-depth study to understand how the current buffer manager works in PostgreSQL and this chapter at <a href="http://www.interdb.jp/pg/pgsql08.html">interdb.jp</a> is a good starting point for us to gain a general understanding of the buffer manager design in good details.</p>
+<p>The current PostgreSQL buffer manager follows a 3-layer buffer design to manage the data pages as illustrated by this image below:</p>
+<p><img src="/images/bufmgr-3layer.png" alt="bufmgr"></p>
+<p>where it consists of </p>
+<ul>
+<li>Buffer Table (hash table)</li>
+<li>Buffer Descriptors (Array)</li>
+<li>Buffer Pool (Array)</li>
+</ul>
+<h4 id="2-1-Page-Table"><a href="#2-1-Page-Table" class="headerlink" title="2.1 Page Table"></a>2.1 Page Table</h4><p>Buffer Table is used like a routing table between PostgreSQL Core and the buffer manager. It is managed using the existing hash table utilities and uses <code>buffer_tag</code> to look up the page descriptor and buffer id. Buffer_tag is a structure that contains the table space, database, table name.</p>
+<h4 id="2-2-Buffer-Descriptor"><a href="#2-2-Buffer-Descriptor" class="headerlink" title="2.2 Buffer Descriptor"></a>2.2 Buffer Descriptor</h4><p>Buffer Descriptor is used to store the status of a buffer block and also the content lock. Refcount is a part of the buffer state, will be used to indicate the insert and delete operation. it will be increased by one when there is an insertion, and decreased by one when there is a deletion. The Vacuum process will reclaim this page once refcount reaches to 0.</p>
+<h4 id="2-3-Buffer-Pool"><a href="#2-3-Buffer-Pool" class="headerlink" title="2.3 Buffer Pool"></a>2.3 Buffer Pool</h4><p>Buffer Pool has a one to one relationship with buffer descriptor. it can be treated a simple pointer pointing to the beginning of the buffer pool, each buffer pool slot is defined as 8KB for now. This is the lowest layer in the buffer manager structure before a page is flushed to disk. The <code>BM_DIRTY</code> status flag is used to indicate if a page in the buffer pool is to be flushed to disk</p>
+<p>In addition to buffer pool, buffer manager also utilizes a ring buffer for reading and writing a huge table whose size exceeds 1/4 of the buffer pool size. <code>Clock Sweep</code> algorithm is used to find a victim page in the ring buffer to eject and flush to disk so new page can enter, thus the name, ring buffer.</p>
+<h3 id="3-The-In-Memory-Only-Buffer-Manager"><a href="#3-The-In-Memory-Only-Buffer-Manager" class="headerlink" title="3. The In-Memory Only Buffer Manager"></a>3. The In-Memory Only Buffer Manager</h3><p>Having a general understanding of the existing buffer manager’s strucutre, we hypothesize that we could potentially improve its IO performance by eliminating the need to flush any buffer data to disk. This means that the in-memory only version of buffer manager itself is the storage media. For this reason, its strucutre can be simplified as:</p>
+<p><img src="/images/bufmgr-2layer.png" alt="bufmgr"></p>
+<p>where the buffer descriptor points to a dedicated memory storage that contains the actual page and tuple. This memory space can be allocated to a certain size at initlaization and there will not be a need to flush a page to disk. All data page and tuple will reside in this memory space. In the case where there is a huge reading and writing load, the ring buffer will not be allocated as the logic to find a victim page to evict and flush to disk will be removed since everything will reside in a dedicated memory space. For this reason, if the memory space is not sufficiently allocated, the user will get “no unpin buffer” is available, which basically means “your disk is full” and you need to do delete and vacuum. </p>
+<p>Using this approach, when the server shuts down or restarts, the data in this memory space is of course lost. So, data persistence to disk would be a topic of interest next, but right now, we already see some useful business case with this in-memory based table where data processing speed is more important than data persistence</p>
+<h3 id="4-Initial-Results"><a href="#4-Initial-Results" class="headerlink" title="4. Initial Results"></a>4. Initial Results</h3><p>Using the same tuple structure and logic as the current heap plus the memory based buffer manager with 1GB of memory allocated, we observe some interesting increase in performance comparing to PostgreSQL with default settings. For 20 million row, we observe about 50% increase for insert, 70% increase for update, 60% increase for delete and 30% increase in vacuum. This result is not too bad considering we are still at the early stages and I am sure there are many other ways to make it even faster</p>
+<h3 id="5-Next-Step"><a href="#5-Next-Step" class="headerlink" title="5. Next Step"></a>5. Next Step</h3><p>Having some solid results from the initial test, it would make sense for us to also be looking into having the index tuples as in-memory storage only. In addition, free space map and visibility map files that are stored in the PG cluster directory could potentially also be made as in-memory to possibly further increase the DML performance.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2020/08/21/TLS-Related-Updates-in-PostgreSQL-13/" class="image is-7by1">
             <img class="thumbnail" src="/images/pg13-tls-cover.png" alt="TLS Related Updates in PostgreSQL 13">
         </a>
@@ -721,67 +792,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view3.jpg" alt="Steaming-Replication-Setup-in-PG12-How-to-do-it-right">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-10-30T06:36:39.000Z">2019-10-29</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    13 minutes read (About 1990 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/">Steaming-Replication-Setup-in-PG12-How-to-do-it-right</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>PostgreSQL 12 has been considered as a major update consisting of major performance boost with partitioning enhancements, indexing improvements, optimized planner logics and several others. One of the major changes is noticeably the removal of <code>recovery.conf</code> in a standby cluster. For this reason, the procedure to set up a streaming replication clusters has changed, and in this blog, I will demonstrate how to properly setup a streaming replication setup in PG12.</p>
-<p>Streaming replication setup requires a master cluster and one or more slave clusters that will replicate the data inserted to the master by streaming the archived WAL files generated by master. The master and slaves can reside on different machines connected via network but in this blog, we will use one master and one slave setup and both will be run on the same machine with different port number.</p>
-<p>The procedures illustrated in this blog is based on Postgres version 12 built from source running on Ubuntu 18.04</p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -848,7 +858,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            25
+                            26
                         </p>
                     </a>
                 </div>
@@ -872,7 +882,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            42
+                            43
                         </p>
                     </a>
                 </div>
@@ -999,7 +1009,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">23</span>
+                <span class="level-item tag">24</span>
             </span>
         </a></li>
             </ul>
@@ -1012,7 +1022,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 10px;">recovery</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 10px;">2021 PG Asia Conference</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 10px;">recovery</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -1021,6 +1031,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/title-conference-en.jpg" alt="PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-10-25T17:25:12.000Z">2021-10-25</time></div>
+                    <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="title has-link-black-ter is-size-6 has-text-weight-normal">PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1098,25 +1127,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/banner-2021-03-03.png" alt="How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-03-03T20:17:11.000Z">2021-03-03</time></div>
-                    <a href="/2021/03/03/How-PostgreSQL-Handles-Sub-Transaction-Visibility-In-Streaming-Replication-Setup/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How PostgreSQL Handles Sub Transaction Visibility In Streaming Replication Setup?</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1134,7 +1144,7 @@
                     <span class="level-item">October 2021</span>
                 </span>
                 <span class="level-end">
-                    <span class="level-item tag">1</span>
+                    <span class="level-item tag">2</span>
                 </span>
             </a>
         </li>
@@ -1351,6 +1361,13 @@
             <div class="field is-grouped is-grouped-multiline">
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/2021-PG-Asia-Conference/">
+                        <span class="tag">2021 PG Asia Conference</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/architecture/">
                         <span class="tag">architecture</span>
                         <span class="tag is-grey">1</span>
@@ -1521,7 +1538,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">10</span>
+                        <span class="tag is-grey">11</span>
                     </a>
                 </div>
                 
