@@ -142,6 +142,80 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2021/10/29/The-PostgreSQL-Timeline-Concept/" class="image is-7by1">
+            <img class="thumbnail" src="/images/timeline.png" alt="The PostgreSQL Timeline Concept">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-10-29T16:46:01.000Z">2021-10-29</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    4 minutes read (About 659 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2021/10/29/The-PostgreSQL-Timeline-Concept/">The PostgreSQL Timeline Concept</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>In my previous blog <a href="https://www.highgo.ca/2021/10/01/postgresql-14-continuous-archiving-and-point-in-time-recovery/">here</a>, I discussed about PostgreSQL’s point in time recovery where PostgreSQL supports an ability to recover your database to a specific time, recovery point or transaction ID in the past but I did not discuss in detail the concept of <code>timeline id</code>, which is also important in database recovery.</p>
+<h3 id="2-What-is-timeline-ID-and-Why-it-is-important"><a href="#2-What-is-timeline-ID-and-Why-it-is-important" class="headerlink" title="2. What is timeline ID and Why it is important?"></a>2. What is timeline ID and Why it is important?</h3><p>A timeline ID is basically a point of divergence in WAL. It represents a point, of to be exact, the LSN of the WAL in which the database starts to diverge. Divergence happens when an user performs a point in time recovery or when the standby server is promoted. The timeline ID is included in the first 8 bytes of WAL segment files under pg_wal/ directory.</p>
+<p>For example:<br>pg_wal/000000010000000000000001, indicates that this WAL segment belongs to timeline ID = 1</p>
+<p>and</p>
+<p>pg_wal/000000020000000000000001, indicates that this WAL segment belongs to timeline ID = 2</p>
+<p>Timeline ID behaves somewhat like <code>git branch</code> function without the ability to move forward in parallel and to merge back to the master branch. Your development starts from a <code>master branch</code>, and you are able to create a new branch (A) from the master branch to continue a specific feature development. Let’s say the feature also involves several implementation approaches and you are able to create additional branches (B, C and D) to implement each approach.</p>
+<p>This is a simple illustration of git branch:</p>
+<p><img src="/images/timeline-gitbranch.drawio.png" alt=""></p>
+<p>With timeline ID, your database starts from timeline ID 1 and it will stay at 1 for all subsequent database operations. Timeline ID 2 will be created when the user performs a point in time recovery on timeline 1 and all of the subsequnt database operations at this point belong to timeline ID 2. While at 2, the user could perform more PITR to create timeline 3, 4 and 5 respectively. </p>
+<p>In the previous PITR blog, I mentioned that you could do PITR based on time, a recovery point, a LSN or a transaction ID but all these can only apply to one particular timeline. In postgresql.conf, you can select a desired recovery timeline by the <code>recovery_target_timeline</code> parameter. This parameter can be <code>&#39;latest&#39;</code>, <code>&#39;current&#39;</code>, or <code>&#39;a particular timeline ID value&#39;</code>. </p>
+<p>With this configuration, an user is able to recovery the database to a particular point of a particular timeline in the past </p>
+<p>This is a simple illustration of timeline ID:</p>
+<p><img src="/images/timeline.drawio.png" alt=""></p>
+<h3 id="3-The-History-File-Associated-with-a-Timeline-ID"><a href="#3-The-History-File-Associated-with-a-Timeline-ID" class="headerlink" title="3. The History File Associated with a Timeline ID"></a>3. The History File Associated with a Timeline ID</h3><p>The history files are created under pg_wal/ directory with a <code>.history</code> postfix when a new timeline Id is created. This file describes all the past divergence points that have to be replayed in order to reach the current timeline. Without this file, it is impossible to tell where a timeline comes from, thus not being able to do PITR.</p>
+<p>For example, a history file <code>00000003.history</code> may contain the following contents</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">cat pg_wal&#x2F;00000003.history</span><br><span class="line">1       0&#x2F;30000D8       no recovery target specified</span><br><span class="line"></span><br><span class="line">2       0&#x2F;3002B08       no recovery target specified</span><br></pre></td></tr></table></figure>
+
+<p>which means that timeline 3 comes from LSN(0/3002B08) of timeline 2, which comes from LSN(0/30000D8) of timeline 1. </p>
+<h3 id="4-Importance-of-Continuous-Archiving"><a href="#4-Importance-of-Continuous-Archiving" class="headerlink" title="4. Importance of Continuous Archiving"></a>4. Importance of Continuous Archiving</h3><p>With the concept of timeline ID, it is possible that the same LSN or the same WAL segments exist in multiple timelines. </p>
+<p>For example: the WAL segments, 3, 4, 5, 6 exist in both timeline 1 and timeline 2 but with different contents. Since the current timeline is 2, so the ones in timeline 2 will continue to grow forward. </p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">000000010000000000000001</span><br><span class="line">000000010000000000000002</span><br><span class="line">000000010000000000000003</span><br><span class="line">000000010000000000000004</span><br><span class="line">000000010000000000000005</span><br><span class="line">000000010000000000000006</span><br><span class="line">000000020000000000000003</span><br><span class="line">000000020000000000000004</span><br><span class="line">000000020000000000000005</span><br><span class="line">000000020000000000000006</span><br><span class="line">000000020000000000000007</span><br><span class="line">000000020000000000000008</span><br></pre></td></tr></table></figure>
+
+<p>With more timelines created, the number of WAL segments files may also increase. Sine PG keeps a certain amount of WAL segment files before deleting them, it is super important to archive all the WAL segments to a separate location either by enabling continuous archiving function or using pg_receivewal tool. With all WAL segment files archived in a separate location, the user is able to perform successful point in time recovery to any timeline and any LSN.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="image is-7by1">
             <img class="thumbnail" src="/images/title-conference-en.jpg" alt="PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!">
         </a>
@@ -926,77 +1000,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/" class="image is-7by1">
-            <img class="thumbnail" src="/images/pg-mem-table-cover.png" alt="In-Memory Table with Pluggable Storage API">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2020-09-23T21:02:38.000Z">2020-09-23</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    6 minutes read (About 861 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2020/09/23/In-memory-Table-with-Pluggable-Storage-API/">In-Memory Table with Pluggable Storage API</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>This blog is to follow up on the post I published back in July, 2020 about achieving an in-memory table storage using PostgreSQL’s pluggable storage API. In the past few months, my team and I have made some progress and did a few POC patches to prove some of the unknowns and hypothesis and today I would like to share our progress.</p>
-<h3 id="2-The-PostgreSQL-Buffer-Manager"><a href="#2-The-PostgreSQL-Buffer-Manager" class="headerlink" title="2. The PostgreSQL Buffer Manager"></a>2. The PostgreSQL Buffer Manager</h3><p>In the previous post, I mentioned that we would like to build a new in-memory based storage that is based on the existing buffer manager and its related component and hooked it up with the pluggable storage API. To achieve this, my team and I underwent an in-depth study to understand how the current buffer manager works in PostgreSQL and this chapter at <a href="http://www.interdb.jp/pg/pgsql08.html">interdb.jp</a> is a good starting point for us to gain a general understanding of the buffer manager design in good details.</p>
-<p>The current PostgreSQL buffer manager follows a 3-layer buffer design to manage the data pages as illustrated by this image below:</p>
-<p><img src="/images/bufmgr-3layer.png" alt="bufmgr"></p>
-<p>where it consists of </p>
-<ul>
-<li>Buffer Table (hash table)</li>
-<li>Buffer Descriptors (Array)</li>
-<li>Buffer Pool (Array)</li>
-</ul>
-<h4 id="2-1-Page-Table"><a href="#2-1-Page-Table" class="headerlink" title="2.1 Page Table"></a>2.1 Page Table</h4><p>Buffer Table is used like a routing table between PostgreSQL Core and the buffer manager. It is managed using the existing hash table utilities and uses <code>buffer_tag</code> to look up the page descriptor and buffer id. Buffer_tag is a structure that contains the table space, database, table name.</p>
-<h4 id="2-2-Buffer-Descriptor"><a href="#2-2-Buffer-Descriptor" class="headerlink" title="2.2 Buffer Descriptor"></a>2.2 Buffer Descriptor</h4><p>Buffer Descriptor is used to store the status of a buffer block and also the content lock. Refcount is a part of the buffer state, will be used to indicate the insert and delete operation. it will be increased by one when there is an insertion, and decreased by one when there is a deletion. The Vacuum process will reclaim this page once refcount reaches to 0.</p>
-<h4 id="2-3-Buffer-Pool"><a href="#2-3-Buffer-Pool" class="headerlink" title="2.3 Buffer Pool"></a>2.3 Buffer Pool</h4><p>Buffer Pool has a one to one relationship with buffer descriptor. it can be treated a simple pointer pointing to the beginning of the buffer pool, each buffer pool slot is defined as 8KB for now. This is the lowest layer in the buffer manager structure before a page is flushed to disk. The <code>BM_DIRTY</code> status flag is used to indicate if a page in the buffer pool is to be flushed to disk</p>
-<p>In addition to buffer pool, buffer manager also utilizes a ring buffer for reading and writing a huge table whose size exceeds 1/4 of the buffer pool size. <code>Clock Sweep</code> algorithm is used to find a victim page in the ring buffer to eject and flush to disk so new page can enter, thus the name, ring buffer.</p>
-<h3 id="3-The-In-Memory-Only-Buffer-Manager"><a href="#3-The-In-Memory-Only-Buffer-Manager" class="headerlink" title="3. The In-Memory Only Buffer Manager"></a>3. The In-Memory Only Buffer Manager</h3><p>Having a general understanding of the existing buffer manager’s strucutre, we hypothesize that we could potentially improve its IO performance by eliminating the need to flush any buffer data to disk. This means that the in-memory only version of buffer manager itself is the storage media. For this reason, its strucutre can be simplified as:</p>
-<p><img src="/images/bufmgr-2layer.png" alt="bufmgr"></p>
-<p>where the buffer descriptor points to a dedicated memory storage that contains the actual page and tuple. This memory space can be allocated to a certain size at initlaization and there will not be a need to flush a page to disk. All data page and tuple will reside in this memory space. In the case where there is a huge reading and writing load, the ring buffer will not be allocated as the logic to find a victim page to evict and flush to disk will be removed since everything will reside in a dedicated memory space. For this reason, if the memory space is not sufficiently allocated, the user will get “no unpin buffer” is available, which basically means “your disk is full” and you need to do delete and vacuum. </p>
-<p>Using this approach, when the server shuts down or restarts, the data in this memory space is of course lost. So, data persistence to disk would be a topic of interest next, but right now, we already see some useful business case with this in-memory based table where data processing speed is more important than data persistence</p>
-<h3 id="4-Initial-Results"><a href="#4-Initial-Results" class="headerlink" title="4. Initial Results"></a>4. Initial Results</h3><p>Using the same tuple structure and logic as the current heap plus the memory based buffer manager with 1GB of memory allocated, we observe some interesting increase in performance comparing to PostgreSQL with default settings. For 20 million row, we observe about 50% increase for insert, 70% increase for update, 60% increase for delete and 30% increase in vacuum. This result is not too bad considering we are still at the early stages and I am sure there are many other ways to make it even faster</p>
-<h3 id="5-Next-Step"><a href="#5-Next-Step" class="headerlink" title="5. Next Step"></a>5. Next Step</h3><p>Having some solid results from the initial test, it would make sense for us to also be looking into having the index tuples as in-memory storage only. In addition, free space map and visibility map files that are stored in the PG cluster directory could potentially also be made as in-memory to possibly further increase the DML performance.</p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -1063,7 +1066,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            26
+                            27
                         </p>
                     </a>
                 </div>
@@ -1087,7 +1090,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            43
+                            44
                         </p>
                     </a>
                 </div>
@@ -1214,7 +1217,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">24</span>
+                <span class="level-item tag">25</span>
             </span>
         </a></li>
             </ul>
@@ -1227,7 +1230,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 10px;">2021 PG Asia Conference</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 10px;">recovery</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 10px;">2021 PG Asia Conference</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
     </div>
 </div>
     
@@ -1236,6 +1239,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/10/29/The-PostgreSQL-Timeline-Concept/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/timeline.png" alt="The PostgreSQL Timeline Concept">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-10-29T16:46:01.000Z">2021-10-29</time></div>
+                    <a href="/2021/10/29/The-PostgreSQL-Timeline-Concept/" class="title has-link-black-ter is-size-6 has-text-weight-normal">The PostgreSQL Timeline Concept</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1313,25 +1335,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/gdb-debug-banner.png" alt="Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-07-09T18:41:55.000Z">2021-07-09</time></div>
-                    <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1349,7 +1352,7 @@
                     <span class="level-item">October 2021</span>
                 </span>
                 <span class="level-end">
-                    <span class="level-item tag">2</span>
+                    <span class="level-item tag">3</span>
                 </span>
             </a>
         </li>
@@ -1743,7 +1746,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">11</span>
+                        <span class="tag is-grey">12</span>
                     </a>
                 </div>
                 
@@ -1764,7 +1767,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/recovery/">
                         <span class="tag">recovery</span>
-                        <span class="tag is-grey">1</span>
+                        <span class="tag is-grey">2</span>
                     </a>
                 </div>
                 
@@ -1827,6 +1830,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/tde/">
                         <span class="tag">tde</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/timeline-id/">
+                        <span class="tag">timeline id</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
