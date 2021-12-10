@@ -131,6 +131,112 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="image is-7by1">
+            <img class="thumbnail" src="/images/extended.png" alt="A Look Inside PostgreSQL&#39;s Extended Query Protocol">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-12-10T19:34:58.000Z">2021-12-10</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    7 minutes read (About 983 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/">A Look Inside PostgreSQL&#39;s Extended Query Protocol</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Few weeks ago, I was tasked to have a detailed look inside PostgreSQL’s extended query protocol and study its internal mechanisms for a project that depends on this particular feature. In this blog, I will explain how extended protocol works in my own words and how it differs from simple query.</p>
+<h3 id="2-Simple-Query"><a href="#2-Simple-Query" class="headerlink" title="2. Simple Query"></a>2. Simple Query</h3><p>A client is able to initiate 2 type of queries against a PostgreSQL server, simple query or extended query. Simple query, as the name suggests, is very simple and straightforward to understand. When we launch the <code>psql</code> client tool to connect to a PostgreSQLs server, almost all of the SQL commands sent are considered as simple queries. This includes the use of <code>begin</code> and <code>commit</code> to enclose a transaction, having multiple SQL queries included in one big query separated by a semicolon, executing or defining a function and much more. </p>
+<p>Simple query automatically follows the standard query processing routines, which consist of these stages:</p>
+<ul>
+<li>Parser</li>
+<li>Analyzer</li>
+<li>Rewriter</li>
+<li>Planner</li>
+<li>Executor</li>
+</ul>
+<p>Refer to this blog <a href="https://www.highgo.ca/2019/10/03/trace-query-processing-internals-with-debugger/">here</a> for detailed information about query processing.</p>
+<p>The communication between the client and the server is also very straightforward. In case of DML operations such as INSERT, the client sends the query to the server for processing and the server responds a <code>CommandComplete</code> message such as <code>INSERT 0 1</code> followed by a <code>ReadyForQuery(IDLE)</code> message to indicate that the server has finished the query and is now idle. The client can send another query and it follows the same patter. </p>
+<p>In case of a <code>SELECT</code> query, the server will send the row description followed by the actual row data satisfying the query until there is no more rows to return. In the end, the server sends a <code>ReadyForQuery(IDLE)</code> message to indicate that the server has finished the query and is now idle.</p>
+<h3 id="3-Extended-Query"><a href="#3-Extended-Query" class="headerlink" title="3. Extended Query"></a>3. Extended Query</h3><p>Extended query is the other way for the client to complete a query excepts that it breaks down the standard query processing into different steps and <code>the client</code> is responsible to ensure these steps are followed and executed correctly. The client is able to control thses steps by sending the following wire protocol message types:</p>
+<ul>
+<li><p>‘P’ message (Parse)</p>
+<ul>
+<li><code>P</code> message takes a generalize query string with data values repalced with placeholders like <code>$1</code>, <code>$2</code>, which can be later substitued with real values in the Bind step.</li>
+<li>This generalized query string will be parsed via these query processing routines: <code>Parser</code> -&gt; <code>Analyzer</code> -&gt; <code>Rewriter</code></li>
+<li>At the end of a successful Parse, a <code>prepared statement</code> is produced, similar to SQL’s <code>PREPARE</code> clause</li>
+<li>This <code>prepared statement</code> can be <code>named</code> or <code>unnammed</code> (more on this next).</li>
+<li>This <code>prepared statement</code> is just a representation of the input query and it cannot be executed yet. </li>
+</ul>
+</li>
+<li><p>‘B’ message (Bind)</p>
+<ul>
+<li><code>B</code> takes the <code>named</code> or <code>unnammed</code> <code>prepared statement</code> produced from the <code>P</code> message and replaces the placeholders ($1, $2) with the user-supplied values.</li>
+<li>After the values are bound to the <code>prepared statement</code>, we basically have a completed query and it will then be fed into the <code>planner</code> stage to produce the most optimized query plan for the query.</li>
+<li>At the end of a successful planning, a <code>portal</code> is produced. </li>
+<li>This <code>portal</code> can also be <code>named</code> or <code>unnammed</code> (more on this next)</li>
+<li>A portal is basically an object that represents how to execute a particular query</li>
+</ul>
+</li>
+<li><p>‘E’ message (Execute)</p>
+<ul>
+<li><code>E</code> takes the <code>named</code> or <code>unnamed</code> <code>portal</code> produced from the <code>B</code> message and actuallly launch the <code>executor</code> to execute the query (or portal).</li>
+<li>resultant rows are produced (if any) and returns to the client</li>
+</ul>
+</li>
+<li><p>‘S’ message (Sync)</p>
+<ul>
+<li>The client has to send a <code>S</code> message to the server to indicate the end of the extended query. </li>
+<li>This message causes the server to end the current transaction and sends <code>ReadyForQuery(IDLE)</code> message back to client.</li>
+</ul>
+</li>
+</ul>
+<p>What is the purpose of separating a simple query into multiple steps? One major benefit of using the extended query is that it can save a lot of unnecessary parsing of the same query structure. Instead, we can have the common strucuture parsed only once and then bind and execute with different values multiple times.</p>
+<h3 id="4-Named-and-Unnamed-Prepared-Statement-and-Portal"><a href="#4-Named-and-Unnamed-Prepared-Statement-and-Portal" class="headerlink" title="4. Named and Unnamed Prepared Statement and Portal"></a>4. Named and Unnamed Prepared Statement and Portal</h3><p>In previous section we mentioned that a prepared statement and protal can be either <code>named</code> or <code>unnamed</code> during the extended query protocol. What does it mean and what is the significance? </p>
+<p>The general rule is that PostgreSQL server can only keep one unnamed prepared statement or portal. Requests containing unnamed prepared statemnt or portal will replace the existing ones. </p>
+<p>With named prepared statement or portal, the server will respectively remember them based on the names given and client is able to invoke them any time or specifically destroyed by sending a Close message. </p>
+<p>So, it is possible for a client to create multiple prepared statements within a transaction, each having different prepared statement names, and then bind values for them all at the same time by giving them different portal names. Eventually, the client chooses which portal to be executed.</p>
+<p>More importantly, named prepared statement’s life time lasts for the entire TCP session unless explicitly destroyed; named portal lasts only until the end of transaction or when it is executed or explicitly destroyed.</p>
+<p>But, does it make client implementation more complicated if extended query is used?</p>
+<p>Yes, but client has a choice to complicate things or not</p>
+<p>Taking libpq for example, when extended query is used, it requires the client application to provide a prepared statement name to construct the <code>P</code> (Parse) message, but does not require the client application to provide portal name to construct the <code>B</code> (Bind) message. This means that with libpq, we can send <code>P</code> message multiple times with different prepared statement names, but with <code>B</code> message, it forces to use unnamed portal name, so we always have one portal to execute. This avoids the case with multiple portal names in the client side to manage. </p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2021/10/29/The-PostgreSQL-Timeline-Concept/" class="image is-7by1">
             <img class="thumbnail" src="/images/timeline.png" alt="The PostgreSQL Timeline Concept">
         </a>
@@ -898,151 +1004,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2020/11/27/2020%20PG%20Asia%20Conference%20Ended%20Successfully%20at%20an%20Unprecedented%20Scale!/" class="image is-7by1">
-            <img class="thumbnail" src="/images/pgconf2020banner.webp" alt="2020 PG Asia Conference Ended Successfully at an Unprecedented Scale!">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2020-11-27T19:21:47.000Z">2020-11-27</time>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    17 minutes read (About 2480 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2020/11/27/2020%20PG%20Asia%20Conference%20Ended%20Successfully%20at%20an%20Unprecedented%20Scale!/">2020 PG Asia Conference Ended Successfully at an Unprecedented Scale!</a>
-            
-        </h1>
-        <div class="content">
-            <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>On November 17-20, 2020, PostgresConf.CN &amp; PGconf.Asia2020 (referred to as 2020 PG Asia Conference) was held online for the very first time! This conference was jointly organized by the PG China Open Source Software Promotion Alliance, PostgresConf International Conference Organization, and PGConf.Asia Asian Community. This conference was broadcast exclusively via the Modb Technology Community platform in China with a record-high number of viewers streaming the conference events. With the great support from these PostgreSQL communities, the conference was held with great success, which brought together the Chinese PG power, major Asian PG contributors and many PostgreSQL experts worldwide to build the largest PG ecosystem in Asia.</p>
-<h2 id="About-the-Conference"><a href="#About-the-Conference" class="headerlink" title="About the Conference"></a>About the Conference</h2><p>Also known as the Asia’s largest open source relational database ecology conference</p>
-<p>PostgresConf.CN and PGConf.Asia, for the very first time, were hosted together as one conference online accompanied by additional offline sessions hosted at several reputable university campuses in China. </p>
-<p>PostgresConf.CN is an annual conference held by the China PostgreSQL Association for PostgreSQL users and developers. It is also one of the conference series held by PostgresConf Organization. PostgreConf.CN 2019 took place in Beijing, it was very well attended by PostgreSQL users and community members across the globe.</p>
-<p>PGCONF.Asia is also an annual PostgreSQL event that took place in Bali Indonesia in 2019, it was a continuation of the PGCONF.Asia event that took place in Tokyo, Japan in 2018. The first PGCONG.Asia conference took place in 2016 in Tokyo, this conference acts as a hub of PostgreSQL related development and technical discussion among PostgreSQL users and developers in the region as well as experts from around the globe.</p>
-<p>Learn more about these conferences and the organizers from these resources:</p>
-<ul>
-<li><a href="https://2020.postgresconf.cn/en">2020.postgresconf.cn</a></li>
-<li><a href="https://2020.pgconf.asia">2020.pgconf.asia</a></li>
-<li><a href="https://www.postgresconf.org">PostgresConf</a></li>
-</ul>
-<h2 id="Sponsors"><a href="#Sponsors" class="headerlink" title="Sponsors"></a>Sponsors</h2><p>This conference was sponsored by:</p>
-<p><strong>Platinum</strong>:</p>
-<ul>
-<li><a href="https://www.aliyun.com/">Alibaba Cloud</a></li>
-<li><a href="https://cloud.tencent.com/">Tencent Cloud</a></li>
-<li><a href="https://www.enterprisedb.com/">EDB</a></li>
-<li><a href="https://www.highgo.com/">HighGo Software</a></li>
-</ul>
-<p><strong>Golden</strong>:</p>
-<ul>
-<li><a href="http://www.inspurpower.com/">Inspur Power Systems</a></li>
-</ul>
-<p><strong>Silver</strong>:</p>
-<ul>
-<li><a href="https://equnix.asia/">Equnix Business Solutions</a></li>
-</ul>
-<h2 id="14-Conference-Channels-over-4-Days"><a href="#14-Conference-Channels-over-4-Days" class="headerlink" title="14 Conference Channels over 4 Days!"></a>14 Conference Channels over 4 Days!</h2><p>The conference lasted 4 days at an unprecedented scale. A total of 14 channels, including 5 technical training + 9 main/sub-forum training channels. </p>
-<ul>
-<li>Alibaba Cloud Database Training Session </li>
-<li>Tencent Cloud Database Training Session</li>
-<li>HighGo Software Training Session</li>
-<li>PG Training Institution Charity Session </li>
-<li>PostgresConf Orgnization English Training Session (1 Day)</li>
-<li>the main forum (2 days)</li>
-<li>Chinese sub-forum (2 days)</li>
-<li>English sub-forum A (2 days)</li>
-<li>English sub-forum B (2 days) </li>
-<li>CCF advanced academic forum (1 day) </li>
-</ul>
-<h2 id="Over-100-Participating-Experts-and-Scholars-Around-the-World"><a href="#Over-100-Participating-Experts-and-Scholars-Around-the-World" class="headerlink" title="Over 100 Participating Experts and Scholars Around the World"></a>Over 100 Participating Experts and Scholars Around the World</h2><p> The number of invited speakers for this conference has set a new record. With the theme of “Born into the World”, the conference gathered 112 technical presentations and more than 100 well-known experts and scholars around the world to provide a grand technical feast for all the participating PGers.</p>
-<ul>
-<li>Guangnam Ni, Fellow of the Chinese Academy of Engineering</li>
-<li>Peng Liu, Vice chairman of China Open Source Software Promotion Alliance and researcher of the Chinese Academy of Sciences</li>
-<li>Zhiyong Peng, deputy director of the database committee of the Chinese Computer Society</li>
-<li>Bruce Momjian, co-founder of PostgreSQL international community and vice president of EDB</li>
-<li>Peter Zaitsev, Founder and CEO of Percona</li>
-<li>Tatsuo Ishii, the original author of Pgpool-ll and founders of PGconf.asian and Japanese PG user association</li>
-<li>Experts from from Alibaba, Tencent, Amazon, JD.com, Inspur, Ping An, Suning, ZTE, HornetLab, Equnix, VMware Greenplum, yMatrix, HighGo Software, Yunhe Enmo, Percona, EDB, NTT, Postgres Professional, Fujitsu, AsiaInfo, Giant Sequoia, Mechuang, Wenwu, Guoxin Sinan, Hytera, Airwallex, Ottertune and many others.</li>
-<li>Professors from Wuhan University, East China Normal University, Harbin Institute of Technology, Shandong University, CCF (China Computer Society) database committee members of Tianjin University</li>
-<li>Professional lecturers from 10 well-known authorized PG training service providers</li>
-<li>And many, many more!</li>
-</ul>
-<h2 id="Record-High-LIVE-Streaming-Viewers"><a href="#Record-High-LIVE-Streaming-Viewers" class="headerlink" title="Record High LIVE Streaming Viewers"></a>Record High LIVE Streaming Viewers</h2><p>The number of LIVE streaming viewers at this conference has also hit a new record. Each channel accumulated over 30,000 active LIVE streams, the official conference blog views accumulated over 50,000+ views, and the news reports and articles from media exceeded over 3,000 entries. </p>
-<h2 id="Conference-Highlights"><a href="#Conference-Highlights" class="headerlink" title="Conference Highlights"></a>Conference Highlights</h2><p>PostgresConf is an annual event for PostgreSQL developers and users worldwide. This conference attracted core members from the global PostgreSQL community, as well as corporate and individual users who use PostgreSQL.</p>
-<p>The PGConf.Asia conference went smoothly for 4 days and it attracted many domestic and foreign audiences worldwide to join the LIVE streaming channels. The conference has 100+ subject sharing sessions, and each session on average accumulated 30,000+ active streams.</p>
-<p>The first two days of the conference, several leading internet service vendors such as Alibaba Cloud, Tencent Cloud and database vendor HighGo Software brought a series of rich technical contents related to PostgreSQL, providing tremendous amount of values to the audiences who are willing to learn PostgreSQL database technology</p>
-<p>The third and fourth days of the conference consist of numerous technical presentations covering wide range of area of technical interests.</p>
-<p>Let’s take a look at some of the highlights of the conference!</p>
-<h3 id="Opening-Speech-by-Fellow-Guangnam-Ni"><a href="#Opening-Speech-by-Fellow-Guangnam-Ni" class="headerlink" title="Opening Speech by Fellow Guangnam Ni"></a>Opening Speech by Fellow Guangnam Ni</h3><p><img src="/images/guangnan-li.webp" alt="Guangnam Ni"><br>The conference was kick-started by an opening speech by Guangnan Ni, fellow of the Chinese Academy of Engineering and the leader of China’s basic software industry. Fellow Ni first expressed his warm congratulations on the holding of the conference and sincere greetings to the representatives of the participating countries and open source experts. He pointed out that open source is an important trend in today’s world development, and it is profoundly changing the global digital economy and information industry. </p>
-<p>This conference brings great value to the development of the open source industry, promotes the open source movement and popularization of open source culture in Chin and also strengthens international exchanges and cooperation. Fellow Ni hopes to use the PGConf Asia Conference platform to realize intellectual exchanges between Asia and the world, achieve higher and higher levels of global cooperation, and contribute to the development of global open source technology. Finally, Fellow Ni wished the conference a complete success, and wished the PG open source ecosystem more prosperity! *”I wish the Chinese PG branch and the Asian PG community prosper and get better and better!”*</p>
-<h3 id="Peng-Liu"><a href="#Peng-Liu" class="headerlink" title="Peng Liu"></a>Peng Liu</h3><p>Peng Liu, executive vice chairman of China Open Source Software Promotion Alliance and researcher at the Institute of Software and Chinese Academy of Sciences, delivered a speech on behalf of COPU. He pointed out that based on the open BSD license + decentralized ecological architecture, PostgreSQL has a permanent security guarantee in the past, present and future. Following the spirit of free software &amp; complying with the BSD open source agreement, PostgreSQL meets the most stringent security compliance audits, and is not subject to US technology export control jurisdiction restrictions (Long Arm Jurisdiction Limitations/US Export Controls). PostgreSQL is a recognized global technology with public property rights and countless global PG contributors are committed to promoting the free and democratic software movement to protect the rights of anyone who obtain and use such software.<br><img src="/images/peng-liu.webp" alt="Peng Liu"></p>
-<h3 id="Bruce-Momjian"><a href="#Bruce-Momjian" class="headerlink" title="Bruce Momjian"></a>Bruce Momjian</h3><p>Bruce Momjian, co-founder of the PostgreSQL international community and vice president of EDB, shared “Will Postgres Live Forever” speech. He said that any business has its life cycle, and open source PG is no exception, but compared to closed source commercial software, the life cycle of open source software will have more vitality. As long as the source code is valuable, it can always get a new life. In 1996, Postgres got a new life due to the introduction of the SQL standard and the improvement of its functions. The development trend continues to rise today.</p>
-<p><img src="/images/bruce-momjian.webp" alt="Bruce Momjian"><br><img src="/images/bruce-momjian-2.webp" alt="Bruce Momjian"></p>
-<h3 id="Tatuso-Ishii"><a href="#Tatuso-Ishii" class="headerlink" title="Tatuso Ishii"></a>Tatuso Ishii</h3><p>PGconf.Asia and Tatsuo Ishii, the founder of the Japanese PG User Association and the original author of Pgpool-ll, shared “Wonderful PostgreSQL!”. Tatsuo Ishii wrote the WAL system by himself based on Gray’s business thesis, and his creativity is admirable.<br><img src="/images/tatsuo-ishii.webp" alt="Tatsuo Ishii"></p>
-<h3 id="Peter-Zaitsev"><a href="#Peter-Zaitsev" class="headerlink" title="Peter Zaitsev"></a>Peter Zaitsev</h3><p>Percona CEO Peter Zaitsev made a sharing of “The Changing Landscape of Open Source Databases”. He summarized several key points such as distributed, cloud native, storage and computing separation, and hardware acceleration, which basically covered the main focuses of the current database technology development.</p>
-<p><img src="/images/peter-zaitsev.webp" alt="Peter Zaitsev"><br><img src="/images/peter-zaitsev-2.webp" alt="Peter Zaitsev"><br><img src="/images/peterz2.png" alt="Peter Zaitsev"></p>
-<h3 id="Zhiyong-Peng"><a href="#Zhiyong-Peng" class="headerlink" title="Zhiyong Peng"></a>Zhiyong Peng</h3><p>Professor Peng Zhiyong, deputy director of the database committee of CCF China Computer Society, deputy dean of the School of Computer Science of Wuhan University, made a sharing of “My Way from PG to TOTEM”. Professor Peng talked about his 30-years of database research, from leading students to in-depth PG source code research database models, to compiling PG kernel analysis textbooks, to the development of the totem (TOTEM) database.<br><img src="/images/zhiyong-peng.webp" alt="Zhiyong Peng"></p>
-<p>As we all know, PG originated from the University of California, Berkeley. This conference was also fortunate enough to have invited Professor Peng from Wuhan University. Professor Peng has been deeply involved in the PG database for more than 30 years and has led students to in-depth PG source code research database model, to write PG kernel and analysis book. Eventually created the totem (TOTEM) database based on PG. Peng has made outstanding contributions to PostgreSQL talent training and research!</p>
-<p><img src="/images/zhiyong-peng-2.webp" alt="Zhiyong Peng"></p>
-<h3 id="Guoqiang-Gai"><a href="#Guoqiang-Gai" class="headerlink" title="Guoqiang Gai"></a>Guoqiang Gai</h3><p>Guoqiang Gai, the founder of Enmotech, gave a speech on “Observing the elephant: the skills migration from Oracle to PostgreSQL DBA”. Gai gave a principle analysis from a source code perspective through a typical PG rollback problem, encouraging everyone to play with open source databases to learn the source code deeply, emphasizing that DBA is essential to enterprise data management, and every DBA must pass self-employment training to reflect personal value.<br><img src="/images/guoqiang-gai.webp" alt="Guoqiang Gai"></p>
-<p>Whether it is PG or PG-related database products, its value must always be reflected by helping companies manage core data assets. Here, Gai said that the role of DBA is crucial for the last mile from database products to users. They are the closest partners of databases, whether in client companies, database cloud vendors or software suppliers or integrators. Gai encouraged DBAs to take advantage of open source and analyze in-depth source code to solve problems.</p>
-<p><img src="/images/guoqiang-gai-2.webp" alt="Guoqiang Gai"></p>
-<h3 id="Julyanto-SUTANDANG"><a href="#Julyanto-SUTANDANG" class="headerlink" title="Julyanto SUTANDANG"></a>Julyanto SUTANDANG</h3><p>Julyanto SUTANDANG, CEO of Equnix Business Solutions, gave a very detailed presentation about the professional PostgreSQL certifications and how these certifications can help an individual advance his or her career in PostgreSQL related fields. Certification is one of the best ways to tell your client, or your boss that you are the right person for the job. Whether you are a regular user, a government regulator, a professor or a subcontractor, there will always be a suitable level of PostgreSQL certification for your needs!</p>
-<p><img src="/images/julyanto.png" alt="Julyanto SUTANDANG"></p>
-<h3 id="Lei-Feng"><a href="#Lei-Feng" class="headerlink" title="Lei Feng"></a>Lei Feng</h3><p>Lei Feng, founder and general manager of Greenplum China founder shared “Greenplum’s open source journey: ecology and community leadership” speech.<br><img src="/images/lei-feng.webp" alt="Lei Feng"></p>
-<p>the AI-enabled database is also leading the future development direction of the database. Lei shared the trilogy of their core team’s digital advancement in the cloud era and emphasized that the core competitiveness of database companies in the future will be the exploration and practice of AI models.</p>
-<p><img src="/images/lei-feng-2.webp" alt="Lei Feng"></p>
-<h3 id="Shuxin-Fang"><a href="#Shuxin-Fang" class="headerlink" title="Shuxin Fang"></a>Shuxin Fang</h3><p>Shuxin Fang, general manager of the technical support department of Inspur Business Machines, shared his presentation on “K1 power and PostgreSQL help enterprises to build new normal and new core”.<br><img src="/images/shuxin-fang.webp" alt="Shuxin Fang"></p>
-<h3 id="Zhengsheng-Ye"><a href="#Zhengsheng-Ye" class="headerlink" title="Zhengsheng Ye"></a>Zhengsheng Ye</h3><p>Zhengsheng Ye, general manager of Alibaba Cloud Database Products and Head of Database Products and Operations, shared a speech of “Database Development Trend”.<br><img src="/images/zhengsheng-ye.webp" alt="Zhengsheng Ye"></p>
-<h3 id="Yicheng-Wang"><a href="#Yicheng-Wang" class="headerlink" title="Yicheng Wang"></a>Yicheng Wang</h3><p>Yicheng Wang, Deputy General Manager of Tencent Cloud Database, shared the “Database Behind Every WeChat Payment”.<br><img src="/images/yicheng-wang.webp" alt="Yicheng Wang"></p>
-<p>Tencent Cloud uses Tbase’s distributed solution to carry the WeChat payment business, and at the same time, it continues to enhance the core value of the product through cluster scalability, enhanced security, and efficient data compression, providing DBaaS for more enterprise users.</p>
-<p><img src="/images/yicheng-wang-2.webp" alt="Yicheng Wang"></p>
-<h3 id="Xiaojun-Zheng"><a href="#Xiaojun-Zheng" class="headerlink" title="Xiaojun Zheng"></a>Xiaojun Zheng</h3><p>Xiaojun Zheng, Chief Scientist of HighGo Software, shared the “Review of Commercial Database Technology Innovation”. With 30 years of senior management experience in several well-known database companies, he elaborated on major innovations in commercial databases in the past 30 years, which has important guiding significance for future database development.</p>
-<p><img src="/images/xiaojun-zheng.webp" alt="Xiaojun Zheng"></p>
-<p>HighGo database (HGDB) values data security with great importance when fulfilling the demands of enterprise users, and it has enhanced the security functions through a variety of technical means, including separation of powers, FDE full disk encryption, security auditing, security marking, etc. More features of the security version can be referred to The image below figure. Not only that, the HighGo enterprise cluster database also has flexible scalability, high availability, and effective load balancing.</p>
-<p><img src="/images/xiaojun-zheng-2.webp" alt="Xiaojun Zheng"></p>
-<h3 id="Chaoqun-Zhan"><a href="#Chaoqun-Zhan" class="headerlink" title="Chaoqun Zhan"></a>Chaoqun Zhan</h3><p>Chaoqun Zhan, a researcher of Alibaba Group and head of the OLAP product department of the database product division, shared “Opportunities and Challenges of Cloud Native Data Warehouse”.</p>
-<p><img src="/images/chaoqun-zhan.webp" alt="Chaoqun Zhan"></p>
-<p>The development of database technology is mainly affected by business scenario requirements and development factors of hardware technology. From the perspective of business scenario requirements, Alibaba Cloud, as a domestic leading cloud vendor, mainly integrates PolarDB+ADB full-line database products and integrates PG to respond to users’ various business scenarios.</p>
-<p>Zhan shared a cloud-native integrated solution within Alibaba Group, which provides extreme performance and extremely fast and flexible expansion of cloud-native DBaaS.</p>
-<p><img src="/images/chaoqun-zhan-2.webp" alt="Chaoqun Zhan"></p>
-<h3 id="Bohan-Zhang"><a href="#Bohan-Zhang" class="headerlink" title="Bohan Zhang"></a>Bohan Zhang</h3><p>Bohan Zhang, the co-founder of Ottertune, shared effective solutions from the Carnegie Mellon University laboratory for the automatic tuning of PG parameters, and provided DBA recruitment information. If you are interested, please contact Zhang directly<br><img src="/images/bohan-zhang.webp" alt="Bohan Zhang"></p>
-<h2 id="Closing-the-Conference"><a href="#Closing-the-Conference" class="headerlink" title="Closing the Conference"></a>Closing the Conference</h2><p>On the last day of the conference, Peter Zaitsev, CEO of Percona, shared the topic “17 Things Developers Need to Know About Databases” to help the database developers out there (including PG and non-PG developers) to increase their productivity, their quality of work, maintain a good relationship with DevOps and most importantly, avoid deadly and expensive mistakes!</p>
-<p><img src="/images/peterz.jpg" alt="Peter Zaitsev"></p>
-<h2 id="About-China-PostgreSQL-Assosication"><a href="#About-China-PostgreSQL-Assosication" class="headerlink" title="About China PostgreSQL Assosication"></a>About China PostgreSQL Assosication</h2><p>The China PostgreSQL Association is a legitimate and non-profit organization under the China Open Source Software Promotion Alliance.</p>
-<p>The association’s main focus is to conduct activities around PostgreSQL, organize operations, promote PostgreSQL, host trainings, contribute to technological innovations and implementations. In addition, the association aims to promote the localization of the database development by bridging the PostgreSQL Chinese community with the International community.</p>
-<p>Official Website <a href="http://www.postgresqlchina.com">http://www.postgresqlchina.com</a><br><img src="/images/chinapg.jpg" alt="China PostgreSQL Association"></p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -1109,7 +1070,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            27
+                            28
                         </p>
                     </a>
                 </div>
@@ -1133,7 +1094,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            44
+                            46
                         </p>
                     </a>
                 </div>
@@ -1260,7 +1221,7 @@
                 <span class="level-item">PostgreSQL</span>
             </span>
             <span class="level-end">
-                <span class="level-item tag">25</span>
+                <span class="level-item tag">26</span>
             </span>
         </a></li>
             </ul>
@@ -1273,7 +1234,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 10px;">2021 PG Asia Conference</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 10px;">2021 PG Asia Conference</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
     </div>
 </div>
     
@@ -1282,6 +1243,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/extended.png" alt="A Look Inside PostgreSQL&#39;s Extended Query Protocol">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-12-10T19:34:58.000Z">2021-12-10</time></div>
+                    <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A Look Inside PostgreSQL&#39;s Extended Query Protocol</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1359,25 +1339,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-08-06T19:04:08.000Z">2021-08-06</time></div>
-                    <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understanding the Security Around PostgreSQL</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1388,6 +1349,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/12/">
+                <span class="level-start">
+                    <span class="level-item">December 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2021/10/">
@@ -1640,6 +1612,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/extended-query/">
+                        <span class="tag">extended query</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/extension/">
                         <span class="tag">extension</span>
                         <span class="tag is-grey">1</span>
@@ -1789,7 +1768,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">12</span>
+                        <span class="tag is-grey">13</span>
                     </a>
                 </div>
                 
@@ -1915,6 +1894,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/wal2mongo/">
                         <span class="tag">wal2mongo</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/wire-protocol/">
+                        <span class="tag">wire protocol</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
