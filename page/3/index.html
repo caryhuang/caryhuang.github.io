@@ -131,6 +131,65 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/" class="image is-7by1">
+            <img class="thumbnail" src="/images/seqrep.png" alt="Can Sequence Relation be Logically Replicated?">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-04-22T17:56:57.000Z">2020-04-22</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    13 minutes read (About 2023 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/">Can Sequence Relation be Logically Replicated?</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>I have noticed that there is a page on the offical PostgreSQL documentation (<a href="https://www.postgresql.org/docs/current/logical-replication-restrictions.html">https://www.postgresql.org/docs/current/logical-replication-restrictions.html</a>) that states several restrictions to the current logical replication design. One of the restrictions is about sequence relation type where any changes associated with a sequence relation type is not logically replicated to the subscriber or to the decoding plugin. This is an interesting restriction and I took the initiative to look into this restriction further and evaluate if it is possible to have it supported. I have consulted several senior members in the PostgreSQL communitiy and got some interesting responses from them. In this blog, I will share my current work in the area of supporting sequence replication.</p>
+        </div>
+        
+        
+        <div class="level is-mobile">
+            <div class="level-start">
+                <div class="level-item">
+                <a class="button is-size-7 is-light" href="/2020/04/22/Can-Sequence-Relation-be-Logically-Replicated/#more">Read More</a>
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2020/03/12/Logical-Replication-Between-PostgreSQL-and-MongoDB/" class="image is-7by1">
             <img class="thumbnail" src="/images/pg-mongo-blog-banner-canva.jpg" alt="Logical Replication Between PostgreSQL and MongoDB">
         </a>
@@ -683,65 +742,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2019/07/04/Types-of-SNMP-OIDs-Explained/" class="image is-7by1">
-            <img class="thumbnail" src="/images/view7.jpg" alt="Types of SNMP OIDs Explained">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2019-07-04T22:14:21.000Z">2019-07-04</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/Netsnmp/">Netsnmp</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    7 minutes read (About 1010 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2019/07/04/Types-of-SNMP-OIDs-Explained/">Types of SNMP OIDs Explained</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>SNMP stands for Simple Network Management Protocol and it is commonly used to access and manage network equipment such as switches and routers. It has been available for a long time and has evolved quite a lot with better functionality and security. Each SNMP object can be addressed by its Object IDs (OIDs) and I find that many new SNMP users are confused about the SNMP OIDs and how they should be used correctly. There are 3 major kinds of SNMP OIDs, scalar, table and dynamic and each has its own unique way of accessing. This blog will explain each type of OID and show how they can be accessed correctly.</p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2019/07/04/Types-of-SNMP-OIDs-Explained/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -749,7 +749,7 @@
         <div class="pagination-previous">
             <a class="is-flex-grow has-text-black-ter" href="/page/2/">Previous</a>
         </div>
-        <div class="pagination-next is-invisible is-hidden-mobile">
+        <div class="pagination-next">
             <a class="is-flex-grow has-text-black-ter" href="/page/4/">Next</a>
         </div>
         <ul class="pagination-list is-hidden-mobile">
@@ -759,6 +759,8 @@
             <li><a class="pagination-link has-text-black-ter" href="/page/2/">2</a></li>
             
             <li><a class="pagination-link is-current" href="/page/3/">3</a></li>
+            
+            <li><a class="pagination-link has-text-black-ter" href="/page/4/">4</a></li>
             
         </ul>
     </nav>
@@ -808,7 +810,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            30
+                            31
                         </p>
                     </a>
                 </div>
@@ -832,7 +834,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            48
+                            50
                         </p>
                     </a>
                 </div>
@@ -972,7 +974,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 10px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 10px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
     </div>
 </div>
     
@@ -981,6 +983,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/2pc.png" alt="Distributed Database With PostgreSQL - Atomic Commit Problems">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-03-18T20:26:14.000Z">2022-03-18</time></div>
+                    <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Distributed Database With PostgreSQL - Atomic Commit Problems</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1058,25 +1079,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/title-conference-en.jpg" alt="PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-10-25T17:25:12.000Z">2021-10-25</time></div>
-                    <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="title has-link-black-ter is-size-6 has-text-weight-normal">PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1087,6 +1089,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/02/">
@@ -1351,8 +1364,22 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/Postgresql/">
+                        <span class="tag">Postgresql</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/architecture/">
                         <span class="tag">architecture</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/atomic-commit/">
+                        <span class="tag">atomic commit</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>

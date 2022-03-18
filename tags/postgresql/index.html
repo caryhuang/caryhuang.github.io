@@ -7,12 +7,12 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-<title>Tag: postgresql - Cary&#39;s Blog</title>
+<title>Tag: Postgresql - Cary&#39;s Blog</title>
 
 
     <meta property="og:type" content="website">
 <meta property="og:title" content="Cary&#39;s Blog">
-<meta property="og:url" content="http://caryhuang.github.io/tags/postgresql/index.html">
+<meta property="og:url" content="http://caryhuang.github.io/tags/Postgresql/index.html">
 <meta property="og:site_name" content="Cary&#39;s Blog">
 <meta property="og:locale" content="en_US">
 <meta property="og:image" content="http://caryhuang.github.io/images/og_image.png">
@@ -131,7 +131,7 @@
         <nav class="breadcrumb" aria-label="breadcrumbs">
         <ul>
             <li><a href="/tags">Tags</a></li>
-            <li class="is-active"><a href="#" aria-current="page">postgresql</a></li>
+            <li class="is-active"><a href="#" aria-current="page">Postgresql</a></li>
         </ul>
         </nav>
     </div>
@@ -141,8 +141,8 @@
 <div class="card">
     
     <div class="card-image">
-        <a href="/2022/02/18/The-significance-of-LSN-in-PostgreSQL-System/" class="image is-7by1">
-            <img class="thumbnail" src="/images/lsn.png" alt="The significance of LSN in PostgreSQL System">
+        <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="image is-7by1">
+            <img class="thumbnail" src="/images/2pc.png" alt="Distributed Database With PostgreSQL - Atomic Commit Problems">
         </a>
     </div>
     
@@ -150,13 +150,13 @@
         
         <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
             <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2022-02-18T19:41:06.000Z">2022-02-18</time>
+                <time class="level-item has-text-grey" datetime="2022-03-18T20:26:14.000Z">2022-03-18</time>
                 
                 
                 <span class="level-item has-text-grey">
                     
                     
-                    4 minutes read (About 541 words)
+                    7 minutes read (About 1063 words)
                 </span>
                 
                 
@@ -165,22 +165,37 @@
         
         <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
             
-                <a class="has-link-black-ter" href="/2022/02/18/The-significance-of-LSN-in-PostgreSQL-System/">The significance of LSN in PostgreSQL System</a>
+                <a class="has-link-black-ter" href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/">Distributed Database With PostgreSQL - Atomic Commit Problems</a>
             
         </h1>
         <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Last year I wrote a blog about PostgreSQL’s timeline concept, which is essential for executing Point In Time Recovery (PITR) back to a particular timeline and particular Log Sequence Number (LSN). But we have not talked about the idea of LSN in which everything else is built upon. Today in this blog, I will describe the significance of LSN </p>
-<h3 id="2-The-LSN-and-REDO"><a href="#2-The-LSN-and-REDO" class="headerlink" title="2. The LSN and REDO"></a>2. The LSN and REDO</h3><p>We hear the term REDO a lot and it could mean a couple things depending on the context it is used. If used as a <code>REDO point</code>, it indicates the location of the current WAL record since the current or last <code>checkpoint</code> is started. This is the point where the database should commence the recovery. </p>
-<p>When REDO is used by itself as a verb, it refers to the action of a standby server, which will read the WAL contents sent from the primary via streaming replication and actually replay the actions. Depending on the database action, different ways to REDO needs to be defined. This is why in heapam.c source code, functions like <code>heap_redo</code> and <code>heap2_redo</code> exist.</p>
-<p>LSN stands for Log Sequence Number and it is basically a pointer to a location in the WAL. It is represented as unsigned 64-bit value internally in PG; external to the PG, it is represented as 2 hexadecimal number separated by a slash (/), First number being the segment ID of a particular WAL file and second number being the offset within that segment file. </p>
-<p>For example: </p>
-<p>1/CF54A048 could also be represented as a single value as 0x01CF54A048, which equals to 7,773,397,064 and this is the integer number used internally in PG to compute or comparae different LSN values.</p>
-<p>Based on this value, you could tell the volume of a database, the bigger the LSN, the larger the database.</p>
-<h3 id="3-The-pd-lsn-value-in-data-page-header"><a href="#3-The-pd-lsn-value-in-data-page-header" class="headerlink" title="3. The pd_lsn value in data page header"></a>3. The pd_lsn value in data page header</h3><p>I have been researching about the feasibility of having multiple PostgreSQL servers to sharer a single set of data storage. One server being able to read and write, the rest of servers are read-only. On the read-only servers, I introduced a temporary storage space in their respective cluster folder to temporary hold any data blocks that they want to eject from the buffer manager in case the primary server has not yet flushed data to the shared storage space.</p>
-<p>During my testing with this approach, I came across an issue where the standbys may face a situation where the same data page but different version could exist in both the shared storage and also their own temporary space. Loading the wrong version of the page may result in incorrect output from user queries. </p>
-<p>So, how can we solve this issue? </p>
-<p>The pd_lsn parameter inside each buffer page header indicates the “last WAL LSN that has modified this page”. So by simply comparing the pd_lsn values from 2 version of the data page, I could ensure the standby always read the correct one.</p>
-<p>The LSN is significant in a sense that almost every WAL recovery functions of PG work around LSN and in my own feasibility studies, LSN also plays an important role in making shared standby’s more intelligent in loading data blocks from multiple sources.</p>
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>If you are into distributed database research, especially one that is setup using Foreign Data Wrapper (FDW) + partitioned foreign tables, you probably have heard that there are many potential issues associated with this setup. Atomic commit, atomic visibility and global deadlock detection are one of the most popular issues that one can encounter in a distributed database environment. </p>
+<p>There has been a lot of discussion on the PostgreSQL community on atomic commit and potential ways to solve this problem, and also discuss how this issue introduces an atomic visibility issue. </p>
+<p>I recently had a chance to scan through several of the community discussion on atomic commit and would like to share what I have learned in this blog.</p>
+<h3 id="2-The-problem"><a href="#2-The-problem" class="headerlink" title="2. The problem"></a>2. The problem</h3><p>In a distributed environment, if a query involves modification to multiple foreign tables (or shards), current PostgreSQL cannot guarentee either all of them commit or all of them rollback. This means that, if one of them fails to commit for some reason but the rest have succeeded, we will see inconsistent results. The desired behavior would be that if one of the foreign tables fails to commit, PostgreSQL should be able to roll back the ones that have been committed successfully. </p>
+<p>However, with the current postgres_fdw and the transaction manager, it is currently not possible to “uncommit” a foreign transaction that has been committed. This is why most of the discussions generally regard PG’s “2 Phase Commit” as the basic building block to achive atomic commit.</p>
+<h3 id="2-2-Phase-Commit-2PC"><a href="#2-2-Phase-Commit-2PC" class="headerlink" title="2. 2 Phase Commit (2PC)"></a>2. 2 Phase Commit (2PC)</h3><p>2PC basically splits a regular commit action into 2 stages, a PREPARE TRANSACTION and a COMMIT PREPARED (or ROLLBACK PREPARED) stage. Doing this allows PG to uncommit an in-progress commit in case it finds a condition that all of the foreign transactions need to be aborted.</p>
+<p>For example, 1 Coordinator Node (CN) sends a UPDATE query to 3 Data Nodes (DNs) and would like to commit</p>
+<ul>
+<li>CN sends a PREPARE TRANSACTION to each DN1 and waits for response </li>
+<li>CN sends a PREPARE TRANSACTION to each DN2 and waits for response </li>
+<li>CN sends a PREPARE TRANSACTION to each DN3 and waits for response </li>
+</ul>
+<p>If any of these PREPARE TRANSACTION (say DN3) fails to deliver or its reponse contains error, CN still has a chance to ROLLBACK transactions on DN1 and DN2 and DEALLOCATE the existing prepared transaction. After that, the CN will abort the local transaction and finish the transaction with error and nothing gets changed here.</p>
+<p>Only if all 3 DNs have confirmed the PREPARE TRANSACTION success, CN can then proceed to commit the local transaction, if local succeeds, continue to send COMMIT PREPARED to each DN, or send ROLLBACK PREPARED if local fails</p>
+<ul>
+<li>CN sends a COMMIT/ROLLBACK PREPARED to each DN1 and waits for response </li>
+<li>CN sends a COMMIT/ROLLBACK PREPARED to each DN2 and waits for response </li>
+<li>CN sends a COMMIT/ROLLBACK PREPARED to each DN3 and waits for response </li>
+</ul>
+<p>If any of these fails to COMMIT PREPARED at this point, say (DN3), CN is not able to uncommit DN1 and DN2 that have been 2-phase committed, so at this point, CN can only retry indefinitely to deliver COMMIT PREPARED to DN3 to ensure atomicity. If DN3 is unreachable, CN will keep on trying forever without closing the transaction and leaving the client waiting. </p>
+<p>If client choose to cancel the transaction by hitting ctrl-c, then the transaction will close with a warning message that DN3 has not confirmed a COMMIT PREPARED message and data may be inconsistent. DN3 at this point may have an orphaned prepared transaction that needs to be handled. </p>
+<h3 id="3-Orphaned-Prepared-Transaction"><a href="#3-Orphaned-Prepared-Transaction" class="headerlink" title="3. Orphaned Prepared Transaction"></a>3. Orphaned Prepared Transaction</h3><p>In the previous example, an orpahned prepared transaction can happen if CN prepares a foreign transaction but never has a chance to commit it (possibly due to network). In this case, the DN node can very easily detect an orphaned prepared transaction based on the time the prepared transaction has been created. Unfortunately, without a centralized Global Transaction Manager (GTM), DN node is not able to decide if this orphaned prepared transaction should be committed or discarded. Therefore, most of the solutions on the community only support the detection of orphaned prepared transaction without any handling.</p>
+<h3 id="4-How-Atomic-Visibility-Appeared"><a href="#4-How-Atomic-Visibility-Appeared" class="headerlink" title="4. How Atomic Visibility Appeared?"></a>4. How Atomic Visibility Appeared?</h3><p>Using 2PC allows CN node to rollback a commit during the PREPARE stage but cannot allow rollback during the commit prepared stage, so it can only retry forever or exit with a warning. The visibility issue can happen in a case where DN1 and DN2 have already comitted the prepared transactions while DN3 has not yet committed. At this point, if a client does a SELECT statement across DN1, DN2 and DN3, it will see that DN3 still does not have the right data but DN1 and DN2 have. This is not atomic at all.</p>
+<p>To solve this, several people proposed a snapshot that can be shared globally across all the DN and CN nodes. The standard PG’s snapshot is purely based on transaction ID to determine if a tuple is visible or not, but with multiple different PG servers, each of them have their own transaction ID range and could all be very different, so sharing a snapshot based on transaction ID is impossible. </p>
+<p>This is why a Commit Sequence Number (CSN) snapshot is being proposed in the discussion, which is based on time, and could be made the same in all of the CN and DN nodes and act as a reference point to determine if a tuple belongs to the past or future. The problem is then shifted to how to ensure all of the CN and DN nodes have consistently the same time? Even the best clock chipsets are subject to time skewing and will slowly go out of sync. The concept of Clock-SI is then added to the discussion, which is designed to handle such a clock skew. This makes the discussion somewhat more complicated and out of scope. </p>
+<p>But for me, this may not be worth the effort to completely solve the atomic visibility issue with all these complicated stuff. </p>
+<h3 id="5-reference-to-some-of-the-discussions"><a href="#5-reference-to-some-of-the-discussions" class="headerlink" title="5. reference to some of the discussions"></a>5. reference to some of the discussions</h3><p><a href="https://commitfest.postgresql.org/26/1574/">Transactions involving multiple servers</a><br><a href="https://www.postgresql.org/message-id/flat/CA%2BCSw_tEpJ%3Dmd1zgxPkjH6CWDnTDft4gBi%3D%2BP9SnoC%2BWy3pKdA%40mail.gmail.com">Proosal for CSN based snapshot</a><br><a href="https://www.postgresql.org/message-id/flat/21BC916B-80A1-43BF-8650-3363CCDAE09C%40postgrespro.ru">Global snapshot</a></p>
 
         </div>
         
@@ -196,440 +211,1129 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2022-01-18T20:57:59.000Z">2022-01-18</time>
+</div>
                 
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    17 minutes read (About 2576 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2022/01/18/2021-PG-Asia-Conferenece-Delivered-Another-Successful-Online-Conference-Again/">2021 PG Asia Conference Delivered Another Successful Online Conference Again!</a>
-            
-        </h1>
-        <div class="content">
-            <h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>On December 14-17, 2021, PostgresConf.CN &amp; PGconf.Asia2021 (referred to as 2021 PG Asia Conference) was held online successfully and once again listed as a global gold standard conference on Postgresql.org! This conference was jointly organized by the China PostgreSQL Association, PostgresConf International Conference Organization,and PGConf.Asia Asian Community </p>
-<h2 id="About-the-Conference"><a href="#About-the-Conference" class="headerlink" title="About the Conference"></a>About the Conference</h2><p>Also known as the Asia’s largest open source relational database ecology conference</p>
-<p>PostgresConf.CN and PGConf.Asia were hosted together as one conference online for the first time back in 2020. In 2021, both conferences joined forces again to deliver another successful conference that attracted record high numbers of PG enthusiasts from the world! </p>
-<p>PostgresConf.CN is an annual conference held by the China PostgreSQL Association for PostgreSQL users and developers. It is also one of the conference series held by PostgresConf Organization. PostgreConf.CN 2019 took place in Beijing, it was very well attended by PostgreSQL users and community members across the globe.</p>
-<p>PGCONF.Asia is also an annual PostgreSQL event that took place in Bali Indonesia in 2019, it was a continuation of the PGCONF.Asia event that took place in Tokyo, Japan in 2018. The first PGCONG.Asia conference took place in 2016 in Tokyo, this conference acts as a hub of PostgreSQL related development and technical discussion among PostgreSQL users and developers in the region as well as experts from around the globe.</p>
-<p>Learn more about these conferences and the organizers from these resources:</p>
-<ul>
-<li><a href="https://2021.postgresconf.cn/en">2021.postgresconf.cn</a></li>
-<li><a href="https://pgconf.asia/EN/">2021.pgconf.asia</a></li>
-<li><a href="https://www.postgresconf.org">PostgresConf</a></li>
-</ul>
-<h2 id="Sponsors"><a href="#Sponsors" class="headerlink" title="Sponsors"></a>Sponsors</h2><p>This conference was sponsored by:</p>
-<p><strong>Platinum</strong>:</p>
-<ul>
-<li><a href="https://cloud.tencent.com/">Tencent Cloud</a></li>
-<li><a href="https://aws.amazon.com/">AWS</a></li>
-<li><a href="https://www.highgo.com/">HighGo Database</a></li>
-</ul>
-<p><strong>Golden</strong>:</p>
-<ul>
-<li><a href="https://es.inspur.com/">Inspur Commercial Systems</a></li>
-<li><a href="https://azure.microsoft.com/">Microsoft Azure</a></li>
-</ul>
-<p><strong>Silver</strong>:</p>
-<ul>
-<li><a href="https://www.ibm.com/">IBM</a></li>
-<li><a href="https://www.kylinos.cn/">Kylin Software</a></li>
-<li><a href="https://equnix.asia/">Equnix</a></li>
-</ul>
-<h2 id="14-Conference-Channels-over-4-Days"><a href="#14-Conference-Channels-over-4-Days" class="headerlink" title="14 Conference Channels over 4 Days!"></a>14 Conference Channels over 4 Days!</h2><p>This conference was broadcast live with a record-high number of viewers streaming the conference events. It consists of a total of 14 live channels delivering speeches in Mandarin Chinese, English, Korean and Indonesian languages. </p>
-<p>the conference gathered 101 technical presentations and more than 100 well-known experts and scholars around the world to provide a grand technical feast for all the participating PG enthusiasts.</p>
-<ul>
-<li>Guangnam Ni, Fellow of the Chinese Academy of Engineering</li>
-<li>Peng Liu, Vice chairman of China Open Source Software Promotion Alliance and researcher of the Chinese Academy of Sciences</li>
-<li>Xing Chunxiao, deputy director of the Information System Committee of the China Computer Federation</li>
-<li>Bruce Momjian, co-founder of PostgreSQL international community and vice president of EDB</li>
-<li>Peter Zaitsev, Founder and CEO of Percona</li>
-<li>Ding Zhiming, Director of the Spatiotemporal Data Science Research Center of the Chinese Academy of Sciences</li>
-<li>Experts from from HighGo, Alibaba, Tencent, Amazon, Kylin, Inspur, Ping An, Meichuang, SphereEx, Inspur Yunxi database, VMware Greenplum, Huawei, Ali cloud, ZTE…etc</li>
-<li>Professors from Peking University, Tsinghua University, Institute of Information Technology, Chinese Academy of Sciences, Shenzhen University, Zhengzhou University, Shandong Normal University, Suzhou University of Science and Technology and other academic and scientific research institutions</li>
-<li>And many, many more!</li>
-</ul>
-<p>With the great support from these PostgreSQL communities, the conference was held with great success, which brought together the Chinese PG power, major Asian PG contributors and many PostgreSQL experts worldwide to build the largest PG ecosystem in Asia.</p>
-<h2 id="Conference-Highlights"><a href="#Conference-Highlights" class="headerlink" title="Conference Highlights"></a>Conference Highlights</h2><h3 id="Opening-Speech-by-Fellow-Guangnan-Ni"><a href="#Opening-Speech-by-Fellow-Guangnan-Ni" class="headerlink" title="Opening Speech by Fellow Guangnan Ni"></a>Opening Speech by Fellow Guangnan Ni</h3><p><img src="/images/ni-2021.webp" alt="Guangnan Ni"></p>
-<p>Guangnan Ni first expressed his warm congratulations to the holding of the PGConf.Asia 2021 Asia Conference, and greeted sincerely to the representatives of various countries and open source experts participating in the conference. He pointed out that open source is an important trend in the development of today’s world, and open source technology is profoundly changing the global digital economy and information industry pattern. The holding of this PG Asia Conference is of great significance to the development of the open source industry, the promotion of the open source movement and the popularization of open source culture in China, and the strengthening of international exchanges and cooperation.</p>
-<h3 id="Bruce-Momjian"><a href="#Bruce-Momjian" class="headerlink" title="Bruce Momjian"></a>Bruce Momjian</h3><p><img src="/images/bruce-2021.webp" alt="Bruce Momjian"></p>
-<p>Bruce Momjian, as a core group member of the PG international community, has always been keen on sharing themes in the community. This time Bruce made a sharing based on the status quo of PG, project development challenges, competition challenges, and technical challenges, mainly emphasizing that the development process of the PG version has been adapting. Changes in the environment, continuous breakthroughs and innovations, such as SSD optimization, virtualization, containerization, and functional expansion of cloud environments have been completed in the face of technical challenges. For the future evolution of the PG version, it will continue to optimize and iterate on several aspects such as PG write amplification, TDE encryption, and horizontal scalability.</p>
-<h3 id="Peter-Zaitsev"><a href="#Peter-Zaitsev" class="headerlink" title="Peter Zaitsev"></a>Peter Zaitsev</h3><p><img src="/images/peter-2021.webp" alt="Peter Zaitsev"><br>Mr. Peter Zaitsev, CEO of Percona, has been a guest at the PG Asia Conference for the second time. This time Peter brought us a speech of “State of Open Source Databases”, mainly from cloud computing, PG peripheral ecology, DaaS and K8S. This aspect expresses the openness and flexibility of PG, which enables PG and the evolution of the technical architecture to be better integrated, promote mutual development, and meet the needs of different business scenarios. He said that Percona, which has been engaged in open source database services for many years, loves to embrace PG and make innovations based on PG to bring more value to customers.</p>
-<h3 id="Chunxiao-Xing"><a href="#Chunxiao-Xing" class="headerlink" title="Chunxiao Xing"></a>Chunxiao Xing</h3><p><img src="/images/xing-2021.webp" alt="Chunxiao Xing"><br>Professor Xing Chunxiao, deputy dean of the Institute of Information Technology of Tsinghua University and deputy director of the Information System Committee of the China Computer Federation, shared with us the most popular topics of “metaverse”, blockchain, and data lake, emphasizing that data management is a popular technology development Only the continuous evolution and iteration of database management software can better provide support for cutting-edge technologies and make our lives more meaningful.</p>
-<h3 id="Zhiming-Ding"><a href="#Zhiming-Ding" class="headerlink" title="Zhiming Ding"></a>Zhiming Ding</h3><p><img src="/images/ivorysql-2021.webp" alt="Zhiming Ding"><br>The ivorySQL project is a PG open source derivative project with a broad ecological foundation and Chinese characteristics. Its purpose is to develop community collaboration among Chinese developers and allow engineers to create greater personal and social value.</p>
-<p>The session was presented by Professor Ding Zhiming, an early promoter of research practice in the domestic PG field, the new president of the China PG branch, and director of the Center for Space-Time Data Science (STDMS) of the Chinese Academy of Sciences. Their system completely expounds the necessity and realization idea of “PostgreSQL database software + Chinese characteristics”, the positioning, characteristics and operation mode of the ivorySQL project and community. Through the launch event, the project was officially known to the majority of PG practitioners in China.</p>
-<p>The launch of IvorySQL attracted many domestic PG enthusiasts, and they have provided suggestions and opinions to make the project better. We feel very thankful for their effort into this new project. In the mean time, please check out the project’s official website at <a href="http://www.ivorysql.org">www.ivorysql.org</a> for the latest developments.</p>
-<h3 id="Xiaojun-Zheng"><a href="#Xiaojun-Zheng" class="headerlink" title="Xiaojun Zheng"></a>Xiaojun Zheng</h3><p><img src="/images/zheng-2021.webp" alt="Xiaojun Zheng"><br>Xiaojun Zheng, Chief Scientist of HighGo, presented “Highgo peer-to-peer service cluster database”.</p>
-<p>Mr. Zheng first gave a systematic overview of the definition of database cluster, and then explained the concept and implementation of “peer-to-peer service cluster” in a more generalized manner. Finally, Mr. Zheng led everyone to experience Higao’s Peer-to-peer service cluster database environment. Through this practical demonstration, we have brought you a new idea and method for realizing peer-to-peer service clustering. Architects and product managers who pay attention to the PostgreSQL database, I believe they can gain new product inspiration from it.</p>
-<h3 id="Jian-Feng"><a href="#Jian-Feng" class="headerlink" title="Jian Feng"></a>Jian Feng</h3><p><img src="/images/jian-2021.webp" alt="Jian Feng"><br>Director Feng first introduced the two major product lines of K1 Power and their respective market opportunities, advantages, and application scenarios. He then demonstrated the business value of K1 Power’s advanced virtualization features to PostgreSQL database in four aspects, and elaborated on running under K1 Power Linux. The best practices of the PostgreSQL database and the uniqueness of the x86 CPU. Finally, Director Feng introduced the PowerFans community on Github <a href="https://github.com/powerfans/">https://github.com/powerfans/</a>. This PowerFan community can be said to be the king of technical feasts. In addition to providing the above best practices, it also provides open-source software binary packages, useful tools and documentation, etc. This PowerFans community provides database enthusiasts with great convenience to use the Power server platform, such as: PostgreSQL under the PowerLinux platform and you no longer need to make RPM packages yourself, Inspur commercial machines are ready for you!</p>
-<h3 id="Grant-Zhou-The-Launch-of-IvorySQL-Open-Source-Project"><a href="#Grant-Zhou-The-Launch-of-IvorySQL-Open-Source-Project" class="headerlink" title="Grant Zhou - The Launch of IvorySQL Open Source Project"></a>Grant Zhou - The Launch of IvorySQL Open Source Project</h3><p><img src="/images/ivorysql2-2021.webp" alt="ivorysql"><br>This conference specially invited the well-known domestic database solution supplier, HighGo Database, to jointly organize and launch the HighGo database sub-forum. Jichao Ma, the pre-sales director of HighGo Software, presented “Highgo Database New Features”, and introduced some new features and functions of HighGo Database related to high availability.</p>
-<p>Grant Zhou, head of the IvorySQL open source community presented “IvorySQL-an Oracle compatible open source PostgreSQL database”, and introduced an Oracle-compatible open source PostgreSQL database ivorySQL. </p>
-<h3 id="KaiGai-Kohei"><a href="#KaiGai-Kohei" class="headerlink" title="KaiGai Kohei"></a>KaiGai Kohei</h3><p><img src="/images/kai-2021.png" alt="KaiGai Kohei"><br>KaiGai Kohei has been a contributor of PostgreSQL and Linux kernel over 15 years. He presented a speech called “GPU revision of PostGIS” that introduces an extension called “PG-Storm” to pull resource from GPU for analytic SQL workloads.</p>
-<h3 id="Takeshi-MISHIMA"><a href="#Takeshi-MISHIMA" class="headerlink" title="Takeshi MISHIMA"></a>Takeshi MISHIMA</h3><p><img src="/images/takeshi-2021.png" alt="Takeshi MISHIMA"><br>Takeshi MISHIMA is a Ph.D in engineering principle of SRA OSS, Inc. He presented a speech called “A Middleware to Synchronize Multiple Instances in a PostgreSQL Cluster” that introduced a middle ware called “Pangea” to provide better performance in clustering synchronization by load balancing SELECT queries</p>
-<h3 id="Paul-Brebner"><a href="#Paul-Brebner" class="headerlink" title="Paul Brebner"></a>Paul Brebner</h3><p><img src="/images/paul-2021.png" alt="Paul Brebner"><br>Paul Brebneris the Technology Evangelist at Instaclustr. He’s been learning new scalable open source technologies, solving realistic problems, and building applications, and blogging about Apache Cassandra, Apache Kafka and of course PostgreSQL! He presented a speech called “Change Data Capture (CDC) With Kafka Connect and the Debezium PostgreSQL Source Connector” to introduce the “Debezium PostgreSQL Connector”, and explain how it can make the elephant (PostgreSQL) to be as fast as a cheetah (Kafka) such that the system becomes more change-aware and flexible.</p>
-<h3 id="Michael-Christofides"><a href="#Michael-Christofides" class="headerlink" title="Michael Christofides"></a>Michael Christofides</h3><p><img src="/images/michael-2021.png" alt="Michael Christofides"><br>Michael Christofides is the Co-founder of pgMustard who presented a speech called “A beginners guide to EXPLAIN ANALYZE” to give a beginner friendly introduction to EXPLAIN vs EXPLAIN ANALYZE.</p>
-<h3 id="Bohan-Zhang"><a href="#Bohan-Zhang" class="headerlink" title="Bohan Zhang"></a>Bohan Zhang</h3><p><img src="/images/bohan-2021.png" alt="Bohan Zhang"><br>Bohan Zhang is the co-founder of OtterTune who presented a speech called “Ottertune: automatic database optimization using machine learning” which talks about how the database group of Carnegie Mellon University uses machine learning to automatically tune and improve database systems.</p>
-<h3 id="Ibrar-Ahmed"><a href="#Ibrar-Ahmed" class="headerlink" title="Ibrar Ahmed"></a>Ibrar Ahmed</h3><p><img src="/images/ibrar-2021.png" alt="Ibrar Ahmed"><br>Ibrar Ahmed is a Senior Software Architect in Percona LLC who has vast experience in software design and development with PostgreSQL. He presented a speech “A Deep Dive into PostgreSQL Indexing” and share some useful strategies how to take fully advantage of different index types that can be extremely useful for systems developers. He also emphasized that not all index types are appropirate for all circumstances; sometimes, inproper use of index can lower database performance.</p>
-<h3 id="Karel-van-der-Walt"><a href="#Karel-van-der-Walt" class="headerlink" title="Karel van der Walt"></a>Karel van der Walt</h3><p><img src="/images/karel-2021.png" alt="Karel van der Walt"><br>Karel van der Walt is the principle of MentalArrow who presented a speech called “Modularizing computation via Common Table Expressions (CTEs)”, which discusses a topic to add modularized computation on top of the existing building blocks of CTEs to improve readability and testability</p>
-<h3 id="Yugo-Nagata"><a href="#Yugo-Nagata" class="headerlink" title="Yugo Nagata"></a>Yugo Nagata</h3><p><img src="/images/yugo-2021.png" alt="Yugo Nagata"><br>Yugo Nagata is a software engineer and chief scientist at SRA OSS, Japan. He is a specialist in database engineering who has great interest in PostgreSQL theories and internals. He presented a speech called “PostgreSQL Internals and Incremental View Maintenance Implementation” to share a very interesting technique to update materialzied views rapidly (instead of the old REFRESH MATERIALIZED VIEW). He also explaied the internal workings of materialized views amd shared the status of his current patch proposal of “Incremental View Maintenance” feature to the PostgreSQL community.</p>
-<h3 id="Cary-Huang"><a href="#Cary-Huang" class="headerlink" title="Cary Huang"></a>Cary Huang</h3><p><img src="/images/cary-2021.png" alt="Cary Huang"><br>Cary Huang is a senior software developer of HornetLab Technology in Canada. He presented a speech called “The principles behind TLS and How it protects PG” to discuss the TLS protocol in details and explain how it is the most commonly used but the least understood security protocol today.</p>
-<h3 id="Muhammad-Usama"><a href="#Muhammad-Usama" class="headerlink" title="Muhammad Usama"></a>Muhammad Usama</h3><p><img src="/images/usama-2021.png" alt="Muhammad Usama"><br>Muhammad Usama is a database architect of HornetLab Technology and a major contributor to Pgpool-II. He presented a speech called “PostgreSQL HA with Pgpool-II and whats been happening in Pgpool-II lately….” to discuss the roadmap of core features of Pgpool-II with strong emphasis on High Availability (HA), in which Muhammad believed is the most critical aspect of any enterprise application.</p>
-<h3 id="Asif-Rehman"><a href="#Asif-Rehman" class="headerlink" title="Asif Rehman"></a>Asif Rehman</h3><p><img src="/images/asif-2021.png" alt="Asif Rehman"><br>Asif Rehman is a senior software engineer at HornetLab Technology and he presented a speech called “PostgreSQL Replication” which explained the purpose of replication and discussed all types of replication methods with their pros and cons in different scenarios.</p>
-<h3 id="Seoul-Sub-Forum"><a href="#Seoul-Sub-Forum" class="headerlink" title="Seoul Sub-Forum"></a>Seoul Sub-Forum</h3><p><img src="/images/seoul-2021.webp" alt="seoul sub forum"></p>
-<p>In the Seoul sub-forum, four Korean PostgreSQL user group members gave speeches, namely Ioseph Kim, Jaegeun Yu, Daniel Lee, and Lee Jiho.</p>
-<p>Ioseph Kim is a contributor to PostgreSQL11 and PostgreSQL12 and translated the PostgreSQL Korean documentation. The topic of his speech was “Peculiar SQL with PostgreSQL for application developer”. In this speech, Loseph Kim talked about the syntax of PostgreSQL’s Lateral Joins, distinct on… etc. He also introduced the new features of PostgreSQL14.</p>
-<p>Jaegeun Yu has more than 3 years of experience as a PostgreSQL DBA. The topic of his speech is “Porting from Oracle UDF and Optimization”. In this speech, Jaegeun Yu talks about the basic principles of function optimization and shows how to write PostgreSQL functions efficiently while porting, and illustrate the migration process with examples.</p>
-<p>Daniel Lee brought you a speech “Citus high-availability environment deployment based on Patroni”. In this speech, Daniel Lee introduced the high availability technology solution of Citus, and actually demonstrated the steps to build a Citus HA environment based on Patroni.</p>
-<p>Lee Jiho is the head of the department at insignal in Korea, and has more than 20 years of experience in using PostgreSQL. Lee Jiho brought a speech “Database configuration and migration and index clustering around clusters in PostgreSQL”. In this speech, Lee Jiho introduced the changes and upgrades of Cluster, table clustering … etc.</p>
-<h3 id="Jakarta-Sub-Forum"><a href="#Jakarta-Sub-Forum" class="headerlink" title="Jakarta Sub-Forum"></a>Jakarta Sub-Forum</h3><p><img src="/images/equnix-2021.webp" alt="jakarta sub forum"></p>
-<p>In Jakarta sub-forum, CEO-Julyanto Sutandang and CTO-Lucky Haryadi from Equnix Business Solutions brought 3 speeches in Indonesian.</p>
-<p>Equunix Business Solutions’ CEO-Julyanto Sutandang brought 2 speeches on “Active active PostgreSQL Do We Really Need It” and “In-memory Database, Is It Really Faster?”, Equunix Business Solutions CTO-Lucky Haryadi’s speech topic is “oes HA Can Help You Balance Your Load”. As a technology company with strong influence in the field of PostgreSQL and Linux in Southeast Asia, the speech brought by Equnix Business Solutions is a perfect combination of practice and theory.</p>
-<p>The successful landing of this Jakarta sub-forum has greatly promoted the dissemination and development of PostgreSQL database technology in Indonesia and even Southeast Asia.</p>
-<h2 id="Special-Thanks-To"><a href="#Special-Thanks-To" class="headerlink" title="Special Thanks To"></a>Special Thanks To</h2><p><img src="/images/special-thanks-2021.webp" alt="special thanks"></p>
 
+
+
+
+<div class="column is-4-tablet is-4-desktop is-4-widescreen  has-order-1 column-left ">
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <nav class="level">
+            <div class="level-item has-text-centered" style="flex-shrink: 1">
+                <div>
+                    
+                    <figure class="image is-128x128 has-mb-6">
+                        <img class="" src="/images/prof-img.jpg" alt="Cary Huang">
+                    </figure>
+                    
+                    <p class="is-size-4 is-block">
+                        Cary Huang
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-block">
+                        Multi-Displined Software Developer
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-flex is-flex-center has-text-grey">
+                        <i class="fas fa-map-marker-alt has-mr-7"></i>
+                        <span>Vancouver</span>
+                    </p>
+                    
+                </div>
+            </div>
+        </nav>
+        <nav class="level is-mobile">
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Posts
+                    </p>
+                    <a href="/archives">
+                        <p class="title has-text-weight-normal">
+                            31
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Categories
+                    </p>
+                    <a href="/categories">
+                        <p class="title has-text-weight-normal">
+                            2
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Tags
+                    </p>
+                    <a href="/tags">
+                        <p class="title has-text-weight-normal">
+                            50
+                        </p>
+                    </a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="level">
+            <a class="level-item button is-link is-rounded" href="https://github.com/caryhuang" target="_blank" rel="noopener">
+                Follow</a>
         </div>
         
         
+        
+        <div class="level is-mobile">
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Github" href="https://github.com/caryhuang">
+                
+                <i class="fab fa-github"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Facebook" href="https://www.facebook.com/cary.huang.35">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Twitter" href="https://twitter.com">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Dribbble" href="https://dribbble.com">
+                
+                <i class="fab fa-dribbble"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+            
+        </div>
         
     </div>
 </div>
-
-
-
-
-
-
-
-
     
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="image is-7by1">
-            <img class="thumbnail" src="/images/extended.png" alt="A Look Inside PostgreSQL&#39;s Extended Query Protocol">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
         
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2021-12-10T19:34:58.000Z">2021-12-10</time>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Links
+        </h3>
+        <ul class="menu-list">
+        
+            <li>
+                <a class="level is-mobile" href="https://hexo.io" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Hexo</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">hexo.io</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://www.etsy.com/ca/shop/ShokuninDesignCo" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Etsy Shop</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.etsy.com</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://www.highgo.ca/" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">HighGo Software Canada</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.highgo.ca</span>
+                    </span>
+                </a>
+            </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Categories
+            </h3>
+            <ul class="menu-list">
+            <li>
+        <a class="level is-marginless" href="/categories/Netsnmp/">
+            <span class="level-start">
+                <span class="level-item">Netsnmp</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">1</span>
+            </span>
+        </a></li><li>
+        <a class="level is-marginless" href="/categories/PostgreSQL/">
+            <span class="level-start">
+                <span class="level-item">PostgreSQL</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">26</span>
+            </span>
+        </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Tag Cloud
+        </h3>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 10px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 10px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Recent
+        </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/2pc.png" alt="Distributed Database With PostgreSQL - Atomic Commit Problems">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-03-18T20:26:14.000Z">2022-03-18</time></div>
+                    <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Distributed Database With PostgreSQL - Atomic Commit Problems</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/02/18/The-significance-of-LSN-in-PostgreSQL-System/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/lsn.png" alt="The significance of LSN in PostgreSQL System">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-02-18T19:41:06.000Z">2022-02-18</time></div>
+                    <a href="/2022/02/18/The-significance-of-LSN-in-PostgreSQL-System/" class="title has-link-black-ter is-size-6 has-text-weight-normal">The significance of LSN in PostgreSQL System</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/01/18/2021-PG-Asia-Conferenece-Delivered-Another-Successful-Online-Conference-Again/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="2021 PG Asia Conference Delivered Another Successful Online Conference Again!">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-01-18T20:57:59.000Z">2022-01-18</time></div>
+                    <a href="/2022/01/18/2021-PG-Asia-Conferenece-Delivered-Another-Successful-Online-Conference-Again/" class="title has-link-black-ter is-size-6 has-text-weight-normal">2021 PG Asia Conference Delivered Another Successful Online Conference Again!</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/extended.png" alt="A Look Inside PostgreSQL&#39;s Extended Query Protocol">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-12-10T19:34:58.000Z">2021-12-10</time></div>
+                    <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A Look Inside PostgreSQL&#39;s Extended Query Protocol</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2021/10/29/The-PostgreSQL-Timeline-Concept/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/timeline.png" alt="The PostgreSQL Timeline Concept">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-10-29T16:46:01.000Z">2021-10-29</time></div>
+                    <a href="/2021/10/29/The-PostgreSQL-Timeline-Concept/" class="title has-link-black-ter is-size-6 has-text-weight-normal">The PostgreSQL Timeline Concept</a>
+                    <p class="is-size-7 is-uppercase">
+                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Archives
+        </h3>
+        <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/02/">
+                <span class="level-start">
+                    <span class="level-item">February 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/12/">
+                <span class="level-start">
+                    <span class="level-item">December 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">3</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/02/">
+                <span class="level-start">
+                    <span class="level-item">February 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/11/">
+                <span class="level-start">
+                    <span class="level-item">November 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">2</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/05/">
+                <span class="level-start">
+                    <span class="level-item">May 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/04/">
+                <span class="level-start">
+                    <span class="level-item">April 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">3</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">4</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Tags
+            </h3>
+            <div class="field is-grouped is-grouped-multiline">
                 
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/2021-PG-Asia-Conference/">
+                        <span class="tag">2021 PG Asia Conference</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
                 </div>
                 
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    7 minutes read (About 983 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/">A Look Inside PostgreSQL&#39;s Extended Query Protocol</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Few weeks ago, I was tasked to have a detailed look inside PostgreSQL’s extended query protocol and study its internal mechanisms for a project that depends on this particular feature. In this blog, I will explain how extended protocol works in my own words and how it differs from simple query.</p>
-<h3 id="2-Simple-Query"><a href="#2-Simple-Query" class="headerlink" title="2. Simple Query"></a>2. Simple Query</h3><p>A client is able to initiate 2 type of queries against a PostgreSQL server, simple query or extended query. Simple query, as the name suggests, is very simple and straightforward to understand. When we launch the <code>psql</code> client tool to connect to a PostgreSQLs server, almost all of the SQL commands sent are considered as simple queries. This includes the use of <code>begin</code> and <code>commit</code> to enclose a transaction, having multiple SQL queries included in one big query separated by a semicolon, executing or defining a function and much more. </p>
-<p>Simple query automatically follows the standard query processing routines, which consist of these stages:</p>
-<ul>
-<li>Parser</li>
-<li>Analyzer</li>
-<li>Rewriter</li>
-<li>Planner</li>
-<li>Executor</li>
-</ul>
-<p>Refer to this blog <a href="https://www.highgo.ca/2019/10/03/trace-query-processing-internals-with-debugger/">here</a> for detailed information about query processing.</p>
-<p>The communication between the client and the server is also very straightforward. In case of DML operations such as INSERT, the client sends the query to the server for processing and the server responds a <code>CommandComplete</code> message such as <code>INSERT 0 1</code> followed by a <code>ReadyForQuery(IDLE)</code> message to indicate that the server has finished the query and is now idle. The client can send another query and it follows the same patter. </p>
-<p>In case of a <code>SELECT</code> query, the server will send the row description followed by the actual row data satisfying the query until there is no more rows to return. In the end, the server sends a <code>ReadyForQuery(IDLE)</code> message to indicate that the server has finished the query and is now idle.</p>
-<h3 id="3-Extended-Query"><a href="#3-Extended-Query" class="headerlink" title="3. Extended Query"></a>3. Extended Query</h3><p>Extended query is the other way for the client to complete a query excepts that it breaks down the standard query processing into different steps and <code>the client</code> is responsible to ensure these steps are followed and executed correctly. The client is able to control thses steps by sending the following wire protocol message types:</p>
-<ul>
-<li><p>‘P’ message (Parse)</p>
-<ul>
-<li><code>P</code> message takes a generalize query string with data values repalced with placeholders like <code>$1</code>, <code>$2</code>, which can be later substitued with real values in the Bind step.</li>
-<li>This generalized query string will be parsed via these query processing routines: <code>Parser</code> -&gt; <code>Analyzer</code> -&gt; <code>Rewriter</code></li>
-<li>At the end of a successful Parse, a <code>prepared statement</code> is produced, similar to SQL’s <code>PREPARE</code> clause</li>
-<li>This <code>prepared statement</code> can be <code>named</code> or <code>unnammed</code> (more on this next).</li>
-<li>This <code>prepared statement</code> is just a representation of the input query and it cannot be executed yet. </li>
-</ul>
-</li>
-<li><p>‘B’ message (Bind)</p>
-<ul>
-<li><code>B</code> takes the <code>named</code> or <code>unnammed</code> <code>prepared statement</code> produced from the <code>P</code> message and replaces the placeholders ($1, $2) with the user-supplied values.</li>
-<li>After the values are bound to the <code>prepared statement</code>, we basically have a completed query and it will then be fed into the <code>planner</code> stage to produce the most optimized query plan for the query.</li>
-<li>At the end of a successful planning, a <code>portal</code> is produced. </li>
-<li>This <code>portal</code> can also be <code>named</code> or <code>unnammed</code> (more on this next)</li>
-<li>A portal is basically an object that represents how to execute a particular query</li>
-</ul>
-</li>
-<li><p>‘E’ message (Execute)</p>
-<ul>
-<li><code>E</code> takes the <code>named</code> or <code>unnamed</code> <code>portal</code> produced from the <code>B</code> message and actuallly launch the <code>executor</code> to execute the query (or portal).</li>
-<li>resultant rows are produced (if any) and returns to the client</li>
-</ul>
-</li>
-<li><p>‘S’ message (Sync)</p>
-<ul>
-<li>The client has to send a <code>S</code> message to the server to indicate the end of the extended query. </li>
-<li>This message causes the server to end the current transaction and sends <code>ReadyForQuery(IDLE)</code> message back to client.</li>
-</ul>
-</li>
-</ul>
-<p>What is the purpose of separating a simple query into multiple steps? One major benefit of using the extended query is that it can save a lot of unnecessary parsing of the same query structure. Instead, we can have the common strucuture parsed only once and then bind and execute with different values multiple times.</p>
-<h3 id="4-Named-and-Unnamed-Prepared-Statement-and-Portal"><a href="#4-Named-and-Unnamed-Prepared-Statement-and-Portal" class="headerlink" title="4. Named and Unnamed Prepared Statement and Portal"></a>4. Named and Unnamed Prepared Statement and Portal</h3><p>In previous section we mentioned that a prepared statement and protal can be either <code>named</code> or <code>unnamed</code> during the extended query protocol. What does it mean and what is the significance? </p>
-<p>The general rule is that PostgreSQL server can only keep one unnamed prepared statement or portal. Requests containing unnamed prepared statemnt or portal will replace the existing ones. </p>
-<p>With named prepared statement or portal, the server will respectively remember them based on the names given and client is able to invoke them any time or specifically destroyed by sending a Close message. </p>
-<p>So, it is possible for a client to create multiple prepared statements within a transaction, each having different prepared statement names, and then bind values for them all at the same time by giving them different portal names. Eventually, the client chooses which portal to be executed.</p>
-<p>More importantly, named prepared statement’s life time lasts for the entire TCP session unless explicitly destroyed; named portal lasts only until the end of transaction or when it is executed or explicitly destroyed.</p>
-<p>But, does it make client implementation more complicated if extended query is used?</p>
-<p>Yes, but client has a choice to complicate things or not</p>
-<p>Taking libpq for example, when extended query is used, it requires the client application to provide a prepared statement name to construct the <code>P</code> (Parse) message, but does not require the client application to provide portal name to construct the <code>B</code> (Bind) message. This means that with libpq, we can send <code>P</code> message multiple times with different prepared statement names, but with <code>B</code> message, it forces to use unnamed portal name, so we always have one portal to execute. This avoids the case with multiple portal names in the client side to manage. </p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2021/10/29/The-PostgreSQL-Timeline-Concept/" class="image is-7by1">
-            <img class="thumbnail" src="/images/timeline.png" alt="The PostgreSQL Timeline Concept">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2021-10-29T16:46:01.000Z">2021-10-29</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/Postgresql/">
+                        <span class="tag">Postgresql</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
                 </div>
                 
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    4 minutes read (About 659 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2021/10/29/The-PostgreSQL-Timeline-Concept/">The PostgreSQL Timeline Concept</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>In my previous blog <a href="https://www.highgo.ca/2021/10/01/postgresql-14-continuous-archiving-and-point-in-time-recovery/">here</a>, I discussed about PostgreSQL’s point in time recovery where PostgreSQL supports an ability to recover your database to a specific time, recovery point or transaction ID in the past but I did not discuss in detail the concept of <code>timeline id</code>, which is also important in database recovery.</p>
-<h3 id="2-What-is-timeline-ID-and-Why-it-is-important"><a href="#2-What-is-timeline-ID-and-Why-it-is-important" class="headerlink" title="2. What is timeline ID and Why it is important?"></a>2. What is timeline ID and Why it is important?</h3><p>A timeline ID is basically a point of divergence in WAL. It represents a point, of to be exact, the LSN of the WAL in which the database starts to diverge. Divergence happens when an user performs a point in time recovery or when the standby server is promoted. The timeline ID is included in the first 8 bytes of WAL segment files under pg_wal/ directory.</p>
-<p>For example:<br>pg_wal/000000010000000000000001, indicates that this WAL segment belongs to timeline ID = 1</p>
-<p>and</p>
-<p>pg_wal/000000020000000000000001, indicates that this WAL segment belongs to timeline ID = 2</p>
-<p>Timeline ID behaves somewhat like <code>git branch</code> function without the ability to move forward in parallel and to merge back to the master branch. Your development starts from a <code>master branch</code>, and you are able to create a new branch (A) from the master branch to continue a specific feature development. Let’s say the feature also involves several implementation approaches and you are able to create additional branches (B, C and D) to implement each approach.</p>
-<p>This is a simple illustration of git branch:</p>
-<p><img src="/images/timeline-gitbranch.drawio.png" alt=""></p>
-<p>With timeline ID, your database starts from timeline ID 1 and it will stay at 1 for all subsequent database operations. Timeline ID 2 will be created when the user performs a point in time recovery on timeline 1 and all of the subsequnt database operations at this point belong to timeline ID 2. While at 2, the user could perform more PITR to create timeline 3, 4 and 5 respectively. </p>
-<p>In the previous PITR blog, I mentioned that you could do PITR based on time, a recovery point, a LSN or a transaction ID but all these can only apply to one particular timeline. In postgresql.conf, you can select a desired recovery timeline by the <code>recovery_target_timeline</code> parameter. This parameter can be <code>&#39;latest&#39;</code>, <code>&#39;current&#39;</code>, or <code>&#39;a particular timeline ID value&#39;</code>. </p>
-<p>With this configuration, an user is able to recovery the database to a particular point of a particular timeline in the past </p>
-<p>This is a simple illustration of timeline ID:</p>
-<p><img src="/images/timeline.drawio.png" alt=""></p>
-<h3 id="3-The-History-File-Associated-with-a-Timeline-ID"><a href="#3-The-History-File-Associated-with-a-Timeline-ID" class="headerlink" title="3. The History File Associated with a Timeline ID"></a>3. The History File Associated with a Timeline ID</h3><p>The history files are created under pg_wal/ directory with a <code>.history</code> postfix when a new timeline Id is created. This file describes all the past divergence points that have to be replayed in order to reach the current timeline. Without this file, it is impossible to tell where a timeline comes from, thus not being able to do PITR.</p>
-<p>For example, a history file <code>00000003.history</code> may contain the following contents</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">cat pg_wal&#x2F;00000003.history</span><br><span class="line">1       0&#x2F;30000D8       no recovery target specified</span><br><span class="line"></span><br><span class="line">2       0&#x2F;3002B08       no recovery target specified</span><br></pre></td></tr></table></figure>
-
-<p>which means that timeline 3 comes from LSN(0/3002B08) of timeline 2, which comes from LSN(0/30000D8) of timeline 1. </p>
-<h3 id="4-Importance-of-Continuous-Archiving"><a href="#4-Importance-of-Continuous-Archiving" class="headerlink" title="4. Importance of Continuous Archiving"></a>4. Importance of Continuous Archiving</h3><p>With the concept of timeline ID, it is possible that the same LSN or the same WAL segments exist in multiple timelines. </p>
-<p>For example: the WAL segments, 3, 4, 5, 6 exist in both timeline 1 and timeline 2 but with different contents. Since the current timeline is 2, so the ones in timeline 2 will continue to grow forward. </p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">000000010000000000000001</span><br><span class="line">000000010000000000000002</span><br><span class="line">000000010000000000000003</span><br><span class="line">000000010000000000000004</span><br><span class="line">000000010000000000000005</span><br><span class="line">000000010000000000000006</span><br><span class="line">000000020000000000000003</span><br><span class="line">000000020000000000000004</span><br><span class="line">000000020000000000000005</span><br><span class="line">000000020000000000000006</span><br><span class="line">000000020000000000000007</span><br><span class="line">000000020000000000000008</span><br></pre></td></tr></table></figure>
-
-<p>With more timelines created, the number of WAL segments files may also increase. Sine PG keeps a certain amount of WAL segment files before deleting them, it is super important to archive all the WAL segments to a separate location either by enabling continuous archiving function or using pg_receivewal tool. With all WAL segment files archived in a separate location, the user is able to perform successful point in time recovery to any timeline and any LSN.</p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="image is-7by1">
-            <img class="thumbnail" src="/images/title-conference-en.jpg" alt="PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2021-10-25T17:25:12.000Z">2021-10-25</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/architecture/">
+                        <span class="tag">architecture</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
                 </div>
                 
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    4 minutes read (About 544 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/">PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!</a>
-            
-        </h1>
-        <div class="content">
-            <p><img src="/images/top-graph-subpage.jpg" alt=""></p>
-<h3 id="About-the-Event"><a href="#About-the-Event" class="headerlink" title="About the Event"></a>About the Event</h3><p>In November, 2020, PostgresConf.CN and PGconf.Asia2020 cooperatively organized <code>2020 PG Asia Conference</code> online for the very first time! This conference attracted over 100 participating experts, scholars and speakers around the world to deliver a grand technical feast for all the participants. The event was broadcast exclusively via the Modb Technology Community platform in China with a record-high number of viewers streaming the conference channels. Each channel on average accumulated over 30,000+ active LIVE streams, the official conference blog views accumulated over 50,000+ views, and the news reports and articles from media exceeded over 3,000+ entries.</p>
-<p>This year, both PostgresConf.CN and PGConf.Asia 2021 (China Branch) will join forces again to bring you the best PostgreSQL conference in Asia!</p>
-<p><a href="https://2021.postgresconf.cn/en">Official Event Website - 2021</a></p>
-<h3 id="Time-and-Rough-Agenda"><a href="#Time-and-Rough-Agenda" class="headerlink" title="Time and Rough Agenda"></a>Time and Rough Agenda</h3><p>The 2021 PG Asia Conference will be a 4-day event from December 14 to 17, 2021.</p>
-<p>Rough schedule is as below. Please note that the final schedule is subject to the date of the meeting. The agenda time is Beijing Time(GMT+8)</p>
-<ul>
-<li>December 14 - Day 1<ul>
-<li>09:00-18:00    Main Conference</li>
-</ul>
-</li>
-<li>December 15 - Day 2<ul>
-<li>09:00-17:00    Mandarin sub-Comprehensive forum</li>
-<li>09:00-17:00    Indonesia sub</li>
-<li>09:00-17:00    Korean Sub</li>
-<li>09:00-17:00    English sub</li>
-<li>09:00-12:00    Special Training A</li>
-<li>14:00-16:30    Special Training B</li>
-</ul>
-</li>
-<li>December 16 - Day 3<ul>
-<li>09:00-17:00    Mandarin sub-Application Forum</li>
-<li>09:00-17:00    Japanese Sub</li>
-<li>09:00-17:00    Thai Sub</li>
-<li>09:00-12:00    Special Training C</li>
-<li>10:00-11:30    Developer Unconference</li>
-<li>14:00-16:30    Special Training D</li>
-</ul>
-</li>
-<li>December 17 - Day 4<ul>
-<li>09:00-12:00    Special Training E</li>
-<li>14:00-16:30    Special Training F</li>
-</ul>
-</li>
-</ul>
-<h3 id="About-PostgresConf-CN"><a href="#About-PostgresConf-CN" class="headerlink" title="About PostgresConf.CN"></a>About PostgresConf.CN</h3><p>PostgresConf.CN is an annual event held by the China PostgreSQL Association for PostgreSQL users and developers, PostgreSQL is a leading open-source relational database with an active and vibrant community. PostgreConf.CN 2020 took place as an online conference for the very first time; it was very well attended by PostgreSQL users and community members across the globe. It is also one of the conference series held by PostgresConf Organization.</p>
-<p><a href="https://2020.postgresconf.cn/en">Official Event Website - 2020</a></p>
-<h3 id="About-PGConf-Asia"><a href="#About-PGConf-Asia" class="headerlink" title="About PGConf.Asia"></a>About PGConf.Asia</h3><p>PGCONF.Asia is a shorthand of the Asian PostgreSQL Conference which has been hosted in Tokyo from 2016 until 2018. The conference was held in Bali for the first time in Sep 2019 and it is intended as the Asian level of PostgreSQL International Conference. It co-hosted the 2020 PG Asia Conference together with PostgresConf.CN as an online event and accumulated unprecedented number of participants worldwide. The organization is often regarded as the HUB and the Summit of the PostgreSQL Community throughout Asian Countries.</p>
-<h3 id="Call-for-Paper"><a href="#Call-for-Paper" class="headerlink" title="Call for Paper"></a>Call for Paper</h3><p>Each speaker is given a 30-minute session (25 minutes of speech + 5 minutes of Q&amp;A).The direction of the speech can be: kernel development, application practice, operation and maintenance management, data migration, distributed, high availability, security control, optimization, cloud database, open source upstream and downstream ecology, etc.</p>
-<p>Please submit your speech topic first. The deadline for topic submission is <code>October 31, 2021</code>. The organizing committee will complete topic review before <code>November 15, 2021</code>. You will be notified the result of your topic selection at that time, please start preparing the speech content. The deadline for PPT submission is <code>November 30, 2021</code>.</p>
-<p>Please download the PPT template <a href="https://2021.postgresconf.cn/assets/PPT%20Template-PGConf.CN&PGConf.Asia2021.pptx">here</a>.</p>
-<p>You will have to create a free Postgres Conference account in order to submit your topic.</p>
-<p>Access the account registration <a href="https://2021.postgresconf.cn/login_en?type=%2Ftheme_en">here</a></p>
-<h3 id="Contacts"><a href="#Contacts" class="headerlink" title="Contacts"></a>Contacts</h3><p>Global Sponsor Interface:    <a href="mailto:grantzhou@postgresconf.org">grantzhou@postgresconf.org</a><br>About Speech submission and other inquiries:    <a href="mailto:meeting@postgresqlchina.com">meeting@postgresqlchina.com</a></p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2021/10/01/Set-up-PostgreSQL-Continuous-archiving-and-Perform-Point-In-Time-Recovery/" class="image is-7by1">
-            <img class="thumbnail" src="/images/pitr.png" alt="PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2021-10-01T18:33:13.000Z">2021-10-01</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/atomic-commit/">
+                        <span class="tag">atomic commit</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
                 </div>
                 
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/backend/">
+                        <span class="tag">backend</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
                 
-                <span class="level-item has-text-grey">
-                    
-                    
-                    8 minutes read (About 1246 words)
-                </span>
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/buffer-manager/">
+                        <span class="tag">buffer manager</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
                 
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/extended-query/">
+                        <span class="tag">extended query</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/extension/">
+                        <span class="tag">extension</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/external-key-management-system/">
+                        <span class="tag">external key management system</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/failover/">
+                        <span class="tag">failover</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/fdw/">
+                        <span class="tag">fdw</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/gdb/">
+                        <span class="tag">gdb</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/in-memory/">
+                        <span class="tag">in-memory</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/in-memory-table/">
+                        <span class="tag">in-memory table</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/key-management-system/">
+                        <span class="tag">key management system</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/logical-decoding/">
+                        <span class="tag">logical decoding</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/logical-replication/">
+                        <span class="tag">logical replication</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/lsn/">
+                        <span class="tag">lsn</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/mongodb/">
+                        <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/networking/">
+                        <span class="tag">networking</span>
+                        <span class="tag is-grey">4</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/oid/">
+                        <span class="tag">oid</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/parallel-worker/">
+                        <span class="tag">parallel worker</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/partition/">
+                        <span class="tag">partition</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pg13/">
+                        <span class="tag">pg13</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pg-rewind/">
+                        <span class="tag">pg_rewind</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pitr/">
+                        <span class="tag">pitr</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pluggable-api/">
+                        <span class="tag">pluggable api</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pluggable-storage/">
+                        <span class="tag">pluggable storage</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgres/">
+                        <span class="tag">postgres</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgresql/">
+                        <span class="tag">postgresql</span>
+                        <span class="tag is-grey">15</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postmaster/">
+                        <span class="tag">postmaster</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/query-processing/">
+                        <span class="tag">query processing</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/recovery/">
+                        <span class="tag">recovery</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/redo/">
+                        <span class="tag">redo</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/replication/">
+                        <span class="tag">replication</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/savepoint/">
+                        <span class="tag">savepoint</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/security/">
+                        <span class="tag">security</span>
+                        <span class="tag is-grey">4</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/sequence/">
+                        <span class="tag">sequence</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/snmp/">
+                        <span class="tag">snmp</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/streaming-replication/">
+                        <span class="tag">streaming replication</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/subtransaction/">
+                        <span class="tag">subtransaction</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/table-access-method/">
+                        <span class="tag">table access method</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/tde/">
+                        <span class="tag">tde</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/timeline-id/">
+                        <span class="tag">timeline id</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/tls/">
+                        <span class="tag">tls</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/trace/">
+                        <span class="tag">trace</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/trigger/">
+                        <span class="tag">trigger</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility/">
+                        <span class="tag">visibility</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/wal2mongo/">
+                        <span class="tag">wal2mongo</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/wire-protocol/">
+                        <span class="tag">wire protocol</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
                 
             </div>
         </div>
+    </div>
+</div>
+    
+    
+        <div class="column-right-shadow is-hidden-widescreen ">
         
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+        </div>
+    
+</div>
+
+                
+            </div>
+        </div>
+    </section>
+    <footer class="footer">
+    <div class="container">
+        <div class="level">
+            <div class="level-start has-text-centered-mobile">
+                <a class="footer-logo is-block has-mb-6" href="/">
+                
+                    <img src="/images/Simplicity-design-logo.jpg" alt="Cary&#39;s Blog" height="28">
+                
+                </a>
+                <p class="is-size-7">
+                &copy; 2022 Cary Huang&nbsp;
+                Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> & <a
+                        href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a>
+                
+                </p>
+            </div>
+            <div class="level-end">
             
-                <a class="has-link-black-ter" href="/2021/10/01/Set-up-PostgreSQL-Continuous-archiving-and-Perform-Point-In-Time-Recovery/">PostgreSQL 14 Continuous archiving and Point In Time Recovery Tutorial</a>
+                <div class="field has-addons is-flex-center-mobile has-mt-5-mobile is-flex-wrap is-flex-middle">
+                
+                <p class="control">
+                    <a class="button is-white is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                </p>
+                
+                </div>
             
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Recently I have been practicing the internals of PostgreSQL continuous archiving and the point in time recovery features that are required for my current development work. Today I would like to demonstrate these important features with the recently released PostgreSQL 14 on Ubuntu 18.04.</p>
-<h3 id="2-Write-Ahead-Log"><a href="#2-Write-Ahead-Log" class="headerlink" title="2. Write Ahead Log?"></a>2. Write Ahead Log?</h3><p>Before going into the details of continuous archiving, it is important to understand the concept of Write Ahead Log (WAL). WAL files are generated by PG that contains all of the operations done on the database since the beginning. Operations such as <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>, <code>VACUUM</code> …etc are captured in WAL files. Having these WAL files, it is possible to recreate the database simply by <code>replaying</code> them, allowing an user to recover the database to a certain state in case of fault. This is the basis of continuous archiving and point in time recovery.</p>
-<h3 id="3-What-is-Continuous-Archiving"><a href="#3-What-is-Continuous-Archiving" class="headerlink" title="3. What is Continuous Archiving?"></a>3. What is Continuous Archiving?</h3><p>The generated WAL files are normally stored in the <code>pg_wal</code> directory within the PG database cluster, but they will not grow forever. The configuration parameters, <code>max_wal_size</code> and <code>min_wal_size</code> control how many WAL files can be kept in <code>pg_wal</code> directory. The checkpointer process will periodically purge the old WAL files, leaving only recent ones.</p>
+            </div>
+        </div>
+    </div>
+</footer>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script>
+<script>moment.locale("en");</script>
+
+
+<script>
+var IcarusThemeSettings = {
+    site: {
+        url: 'http://caryhuang.github.io',
+        external_link: {"enable":true,"exclude":[]}
+    },
+    article: {
+        highlight: {
+            clipboard: true,
+            fold: 'unfolded'
+        }
+    }
+};
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script>
+
+
+
+
+
+<script src="/js/animation.js"></script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script>
+<script src="/js/gallery.js" defer></script>
+
+
+
+<div id="outdated">
+    <h6>Your browser is out-of-date!</h6>
+    <p>Update your browser to view this website correctly. <a id="btnUpdateBrowser" href="http://outdatedbrowser.com/">Update
+            my browser now </a></p>
+    <p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">&times;</a></p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.js" defer></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        outdatedBrowser({
+            bgColor: '#f25648',
+            color: '#ffffff',
+            lowerThan: 'flex'
+        });
+    });
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.5/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    MathJax.Hub.Config({
+        'HTML-CSS': {
+            matchFontHeight: false
+        },
+        SVG: {
+            matchFontHeight: false
+        },
+        CommonHTML: {
+            matchFontHeight: false
+        },
+        tex2jax: {
+            inlineMath: [
+                ['$','$'],
+                ['\\(','\\)']
+            ]
+        }
+    });
+});
+</script>
+
+
+<a id="back-to-top" title="Back to Top" href="javascript:;">
+    <i class="fas fa-chevron-up"></i>
+</a>
+<script src="/js/back-to-top.js" defer></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="/js/main.js" defer></script>
+
+    
+    <div class="searchbox ins-search">
+    <div class="searchbox-container ins-search-container">
+        <div class="searchbox-input-wrapper">
+            <input type="text" class="searchbox-input ins-search-input" placeholder="Type something..." />
+            <span class="searchbox-close ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="searchbox-result-wrapper ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+    (function (window) {
+        var INSIGHT_CONFIG = {
+            TRANSLATION: {
+                POSTS: 'Posts',
+                PAGES: 'Pages',
+                CATEGORIES: 'Categories',
+                TAGS: 'Tags',
+                UNTITLED: '(Untitled)',
+            },
+            CONTENT_URL: '/content.json',
+        };
+        window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+    })(window);
+</script>
+<script src="/js/insight.js" defer></script>
+<link rel="stylesheet" href="/css/search.css">
+<link rel="stylesheet" href="/css/insight.css">
+    
+</body>
+</html>-is-Continuous-Archiving"><a href="#3-What-is-Continuous-Archiving" class="headerlink" title="3. What is Continuous Archiving?"></a>3. What is Continuous Archiving?</h3><p>The generated WAL files are normally stored in the <code>pg_wal</code> directory within the PG database cluster, but they will not grow forever. The configuration parameters, <code>max_wal_size</code> and <code>min_wal_size</code> control how many WAL files can be kept in <code>pg_wal</code> directory. The checkpointer process will periodically purge the old WAL files, leaving only recent ones.</p>
 <p>So, it is important to set up continuous archiving so all these WAL files can be <code>archived</code> to somewhere else outside of PG cluster. So, when you need all the old WAL files for recovery, PG can restore them from the archive.</p>
 <p>To enable WAL archiving and restoring, set these parameters in postgresql.conf:</p>
 <figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">archive_mode &#x3D; on</span><br><span class="line">archive_command &#x3D; &#39;cp %p &#x2F;path&#x2F;to&#x2F;archive&#x2F;%f&#39;</span><br><span class="line">restore_command &#x3D; &#39;cp &#x2F;path&#x2F;to&#x2F;archive&#x2F;%f %p&#39;</span><br></pre></td></tr></table></figure>
@@ -1115,7 +1819,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            30
+                            31
                         </p>
                     </a>
                 </div>
@@ -1139,7 +1843,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            48
+                            50
                         </p>
                     </a>
                 </div>
@@ -1279,7 +1983,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 10px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 10px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 10px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
     </div>
 </div>
     
@@ -1288,6 +1992,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/2pc.png" alt="Distributed Database With PostgreSQL - Atomic Commit Problems">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-03-18T20:26:14.000Z">2022-03-18</time></div>
+                    <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Distributed Database With PostgreSQL - Atomic Commit Problems</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1365,25 +2088,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/title-conference-en.jpg" alt="PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-10-25T17:25:12.000Z">2021-10-25</time></div>
-                    <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="title has-link-black-ter is-size-6 has-text-weight-normal">PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1394,6 +2098,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/02/">
@@ -1658,8 +2373,22 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/Postgresql/">
+                        <span class="tag">Postgresql</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/architecture/">
                         <span class="tag">architecture</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/atomic-commit/">
+                        <span class="tag">atomic commit</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
