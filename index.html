@@ -131,6 +131,81 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="image is-7by1">
+            <img class="thumbnail" src="/images/2pc2.png" alt="Understand PG&#39;s MVCC Visibility Check Rules">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2022-06-10T18:13:40.000Z">2022-06-10</time>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    6 minutes read (About 973 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/">Understand PG&#39;s MVCC Visibility Check Rules</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL’s MultiVersion Concurrency Control (MVCC) is an “advanced technique for improving database performance in a multi-user environment” according  to Vadim Mikheev. This technique requires multiple “versions” of the same data tuple exist in the system governed by snapshots taken during different time periods. In other words, under such technique, it is PG’s responsibility to figure out how many tuples are <code>visible</code> to the user and how many are not, according to multiple parameters such as snapshots taken, current transaction ID…etc. This is also known as <code>visibility check</code> rules in PG and today in this blog, I will talk about the basic principles of visibility check so you get an idea how PG performs this task internally and I hope it would be helpful in your development work.</p>
+<h3 id="2-Parameters-Involved"><a href="#2-Parameters-Involved" class="headerlink" title="2. Parameters Involved?"></a>2. Parameters Involved?</h3><ul>
+<li>The tuple itself, which contains:<ul>
+<li>xmin (the transaction ID that inserts this tuple)</li>
+<li>xmax (the transaction ID that deletes this tuple if &gt; 0, otherwise it’s not deleted)</li>
+<li>cid (command ID)</li>
+<li>hintbit </li>
+</ul>
+</li>
+<li>Global top transaction ID if available </li>
+<li>current snapshot, which also contains xmin, xmax and cid</li>
+<li>Commit Log Data (CLOG)</li>
+</ul>
+<h3 id="3-The-Process"><a href="#3-The-Process" class="headerlink" title="3. The Process"></a>3. The Process</h3><h4 id="3-1-Check-the-Hintbit"><a href="#3-1-Check-the-Hintbit" class="headerlink" title="3.1 Check the Hintbit"></a>3.1 Check the Hintbit</h4><p>The visibility process starts by checking the hintbit. If hintbit has a state of <code>COMMITTED</code>, then we can skip most of the other visibility checking rules for better efficiency. With the tuple committed, PG then take this tuple’s xmin value to check with the current snapshot to ensure this tuple is not currently <code>in progress</code>. (See 3.3 below for formula to determine <code>in progress</code>). This check is required because there is a chance that this tuple, though committed, is still being updated by other backend processes at this very moment. If the tuple is not currently <code>in progress</code> by other backends, it will finally check its <code>xmax</code> value to ensure that it is invalid. Invalid means it has not been deleted. When all of the above are true, this tuple is considered visible.</p>
+<p>If hintbit indicates <code>ABORTED</code>, then this tuple is considered invisible to user. If hintbit has no value, then PG should continue with the rest of visibility check rules.</p>
+<h4 id="3-2-Check-If-Tuple’s-xmin-Equal-to-Global-Top-Transaction-ID"><a href="#3-2-Check-If-Tuple’s-xmin-Equal-to-Global-Top-Transaction-ID" class="headerlink" title="3.2 Check If Tuple’s xmin Equal to Global Top Transaction ID"></a>3.2 Check If Tuple’s xmin Equal to Global Top Transaction ID</h4><p>The next check involves taking tuple’s xmin and compare with global top transaction ID to see if they are equal. This global top transaction ID will only be set when user starts the transaction manually with <code>begin</code> clause. If user does not starts the transaction this way (no <code>begin</code> clause is issued), then this global top transaction ID will not be set and therefore this checking will be skipped. </p>
+<p>If tuple xmin equals global top transaction ID, this means the tuple is currently <code>in progress</code> by the current backend, not others. This is where the command ID (cid) will be used to determine the visibility. Within a transaction block, each command issued has an associated command ID to indicate what command comes first and what comes later. For example, if a SELECT comes after an UPDATE, within a transaction, then the SELECT must see the new tuple updated by the previous UPDATE clause and cid plays a part in this determination. This behavior is also governed by the <code>isolation level</code> which is unfortunately out of scope of this blog. The default isolation level is <code>READ COMMITTED</code>, which makes the SELECT sees the data changed by previous UPDATE; but if the isolation is set to <code>REPEATABLE READ</code> then the SELECT will not see the data changed by previous UPDATE. Please keep this in mind.</p>
+<p>If tuple’s xmin does not equal to global top transaction ID, then PG should continue with the rest of visibility</p>
+<h4 id="3-3-Check-the-Current-Snapshot"><a href="#3-3-Check-the-Current-Snapshot" class="headerlink" title="3.3 Check the Current Snapshot"></a>3.3 Check the Current Snapshot</h4><p>The next check involves the PG to check if this tuple is currently <code>in progress</code> by other backend processes. This is done by comparing the tuple’s xmin value against current snapshot’s xmin and xmax values according to this formula.</p>
+<ul>
+<li>tuple xmin &lt; snapshot xmin = not in progress</li>
+<li>tuple xmin &gt;= snapshot xmax = in progress</li>
+</ul>
+<p>If this tuple is considered <code>in progress</code> by the snapshot, then this tuple must not be visible to the current user because other backends are still working on it. If this tuple is NOT considered <code>in progress</code>, then PG should continue with the rest of visibility check rules.</p>
+<h4 id="3-4-Check-the-Commit-Log-CLOG"><a href="#3-4-Check-the-Commit-Log-CLOG" class="headerlink" title="3.4 Check the Commit Log (CLOG)"></a>3.4 Check the Commit Log (CLOG)</h4><p>This next check involves the PG to take tuple’s xmin to check against the CLOG to see if this tuple has been committed or aborted. CLOG is like an array of transaction IDs and each array element stores a commit status. PG has a formula to convert a transaction ID into a CLOG block plus an offset to precisely access the right CLOG element. This CLOG data structure is regularly flushed to disk with checkpoint process and it is located in these 3 directories: <code>pg_xact</code>, <code>pg_multixact</code> and <code>pg_subtrans</code>. </p>
+<p>If CLOG says the given tuple is committed, then PG will continue to check the tuple’s <code>xmax</code> value to ensure that it is invalid. Invalid means it has not been deleted and therefore it is visible to user. At the same time, PG will also update the hintbit value of this tuple to <code>COMMITTED</code> such that in the next visibility checking, PG will not access CLOG again, which is rather expensive. </p>
+<p>If CLOG says the given tuple is aborted or invalid, then this tuple is not visible to the current user. At the same time, it will also update the hintbit value of this tuple to <code>INVALID</code> </p>
+<h3 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h3><p>The above processes are the very basic visibility rules within PG according to my understanding. Of course there are other complex checking not mentioned here, such as the involvement of sub transactions and multi transactions, but they do follow somewhat similar pattern to what’s mentioned today. I hope this blog would be helpful for you.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2022/05/06/Ensure-Atomic-Commit-with-2-Phase-Commit-in-FDW-Distributed-Setup/" class="image is-7by1">
             <img class="thumbnail" src="/images/2pc2.png" alt="Atomic Commit with 2 Phase Commit in FDW Distributed Setup">
         </a>
@@ -922,95 +997,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="image is-7by1">
-            <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2021-08-06T19:04:08.000Z">2021-08-06</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    4 minutes read (About 670 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/">Understanding the Security Around PostgreSQL</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-What-Is-Security"><a href="#1-What-Is-Security" class="headerlink" title="1. What Is Security?"></a>1. What Is Security?</h3><p>The word “Security” is a very broad concept and could refer to completely different procedures and methodology to achieve. Knowing what security means to your application is very important, so you could execute proper security practices and procedures to ensure the safety of your company’s assets. Data compromises could often lead to financial loss, reputation damage, consumer confidence disintegration, brand erosion, and non-compliance of government and industry regulation. </p>
-<p>For this reason, the security on infrastructure software such as PostgreSQL is even more important because any data compromises could have nation or city-wide impacts, which are often difficult to completely recover.</p>
-<h3 id="2-Common-Database-Compromises"><a href="#2-Common-Database-Compromises" class="headerlink" title="2. Common Database Compromises"></a>2. Common Database Compromises</h3><p>User Compromises:</p>
-<ul>
-<li>Excessive privileges</li>
-<li>Privilege abuse</li>
-<li>Weak user authentication</li>
-<li>Weak password</li>
-<li>Default privilege too open</li>
-</ul>
-<p>Data Compromises:</p>
-<ul>
-<li>Unmanaged and unprotected sensitive data</li>
-<li>Backup data exposure</li>
-<li>Stolen hard disks</li>
-<li>Unmanaged encryption keys</li>
-</ul>
-<p>Network Compromises:</p>
-<ul>
-<li>Firewall rules</li>
-<li>Deep Packet Inspection (DPS)</li>
-<li>Vulnerability prevention</li>
-<li>Denial of Service (DOS) attack</li>
-</ul>
-<p>Vulnerability:</p>
-<ul>
-<li>Software bug</li>
-<li>Buffer overflow</li>
-<li>SQL injection</li>
-<li>Privileged escalation</li>
-</ul>
-<h3 id="3-The-Big-Picture"><a href="#3-The-Big-Picture" class="headerlink" title="3. The Big Picture"></a>3. The Big Picture</h3><p><img src="/images/thebigpicture.png" alt="img"></p>
-<p>This picture shows different types of “security” around a PostgreSQL server and there are roughly 5 types of security concepts involved here:</p>
-<h4 id="3-1-Data-Security-Over-Network"><a href="#3-1-Data-Security-Over-Network" class="headerlink" title="3.1 Data Security (Over Network)"></a>3.1 Data Security (Over Network)</h4><p>This is the security in the communication between PostgreSQL client and server that we almost always want to use TLS to encrypt the data communication in a production environment. TLS guarantees the mutual trust between the client and the server so each side is sure that it is communicating with the right entity instead of a rogue server. SSH tunneling is also a common option to secure a psql connection when TLS is not fully set up. SSH tunneling is also very secure as each connection forces client and server to generate and agree on an encryption key that is valid only for that session. Furthermore, SSH tunneling can be made more secured by setting up the public and private key pair between client and server to ensure the authenticity of the two entities. </p>
-<h4 id="3-2-Data-Security"><a href="#3-2-Data-Security" class="headerlink" title="3.2 Data Security"></a>3.2 Data Security</h4><p>This is the security between PostgreSQL and the disk in which it writes data to. This security type is often refereed as a “Cluster Data Encryption” or “Transparent Data Encryption”. Current version of PostgreSQL does not support this feature but there is a handful of talented people working on this feature right now. This security is designed to prevent data compromises directly done on the hard disk. By encrypting the data on the disk, hard disk theft will not be able to extract useful information from the hard disk. </p>
-<h4 id="3-3-Network-Security"><a href="#3-3-Network-Security" class="headerlink" title="3.3 Network Security"></a>3.3 Network Security</h4><p>This is the security that most likely will involve a firewall in between a connecting client and a server. The purpose of a firewall is to block most of the malicious connections coming from the public network and prevent unauthorized access to the server. Most advanced firewalls such as an IPS can block DOS attacks and perform deep packet examination according to a database of known malicious packet and attacks. There are also firewalls such as an IDS that perform network monitoring only and will raise alert to the operator should it detects an attack attempt.</p>
-<h4 id="3-4-Vulnerability"><a href="#3-4-Vulnerability" class="headerlink" title="3.4 Vulnerability"></a>3.4 Vulnerability</h4><p>This is the security that is mostly caused by a software bug that allows an attacker to take advantage of the server, steal data, or simply out a stop to the server and cause damage. The best way to prevent this is upgrade your PostgreSQL server to the latest version that has addressed most of the known vulnerabilities.</p>
-<h4 id="3-5-User-Security"><a href="#3-5-User-Security" class="headerlink" title="3.5 User Security"></a>3.5 User Security</h4><p>This is the security that relates mostly to the user management, sometimes called a Role-Based Access Control (RBAC). This is where a database administrator is managing each database user and setting the right privileges for the right users. Excessive privileges, weak passwords and privilege abuses are very common if not done correctly. Make sure the right users get the right privileges and use a third party authentication servers such as LDAP or Kerberos instead of simple passwords can significantly increase the security ratings of your database infrastructure.</p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -1079,7 +1065,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            32
+                            33
                         </p>
                     </a>
                 </div>
@@ -1103,7 +1089,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            50
+                            52
                         </p>
                     </a>
                 </div>
@@ -1243,7 +1229,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 12.5px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 15px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/mvcc/" style="font-size: 10px;">mvcc</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/visibility-check/" style="font-size: 10px;">visibility check</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
     </div>
 </div>
     
@@ -1252,6 +1238,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/2pc2.png" alt="Understand PG&#39;s MVCC Visibility Check Rules">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-06-10T18:13:40.000Z">2022-06-10</time></div>
+                    <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understand PG&#39;s MVCC Visibility Check Rules</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1329,25 +1334,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/extended.png" alt="A Look Inside PostgreSQL&#39;s Extended Query Protocol">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-12-10T19:34:58.000Z">2021-12-10</time></div>
-                    <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A Look Inside PostgreSQL&#39;s Extended Query Protocol</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1358,6 +1344,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/05/">
@@ -1646,7 +1643,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/Postgresql/">
                         <span class="tag">Postgresql</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
@@ -1765,6 +1762,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/mongodb/">
                         <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/mvcc/">
+                        <span class="tag">mvcc</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
@@ -1968,6 +1972,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/visibility/">
                         <span class="tag">visibility</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility-check/">
+                        <span class="tag">visibility check</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>

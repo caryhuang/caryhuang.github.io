@@ -131,6 +131,95 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/" class="image is-7by1">
+            <img class="thumbnail" src="/images/pg-sec-banner.png" alt="Understanding the Security Around PostgreSQL">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2021-08-06T19:04:08.000Z">2021-08-06</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    4 minutes read (About 670 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2021/08/06/Understanding-the-Security-Around-PostgreSQL/">Understanding the Security Around PostgreSQL</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-What-Is-Security"><a href="#1-What-Is-Security" class="headerlink" title="1. What Is Security?"></a>1. What Is Security?</h3><p>The word “Security” is a very broad concept and could refer to completely different procedures and methodology to achieve. Knowing what security means to your application is very important, so you could execute proper security practices and procedures to ensure the safety of your company’s assets. Data compromises could often lead to financial loss, reputation damage, consumer confidence disintegration, brand erosion, and non-compliance of government and industry regulation. </p>
+<p>For this reason, the security on infrastructure software such as PostgreSQL is even more important because any data compromises could have nation or city-wide impacts, which are often difficult to completely recover.</p>
+<h3 id="2-Common-Database-Compromises"><a href="#2-Common-Database-Compromises" class="headerlink" title="2. Common Database Compromises"></a>2. Common Database Compromises</h3><p>User Compromises:</p>
+<ul>
+<li>Excessive privileges</li>
+<li>Privilege abuse</li>
+<li>Weak user authentication</li>
+<li>Weak password</li>
+<li>Default privilege too open</li>
+</ul>
+<p>Data Compromises:</p>
+<ul>
+<li>Unmanaged and unprotected sensitive data</li>
+<li>Backup data exposure</li>
+<li>Stolen hard disks</li>
+<li>Unmanaged encryption keys</li>
+</ul>
+<p>Network Compromises:</p>
+<ul>
+<li>Firewall rules</li>
+<li>Deep Packet Inspection (DPS)</li>
+<li>Vulnerability prevention</li>
+<li>Denial of Service (DOS) attack</li>
+</ul>
+<p>Vulnerability:</p>
+<ul>
+<li>Software bug</li>
+<li>Buffer overflow</li>
+<li>SQL injection</li>
+<li>Privileged escalation</li>
+</ul>
+<h3 id="3-The-Big-Picture"><a href="#3-The-Big-Picture" class="headerlink" title="3. The Big Picture"></a>3. The Big Picture</h3><p><img src="/images/thebigpicture.png" alt="img"></p>
+<p>This picture shows different types of “security” around a PostgreSQL server and there are roughly 5 types of security concepts involved here:</p>
+<h4 id="3-1-Data-Security-Over-Network"><a href="#3-1-Data-Security-Over-Network" class="headerlink" title="3.1 Data Security (Over Network)"></a>3.1 Data Security (Over Network)</h4><p>This is the security in the communication between PostgreSQL client and server that we almost always want to use TLS to encrypt the data communication in a production environment. TLS guarantees the mutual trust between the client and the server so each side is sure that it is communicating with the right entity instead of a rogue server. SSH tunneling is also a common option to secure a psql connection when TLS is not fully set up. SSH tunneling is also very secure as each connection forces client and server to generate and agree on an encryption key that is valid only for that session. Furthermore, SSH tunneling can be made more secured by setting up the public and private key pair between client and server to ensure the authenticity of the two entities. </p>
+<h4 id="3-2-Data-Security"><a href="#3-2-Data-Security" class="headerlink" title="3.2 Data Security"></a>3.2 Data Security</h4><p>This is the security between PostgreSQL and the disk in which it writes data to. This security type is often refereed as a “Cluster Data Encryption” or “Transparent Data Encryption”. Current version of PostgreSQL does not support this feature but there is a handful of talented people working on this feature right now. This security is designed to prevent data compromises directly done on the hard disk. By encrypting the data on the disk, hard disk theft will not be able to extract useful information from the hard disk. </p>
+<h4 id="3-3-Network-Security"><a href="#3-3-Network-Security" class="headerlink" title="3.3 Network Security"></a>3.3 Network Security</h4><p>This is the security that most likely will involve a firewall in between a connecting client and a server. The purpose of a firewall is to block most of the malicious connections coming from the public network and prevent unauthorized access to the server. Most advanced firewalls such as an IPS can block DOS attacks and perform deep packet examination according to a database of known malicious packet and attacks. There are also firewalls such as an IDS that perform network monitoring only and will raise alert to the operator should it detects an attack attempt.</p>
+<h4 id="3-4-Vulnerability"><a href="#3-4-Vulnerability" class="headerlink" title="3.4 Vulnerability"></a>3.4 Vulnerability</h4><p>This is the security that is mostly caused by a software bug that allows an attacker to take advantage of the server, steal data, or simply out a stop to the server and cause damage. The best way to prevent this is upgrade your PostgreSQL server to the latest version that has addressed most of the known vulnerabilities.</p>
+<h4 id="3-5-User-Security"><a href="#3-5-User-Security" class="headerlink" title="3.5 User Security"></a>3.5 User Security</h4><p>This is the security that relates mostly to the user management, sometimes called a Role-Based Access Control (RBAC). This is where a database administrator is managing each database user and setting the right privileges for the right users. Excessive privileges, weak passwords and privilege abuses are very common if not done correctly. Make sure the right users get the right privileges and use a third party authentication servers such as LDAP or Kerberos instead of simple passwords can significantly increase the security ratings of your database infrastructure.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2021/07/09/Using-GDB-To-Trace-Into-a-Parallel-Worker-Spawned-By-Postmaster-During-A-Large-Query/" class="image is-7by1">
             <img class="thumbnail" src="/images/gdb-debug-banner.png" alt="Using GDB To Trace Into a Parallel Worker Spawned By Postmaster During a Large Query">
         </a>
@@ -917,66 +1006,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/" class="image is-7by1">
-            <img class="thumbnail" src="/images/pg-arch-cover.png" alt="An Overview of PostgreSQL Backend Architecture">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2020-06-15T18:06:09.000Z">2020-06-15</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    20 minutes read (About 3069 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/">An Overview of PostgreSQL Backend Architecture</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL backend is a collection of processes forked from the main process called <code>Postmaster</code>. Each forked process has different roles and responsibilities in the backend. This article describes the responsibility of core backend processes that power the PostgreSQL system as we know it today. The overall PostgreSQL backend architecture can be illustrated by the image below:</p>
-<p><img src="/images/pg-arch.png" alt="pg-backend-architecture"></p>
-        </div>
-        
-        
-        <div class="level is-mobile">
-            <div class="level-start">
-                <div class="level-item">
-                <a class="button is-size-7 is-light" href="/2020/06/15/An-Overview-of-PostgreSQL-Backend-Architecture/#more">Read More</a>
-                </div>
-            </div>
-        </div>
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -1045,7 +1074,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            32
+                            33
                         </p>
                     </a>
                 </div>
@@ -1069,7 +1098,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            50
+                            52
                         </p>
                     </a>
                 </div>
@@ -1209,7 +1238,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 12.5px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 15px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/mvcc/" style="font-size: 10px;">mvcc</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/visibility-check/" style="font-size: 10px;">visibility check</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
     </div>
 </div>
     
@@ -1218,6 +1247,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/2pc2.png" alt="Understand PG&#39;s MVCC Visibility Check Rules">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-06-10T18:13:40.000Z">2022-06-10</time></div>
+                    <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understand PG&#39;s MVCC Visibility Check Rules</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -1295,25 +1343,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/extended.png" alt="A Look Inside PostgreSQL&#39;s Extended Query Protocol">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-12-10T19:34:58.000Z">2021-12-10</time></div>
-                    <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A Look Inside PostgreSQL&#39;s Extended Query Protocol</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1324,6 +1353,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/05/">
@@ -1612,7 +1652,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/Postgresql/">
                         <span class="tag">Postgresql</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
@@ -1731,6 +1771,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/mongodb/">
                         <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/mvcc/">
+                        <span class="tag">mvcc</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
@@ -1934,6 +1981,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/visibility/">
                         <span class="tag">visibility</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility-check/">
+                        <span class="tag">visibility check</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>

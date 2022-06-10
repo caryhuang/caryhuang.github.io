@@ -141,6 +141,81 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="image is-7by1">
+            <img class="thumbnail" src="/images/2pc2.png" alt="Understand PG&#39;s MVCC Visibility Check Rules">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2022-06-10T18:13:40.000Z">2022-06-10</time>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    6 minutes read (About 973 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/">Understand PG&#39;s MVCC Visibility Check Rules</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL’s MultiVersion Concurrency Control (MVCC) is an “advanced technique for improving database performance in a multi-user environment” according  to Vadim Mikheev. This technique requires multiple “versions” of the same data tuple exist in the system governed by snapshots taken during different time periods. In other words, under such technique, it is PG’s responsibility to figure out how many tuples are <code>visible</code> to the user and how many are not, according to multiple parameters such as snapshots taken, current transaction ID…etc. This is also known as <code>visibility check</code> rules in PG and today in this blog, I will talk about the basic principles of visibility check so you get an idea how PG performs this task internally and I hope it would be helpful in your development work.</p>
+<h3 id="2-Parameters-Involved"><a href="#2-Parameters-Involved" class="headerlink" title="2. Parameters Involved?"></a>2. Parameters Involved?</h3><ul>
+<li>The tuple itself, which contains:<ul>
+<li>xmin (the transaction ID that inserts this tuple)</li>
+<li>xmax (the transaction ID that deletes this tuple if &gt; 0, otherwise it’s not deleted)</li>
+<li>cid (command ID)</li>
+<li>hintbit </li>
+</ul>
+</li>
+<li>Global top transaction ID if available </li>
+<li>current snapshot, which also contains xmin, xmax and cid</li>
+<li>Commit Log Data (CLOG)</li>
+</ul>
+<h3 id="3-The-Process"><a href="#3-The-Process" class="headerlink" title="3. The Process"></a>3. The Process</h3><h4 id="3-1-Check-the-Hintbit"><a href="#3-1-Check-the-Hintbit" class="headerlink" title="3.1 Check the Hintbit"></a>3.1 Check the Hintbit</h4><p>The visibility process starts by checking the hintbit. If hintbit has a state of <code>COMMITTED</code>, then we can skip most of the other visibility checking rules for better efficiency. With the tuple committed, PG then take this tuple’s xmin value to check with the current snapshot to ensure this tuple is not currently <code>in progress</code>. (See 3.3 below for formula to determine <code>in progress</code>). This check is required because there is a chance that this tuple, though committed, is still being updated by other backend processes at this very moment. If the tuple is not currently <code>in progress</code> by other backends, it will finally check its <code>xmax</code> value to ensure that it is invalid. Invalid means it has not been deleted. When all of the above are true, this tuple is considered visible.</p>
+<p>If hintbit indicates <code>ABORTED</code>, then this tuple is considered invisible to user. If hintbit has no value, then PG should continue with the rest of visibility check rules.</p>
+<h4 id="3-2-Check-If-Tuple’s-xmin-Equal-to-Global-Top-Transaction-ID"><a href="#3-2-Check-If-Tuple’s-xmin-Equal-to-Global-Top-Transaction-ID" class="headerlink" title="3.2 Check If Tuple’s xmin Equal to Global Top Transaction ID"></a>3.2 Check If Tuple’s xmin Equal to Global Top Transaction ID</h4><p>The next check involves taking tuple’s xmin and compare with global top transaction ID to see if they are equal. This global top transaction ID will only be set when user starts the transaction manually with <code>begin</code> clause. If user does not starts the transaction this way (no <code>begin</code> clause is issued), then this global top transaction ID will not be set and therefore this checking will be skipped. </p>
+<p>If tuple xmin equals global top transaction ID, this means the tuple is currently <code>in progress</code> by the current backend, not others. This is where the command ID (cid) will be used to determine the visibility. Within a transaction block, each command issued has an associated command ID to indicate what command comes first and what comes later. For example, if a SELECT comes after an UPDATE, within a transaction, then the SELECT must see the new tuple updated by the previous UPDATE clause and cid plays a part in this determination. This behavior is also governed by the <code>isolation level</code> which is unfortunately out of scope of this blog. The default isolation level is <code>READ COMMITTED</code>, which makes the SELECT sees the data changed by previous UPDATE; but if the isolation is set to <code>REPEATABLE READ</code> then the SELECT will not see the data changed by previous UPDATE. Please keep this in mind.</p>
+<p>If tuple’s xmin does not equal to global top transaction ID, then PG should continue with the rest of visibility</p>
+<h4 id="3-3-Check-the-Current-Snapshot"><a href="#3-3-Check-the-Current-Snapshot" class="headerlink" title="3.3 Check the Current Snapshot"></a>3.3 Check the Current Snapshot</h4><p>The next check involves the PG to check if this tuple is currently <code>in progress</code> by other backend processes. This is done by comparing the tuple’s xmin value against current snapshot’s xmin and xmax values according to this formula.</p>
+<ul>
+<li>tuple xmin &lt; snapshot xmin = not in progress</li>
+<li>tuple xmin &gt;= snapshot xmax = in progress</li>
+</ul>
+<p>If this tuple is considered <code>in progress</code> by the snapshot, then this tuple must not be visible to the current user because other backends are still working on it. If this tuple is NOT considered <code>in progress</code>, then PG should continue with the rest of visibility check rules.</p>
+<h4 id="3-4-Check-the-Commit-Log-CLOG"><a href="#3-4-Check-the-Commit-Log-CLOG" class="headerlink" title="3.4 Check the Commit Log (CLOG)"></a>3.4 Check the Commit Log (CLOG)</h4><p>This next check involves the PG to take tuple’s xmin to check against the CLOG to see if this tuple has been committed or aborted. CLOG is like an array of transaction IDs and each array element stores a commit status. PG has a formula to convert a transaction ID into a CLOG block plus an offset to precisely access the right CLOG element. This CLOG data structure is regularly flushed to disk with checkpoint process and it is located in these 3 directories: <code>pg_xact</code>, <code>pg_multixact</code> and <code>pg_subtrans</code>. </p>
+<p>If CLOG says the given tuple is committed, then PG will continue to check the tuple’s <code>xmax</code> value to ensure that it is invalid. Invalid means it has not been deleted and therefore it is visible to user. At the same time, PG will also update the hintbit value of this tuple to <code>COMMITTED</code> such that in the next visibility checking, PG will not access CLOG again, which is rather expensive. </p>
+<p>If CLOG says the given tuple is aborted or invalid, then this tuple is not visible to the current user. At the same time, it will also update the hintbit value of this tuple to <code>INVALID</code> </p>
+<h3 id="Summary"><a href="#Summary" class="headerlink" title="Summary"></a>Summary</h3><p>The above processes are the very basic visibility rules within PG according to my understanding. Of course there are other complex checking not mentioned here, such as the involvement of sub transactions and multi transactions, but they do follow somewhat similar pattern to what’s mentioned today. I hope this blog would be helpful for you.</p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2022/05/06/Ensure-Atomic-Commit-with-2-Phase-Commit-in-FDW-Distributed-Setup/" class="image is-7by1">
             <img class="thumbnail" src="/images/2pc2.png" alt="Atomic Commit with 2 Phase Commit in FDW Distributed Setup">
         </a>
@@ -320,7 +395,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            32
+                            33
                         </p>
                     </a>
                 </div>
@@ -344,7 +419,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            50
+                            52
                         </p>
                     </a>
                 </div>
@@ -484,7 +559,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 12.5px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 15px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/mvcc/" style="font-size: 10px;">mvcc</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/visibility-check/" style="font-size: 10px;">visibility check</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
     </div>
 </div>
     
@@ -493,6 +568,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/2pc2.png" alt="Understand PG&#39;s MVCC Visibility Check Rules">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-06-10T18:13:40.000Z">2022-06-10</time></div>
+                    <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understand PG&#39;s MVCC Visibility Check Rules</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -570,25 +664,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/extended.png" alt="A Look Inside PostgreSQL&#39;s Extended Query Protocol">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-12-10T19:34:58.000Z">2021-12-10</time></div>
-                    <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A Look Inside PostgreSQL&#39;s Extended Query Protocol</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -599,6 +674,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/05/">
@@ -887,7 +973,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/Postgresql/">
                         <span class="tag">Postgresql</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
@@ -1006,6 +1092,13 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/mongodb/">
                         <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/mvcc/">
+                        <span class="tag">mvcc</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
@@ -1214,6 +1307,13 @@
                 </div>
                 
                 <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility-check/">
+                        <span class="tag">visibility check</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
                     <a class="tags has-addons" href="/tags/wal2mongo/">
                         <span class="tag">wal2mongo</span>
                         <span class="tag is-grey">1</span>
@@ -1408,112 +1508,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <link rel="stylesheet" href="/css/insight.css">
     
 </body>
-</html>"><pre><span class="line">$ rm -rf pgtest&#x2F;</span><br></pre></td></tr></table></figure>
-
-<p>I know it sounds crazy, but remember, we made a basebackup back in (1.) + all the WAL segments in the archive, so technically we still have everything.</p>
-<ol start="5">
-<li>Copy everything from our basebackup back to <code>pgtest</code></li>
-</ol>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">cp -r pgtest-back&#x2F;* pgtest&#x2F;</span><br></pre></td></tr></table></figure>
-
-<ol start="6">
-<li>Edit pgtest/postgresql.conf and set your recover target</li>
-</ol>
-<p>Since we are using LSN as our target, we can simply put the LSN we captured to <code>recovery_target_lsn</code> configuration</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">recovery_target_lsn &#x3D; &#39;0&#x2F;13DAC308&#39;</span><br></pre></td></tr></table></figure>
-
-<p>PG also supports other ways to define recovery target, based on timestamp, name or xid. Refer to this <a href="https://www.postgresql.org/docs/11/recovery-target-settings.html">documentation</a> for other options.</p>
-<ol start="7">
-<li>Signal the database to run in recovery mode by creating a <code>recovery.signal</code> file under the <code>pgtest</code> cluster</li>
-</ol>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$touch pgtest&#x2F;recovery.signal</span><br></pre></td></tr></table></figure>
-
-<ol start="8">
-<li>Start the server<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">$pg_ctl -D pgtest start</span><br></pre></td></tr></table></figure>
-
-</li>
-</ol>
-<p>the server will now start in recovery mode and it will restore WAL files from the archive and perform the recover. You may log in with <code>psql</code> and check that the database should contain also 3 million rows instead of 5. </p>
-<p>You may notice that even though the database has been recovered to a point of time in the past, you will encounter a <code>database in recovery</code> or <code>read only database</code> error if you intend to insert additional data. This is because we are still in the <code>recovery mode</code> but is currently <code>paused</code>.</p>
-<p>This is configured by the <code>recovery_target_action</code> option, which defaults to <code>pause</code>. This is actually intended, to allow you to have a moment to check your database and confirm that it is indeed the database state that you would like to recover to. If this is wrong, you can simply shutdown the database and reconfigure the <code>recovery_target_lsn</code> until you reach a desired state of database.</p>
-<ol start="9">
-<li>Exit the recovery mode<br>Once you are confirm the database is recovered correctly, you can exit the recovery mode by this psql command:<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">select pg_wal_replay_resume();</span><br></pre></td></tr></table></figure>
-
-</li>
-</ol>
-<p>This command will end the recovery mode and you should be able to insert additional data to the database. The <code>recovery.signal</code> file will be removed, and the future WAL segments will have a new timeline ID.</p>
-<p>Timeline ID is also an important aspect of the recovery and we will discuss more on timeline ID in my next post.</p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/" class="image is-7by1">
-            <img class="thumbnail" src="/images/fdw-foreign.png" alt="Implement Foreign Scan With FDW Interface API">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2021-09-03T16:47:45.000Z">2021-09-03</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    7 minutes read (About 1049 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2021/09/03/How-to-Implement-Foreign-Scan-With-FDW-Interface-API/">Implement Foreign Scan With FDW Interface API</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>Recently I have been tasked to familiarize myself with the Foreign Data Wrapper (FDW) interface API to build a new FDW capable of doing vertical / columnar sharding, meaning that the FDW is capable of collecting column information from multiple sources and combine them together as a result query. I will document and blog about the vertical sharding in later posts. Now, in this blog, I would like to share some of the key findings and understanding of FDW interface related to foreign scan.</p>
-<h3 id="2-Scan-related-API-Routines"><a href="#2-Scan-related-API-Routines" class="headerlink" title="2. Scan-related API Routines"></a>2. Scan-related API Routines</h3><p>FDW foreign scan API routines have some similarities to the table access method API’s sequential scan routines. You can learn more about it in the blog post <a href="https://www.highgo.ca/2021/01/15/how-postgresql-executes-sequential-scans-with-the-help-of-table-access-methods-apis/">here</a>. Most noticeable difference is that the FDW routines require us to take part during the planning stage, so we have to come out with a foreign plan for the exectuor so it knows what and how to perform the foreign scan.</p>
-<p>In order to complete a foreign scan, the following FDW routines are invoked in order:</p>
-<ul>
-<li>IsForeignScanParallelSafe</li>
-<li>GetForeignRelSize</li>
-<li>GetForeignPaths</li>
-<li>GetForeignPlan</li>
-<li>BeginForeignScan</li>
-<li>IterateForeignScan</li>
-<li>…</li>
-<li>IterateForeignScan</li>
-<li>EndForeignScan</li>
-</ul>
-<h4 id="2-1-IsForeignScanParallelSafe"><a href="#2-1-IsForeignScanParallelSafe" class="headerlink" title="2.1 IsForeignScanParallelSafe"></a>2.1 IsForeignScanParallelSafe</h4><p>In this routine, you have to tell PG whether or not the foreign scan can support parallel Scan by returning true to indicate it is supported, or false otherwise. Parallel scan is invokved by the planner when a scan query involves retrieving a large amount of data. Depending on the foreign server and your implementation, you have to decide whether or not parallel scan is supported.</p>
-<h4 id="2-2-GetForeignRelSize"><a href="#2-2-GetForeignRelSize" class="headerlink" title="2.2 GetForeignRelSize"></a>2.2 GetForeignRelSize</h4><p>Similar to the table access method’s <code>relation_estimate_size()</code> API, this routine requires you to provide an estimate of the amount of tuples/rows would be involved during this round of scanning. This information is very important because it directly affects the planner’s decision to execute the query. For example, if you say foreign relation has 1 million tuples to be fetched, then the planner is most likely to use parallel scan to complete the scan for performance reasons if you answer “true” in the <code>IsForeignScanParallelSafe()</code> function call.</p>
-<h4 id="2-3-GetForeignPaths"><a href="#2-3-GetForeignPaths" class="headerlink" title="2.3 GetForeignPaths"></a>2.3 GetForeignPaths</h4><p>In this routine, we are required to provide a list of possible paths to complete the required foreign scan. Paths simply means ways to execute. For example, you can complete a foreign scan by doing a sequential scan by fetching 1 tuple at a time, or you can complete the same scan using index to look-up a target tuple if the table has an index defined and user gives specific <code>WHERE</code> clause to pinpoint a tuple. If user provides a <code>WHERE</code> clause to filter the result, you also have an option to estimate whether the <code>WHERE</code> can be executed by the foreign server or by the local server as it fetches a tuple.</p>
-<p>All these are possible <code>pathnodes</code> are required by the planner to decide on the optimal path to execute the scan. Each <code>pathnode</code> requires you to provide the <code>startup cost</code>, <code>total cost</code>, <code>number of rows</code> and <code>path keys</code> if any. The official documentation suggests that you should use <code>add_path</code> and <code>create_foreignscan_path</code> routines to prepare a list of path nodes.</p>
-<h4 id="2-4-GetForeignPlan"><a href="#2-4-GetForeignPlan" class="headerlink" title="2.4 GetForeignPlan"></a>2.4 GetForeignPlan</h4><p>Having provided all the possible <code>pathnodes</code>, planner will pick one that is the most optimal and pass that <code>pathnode</code> to this routine and ask you to make a foreign scan plan for the executor. This is a very important function because whatever plan that we provide here directly affects how the executor is going to function, so be cautious here.</p>
-<p>In this function, the planner will give you everything about the query such as the target attribute list and the restricting clauses (<code>WHERE</code> clauses) and also the information about the foreign relation, such as its OID, and each column’s data types. Official PostgreSQL documentation suggests using <code>make_foreignscan()</code> routine with the desired arguments to create the foreign plan.</p>
+</html>anner will give you everything about the query such as the target attribute list and the restricting clauses (<code>WHERE</code> clauses) and also the information about the foreign relation, such as its OID, and each column’s data types. Official PostgreSQL documentation suggests using <code>make_foreignscan()</code> routine with the desired arguments to create the foreign plan.</p>
 <p>In here, you also will have an option to <code>push down</code> the restricting clauses or not. In other words, you can choose to send all the <code>WHERE</code> clauses to the foreign server to process if it can support it. This results in much less data communication. You can also choose having all the <code>WHERE</code> clauses to be processed locally, but this requires the FDW to fetch every single row from the foreign server, resulting in more data communication. This decision is controlled by the <code>List *qpqual</code> argument to the <code>make_foreignscan()</code> function. If this list contains the list of your restricting clauses, the local server will perform the <code>WHERE</code> evaluation locally; if this list is empty, then the local server assumes the FDW will do the <code>WHERE</code> evaluation on the foreign server</p>
 <h4 id="2-5-BeginForeignScan"><a href="#2-5-BeginForeignScan" class="headerlink" title="2.5 BeginForeignScan"></a>2.5 BeginForeignScan</h4><p>This routine will be called before starting the foreign scan, giving you a chance to allocate all the necessary control information required for your foreign scan. You can define your own control information, for example, cursor location, remote connection structure, current offset…etc. and store in <code>node-&gt;fdw_state</code> and it will be passed down to the <code>IterateForeignScan</code> as the scan is begin completed.</p>
 <h4 id="2-6-IterateForeignScan"><a href="#2-6-IterateForeignScan" class="headerlink" title="2.6 IterateForeignScan"></a>2.6 IterateForeignScan</h4><p>This is the main routine to perform the actual scan. You need to put the proper logic here depending on your use case to fetch one or more rows from the foreign server. When you have the row data, you will need to convert that to a <code>TupleTableSlot</code> strucutre in which the PG internals can understand. We normally use <code>ExecStoreHeapTuple()</code> routine to convert a HeapTuple into a <code>TupleTableSlot</code>. This routine will be continuously called by the PG executor as long as you still have data to fetch and it will only stop once you return an empty <code>TupleTableSlot</code>.</p>
@@ -1855,7 +1850,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            32
+                            33
                         </p>
                     </a>
                 </div>
@@ -1879,7 +1874,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            50
+                            52
                         </p>
                     </a>
                 </div>
@@ -2019,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 12.5px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 15px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/mvcc/" style="font-size: 10px;">mvcc</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/visibility-check/" style="font-size: 10px;">visibility check</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
     </div>
 </div>
     
@@ -2028,6 +2023,25 @@ document.addEventListener('DOMContentLoaded', function () {
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/2pc2.png" alt="Understand PG&#39;s MVCC Visibility Check Rules">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-06-10T18:13:40.000Z">2022-06-10</time></div>
+                    <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understand PG&#39;s MVCC Visibility Check Rules</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -2105,25 +2119,6 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/extended.png" alt="A Look Inside PostgreSQL&#39;s Extended Query Protocol">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2021-12-10T19:34:58.000Z">2021-12-10</time></div>
-                    <a href="/2021/12/10/A-Look-Inside-PostgreSQL-s-Extended-Query-Protocol/" class="title has-link-black-ter is-size-6 has-text-weight-normal">A Look Inside PostgreSQL&#39;s Extended Query Protocol</a>
-                    <p class="is-size-7 is-uppercase">
-                        <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -2134,6 +2129,17 @@ document.addEventListener('DOMContentLoaded', function () {
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/05/">
@@ -2422,7 +2428,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="control">
                     <a class="tags has-addons" href="/tags/Postgresql/">
                         <span class="tag">Postgresql</span>
-                        <span class="tag is-grey">2</span>
+                        <span class="tag is-grey">3</span>
                     </a>
                 </div>
                 
@@ -2541,6 +2547,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="control">
                     <a class="tags has-addons" href="/tags/mongodb/">
                         <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/mvcc/">
+                        <span class="tag">mvcc</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
@@ -2744,6 +2757,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="control">
                     <a class="tags has-addons" href="/tags/visibility/">
                         <span class="tag">visibility</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility-check/">
+                        <span class="tag">visibility check</span>
                         <span class="tag is-grey">1</span>
                     </a>
                 </div>
