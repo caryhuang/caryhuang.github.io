@@ -131,6 +131,76 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="image is-7by1">
+            <img class="thumbnail" src="/images/view1.jpg" alt="Replication-Failover-with-pg_rewind-in-PG12">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2019-09-28T06:36:52.000Z">2019-09-27</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    10 minutes read (About 1481 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/">Replication-Failover-with-pg_rewind-in-PG12</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>In the previous blog, we have discussed how to correctly set up streaming replication clusters between one master and one slave in Postgres version 12. In this blog, we will simulate a failover scenario on the master database, which causes the replica (or slave) database cluster to be promoted as new master and continue the operation. We will also simulate a failback scenario to reuse the old master cluster after the failover scenario with the help of pg_rewind. </p>
+<p>Normally it is quite easy to do a failback to the old master after slave gets promoted to master but if there is data written to the old master after slave promotion, we will have an out-of-sync case between them both and we will have to use the pg_rewind tool to synchronize the two data directories in order to bring the old master to match the state of the new master. Please note that the pg_rewind tool will remove transactions from the old master in order to match up with the new, so certain pre-caution is needed to use this tool.</p>
+<p>Here’s a brief overview of list of actions we are going to perform:</p>
+<ul>
+<li>simulate failover by promoting <code>slave</code> cluster, so it becomes a <code>new master</code></li>
+<li>simulate data insertion to <code>master</code> cluster, also referred as <code>old master</code> after promotion</li>
+<li>shutdown the <code>old master</code> cluster and set it up as a standby server</li>
+<li>run pg_rewind on <code>old master</code> to synchronize transaction states with <code>new master</code></li>
+<li>bring up <code>old master</code> as a standby server to synchronize with the <code>new master</code></li>
+</ul>
+<p>This blog assumes you already have streaming replication setup between one master and one slave from previous blog. If you have not checked out the previous blog titled “Streaming Replication Setup in PG12 - How to Do it Right”, it is recommended to give that a read first.</p>
+<p>The procedures illustrated in this blog is based on Postgres version 12 built from source running on Ubuntu 18.04</p>
+        </div>
+        
+        
+        <div class="level is-mobile">
+            <div class="level-start">
+                <div class="level-item">
+                <a class="button is-size-7 is-light" href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/#more">Read More</a>
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2019/09/27/Trace-Postgres-query-processing-internals-with-debugger/" class="image is-7by1">
             <img class="thumbnail" src="/images/view4.jpg" alt="Trace-Postgres-query-processing-internals-with-debugger">
         </a>
@@ -437,7 +507,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            34
+                            35
                         </p>
                     </a>
                 </div>
@@ -461,7 +531,7 @@
                     </p>
                     <a href="/tags">
                         <p class="title has-text-weight-normal">
-                            54
+                            55
                         </p>
                     </a>
                 </div>
@@ -601,7 +671,7 @@
         <h3 class="menu-label">
             Tag Cloud
         </h3>
-        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12.5px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 17.5px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12.5px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/copy/" style="font-size: 10px;">copy</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12.5px;">fdw</a> <a href="/tags/gdb/" style="font-size: 15px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/libpq/" style="font-size: 10px;">libpq</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/mvcc/" style="font-size: 10px;">mvcc</a> <a href="/tags/networking/" style="font-size: 17.5px;">networking</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 15px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12.5px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12.5px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 15px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 17.5px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12.5px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/visibility-check/" style="font-size: 10px;">visibility check</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 18px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/copy/" style="font-size: 10px;">copy</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12px;">fdw</a> <a href="/tags/gdb/" style="font-size: 14px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/libpq/" style="font-size: 10px;">libpq</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/mvcc/" style="font-size: 10px;">mvcc</a> <a href="/tags/networking/" style="font-size: 16px;">networking</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 14px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 14px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 16px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/visibility-check/" style="font-size: 10px;">visibility check</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
     </div>
 </div>
     
@@ -610,6 +680,25 @@
         <h3 class="menu-label">
             Recent
         </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/nfs.png" alt="How to Set Up NFS and Run PG on it">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-08-05T18:07:43.000Z">2022-08-05</time></div>
+                    <a href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How to Set Up NFS and Run PG on it</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
         
         <article class="media">
             
@@ -687,25 +776,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2022/02/18/The-significance-of-LSN-in-PostgreSQL-System/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/lsn.png" alt="The significance of LSN in PostgreSQL System">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-02-18T19:41:06.000Z">2022-02-18</time></div>
-                    <a href="/2022/02/18/The-significance-of-LSN-in-PostgreSQL-System/" class="title has-link-black-ter is-size-6 has-text-weight-normal">The significance of LSN in PostgreSQL System</a>
-                    <p class="is-size-7 is-uppercase">
-                        
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -716,6 +786,17 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/07/">
@@ -1026,7 +1107,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/Postgresql/">
                         <span class="tag">Postgresql</span>
-                        <span class="tag is-grey">4</span>
+                        <span class="tag is-grey">5</span>
                     </a>
                 </div>
                 
@@ -1174,6 +1255,13 @@
                     <a class="tags has-addons" href="/tags/networking/">
                         <span class="tag">networking</span>
                         <span class="tag is-grey">4</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/nfs/">
+                        <span class="tag">nfs</span>
+                        <span class="tag is-grey">1</span>
                     </a>
                 </div>
                 
