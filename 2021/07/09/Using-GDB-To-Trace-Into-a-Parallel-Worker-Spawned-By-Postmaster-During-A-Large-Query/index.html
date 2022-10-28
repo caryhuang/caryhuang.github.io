@@ -22,8 +22,8 @@
 <meta property="article:modified_time" content="2021-07-09T20:57:20.432Z">
 <meta property="article:author" content="Cary Huang">
 <meta property="article:tag" content="gdb">
-<meta property="article:tag" content="postgresql">
 <meta property="article:tag" content="postmaster">
+<meta property="article:tag" content="postgresql">
 <meta property="article:tag" content="parallel worker">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="http://caryhuang.github.io/images/gdb-debug-banner.png">
@@ -314,7 +314,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            35
+                            37
                         </p>
                     </a>
                 </div>
@@ -490,6 +490,44 @@
         
         <article class="media">
             
+            <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/gunique.png" alt="Cross-partition uniqueness guarantee with global unique index">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-10-28T18:18:03.000Z">2022-10-28</time></div>
+                    <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Cross-partition uniqueness guarantee with global unique index</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="How Unique Index Works in PG">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-09-30T17:10:45.000Z">2022-09-30</time></div>
+                    <a href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How Unique Index Works in PG</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
             <a href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/" class="media-left">
                 <p class="image is-64x64">
                     <img class="thumbnail" src="/images/nfs.png" alt="How to Set Up NFS and Run PG on it">
@@ -545,44 +583,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2022/05/06/Ensure-Atomic-Commit-with-2-Phase-Commit-in-FDW-Distributed-Setup/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/2pc2.png" alt="Atomic Commit with 2 Phase Commit in FDW Distributed Setup">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-05-06T18:51:12.000Z">2022-05-06</time></div>
-                    <a href="/2022/05/06/Ensure-Atomic-Commit-with-2-Phase-Commit-in-FDW-Distributed-Setup/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Atomic Commit with 2 Phase Commit in FDW Distributed Setup</a>
-                    <p class="is-size-7 is-uppercase">
-                        
-                    </p>
-                </div>
-            </div>
-        </article>
-        
-        <article class="media">
-            
-            <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/2pc.png" alt="Distributed Database With PostgreSQL - Atomic Commit Problems">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-03-18T20:26:14.000Z">2022-03-18</time></div>
-                    <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Distributed Database With PostgreSQL - Atomic Commit Problems</a>
-                    <p class="is-size-7 is-uppercase">
-                        
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -593,6 +593,28 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/08/">
@@ -1138,7 +1160,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">15</span>
+                        <span class="tag is-grey">16</span>
                     </a>
                 </div>
                 

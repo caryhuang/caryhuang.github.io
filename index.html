@@ -131,6 +131,166 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="image is-7by1">
+            <img class="thumbnail" src="/images/gunique.png" alt="Cross-partition uniqueness guarantee with global unique index">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2022-10-28T18:18:03.000Z">2022-10-28</time>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    7 minutes read (About 977 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/">Cross-partition uniqueness guarantee with global unique index</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-0-Introduction"><a href="#1-0-Introduction" class="headerlink" title="1.0 Introduction"></a>1.0 Introduction</h3><p>My colleague, David, recently published a post <a href="https://www.highgo.ca/2022/10/14/global-index-a-different-approach/">“Global Index, a different approach”</a> that describes the work that we are doing to implement global unique index in an approach that does not change current PostgreSQL’s partitioning framework, while allowing cross-partition uniqueness constraint. To implement this, we must first know how PostgreSQL currently ensures uniqueness on a single table with a unique index and then we expand on top of this logic to support cross-partition uniqueness check. This blog of mine <a href="https://www.highgo.ca/2022/09/30/how-unique-index-works-in-pg/">here</a> has a rough overview how unique index works in PG. In this blog, I would like to describe the approach we take to ensure cross-partition uniqueness check during index creation in both serial and parallel build.</p>
+<h3 id="2-0-Cross-Partition-Uniqueness-Check-in-Serial-Global-Unique-Index-Build"><a href="#2-0-Cross-Partition-Uniqueness-Check-in-Serial-Global-Unique-Index-Build" class="headerlink" title="2.0 Cross-Partition Uniqueness Check in Serial Global Unique Index Build"></a>2.0 Cross-Partition Uniqueness Check in Serial Global Unique Index Build</h3><p>As described in this blog <a href="ttps://www.highgo.ca/2022/09/30/how-unique-index-works-in-pg/">here</a>, uniqueness is guaranteed by doing a heap scan on a table and sorting the tuples inside one or two BTSpool structures. If 2 tuples with the same scan key are sorted right next to each other, uniqueness violation is found and system errors out. For example, building a global unique index on a partitioned table containing 6 partitions, at least 6 differnt BTSpool will be filled and used to determine uniqueness violation within each partition creation. So if a duplicate exists in another partition, PG currently cannot detect that. So, in theory if we introduce another BTSpool at a global scale that is visible to all partitions and lives until all partitions have been scanned, we can put all index tuples from all partitions in this global spool and determine cross-partition uniqueness simply by sorting it when the last partition scan is finished</p>
+<p>This diagram below illustrates the position of the new global level BTSpool (called spool3) and how it can be used to determine cross-partition uniqueness.</p>
+<p><img src="/images/global-index-1.drawio.png" alt=""></p>
+<p>Cross-partition uniqueness check in action:</p>
+<figure class="highlight sql"><table><tr><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> globalidxpart (a <span class="built_in">int</span>, b <span class="built_in">int</span>, c <span class="built_in">text</span>) <span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">range</span> (a);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> globalidxpart1 <span class="keyword">partition</span> <span class="keyword">of</span> globalidxpart <span class="keyword">for</span> <span class="keyword">values</span> <span class="keyword">from</span> (<span class="number">0</span>) <span class="keyword">to</span> (<span class="number">100000</span>);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> globalidxpart2 <span class="keyword">partition</span> <span class="keyword">of</span> globalidxpart <span class="keyword">for</span> <span class="keyword">values</span> <span class="keyword">from</span> (<span class="number">100001</span>) <span class="keyword">to</span> (<span class="number">200000</span>);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> globalidxpart3 <span class="keyword">partition</span> <span class="keyword">of</span> globalidxpart <span class="keyword">for</span> <span class="keyword">values</span> <span class="keyword">from</span> (<span class="number">200001</span>) <span class="keyword">to</span> (<span class="number">300000</span>);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> globalidxpart4 <span class="keyword">partition</span> <span class="keyword">of</span> globalidxpart <span class="keyword">for</span> <span class="keyword">values</span> <span class="keyword">from</span> (<span class="number">300001</span>) <span class="keyword">to</span> (<span class="number">400000</span>);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> globalidxpart5 <span class="keyword">partition</span> <span class="keyword">of</span> globalidxpart <span class="keyword">for</span> <span class="keyword">values</span> <span class="keyword">from</span> (<span class="number">400001</span>) <span class="keyword">to</span> (<span class="number">500000</span>);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> globalidxpart6 <span class="keyword">partition</span> <span class="keyword">of</span> globalidxpart <span class="keyword">for</span> <span class="keyword">values</span> <span class="keyword">from</span> (<span class="number">500001</span>) <span class="keyword">to</span> (<span class="number">600000</span>);</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> globalidxpart (a, b, c) <span class="keyword">values</span> (<span class="number">42</span>, <span class="number">572814</span>, <span class="string">'inserted first on globalidxpart1'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="number">0</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> globalidxpart (a, b, c) <span class="keyword">values</span> (<span class="number">150000</span>, <span class="number">572814</span>, <span class="string">'inserted duplicate b on globalidxpart2'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="number">0</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> globalidxpart (a, b, c) <span class="keyword">values</span> (<span class="number">550000</span>, <span class="number">572814</span>, <span class="string">'inserted duplicate b on globalidxpart6'</span>);</span><br><span class="line"><span class="keyword">INSERT</span> <span class="number">0</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">unique</span> <span class="keyword">index</span> <span class="keyword">on</span> globalidxpart (b) <span class="keyword">global</span>; </span><br><span class="line">ERROR:  could not <span class="keyword">create</span> <span class="keyword">unique</span> <span class="keyword">index</span> <span class="string">"globalidxpart1_b_idx"</span></span><br><span class="line">DETAIL:  <span class="keyword">Key</span> (b)=(<span class="number">572814</span>) <span class="keyword">is</span> duplicated.</span><br><span class="line"></span><br><span class="line"><span class="keyword">delete</span> <span class="keyword">from</span> globalidxpart <span class="keyword">where</span> a = <span class="number">150000</span> <span class="keyword">and</span> b = <span class="number">572814</span>;</span><br><span class="line"><span class="keyword">DELETE</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">unique</span> <span class="keyword">index</span> <span class="keyword">on</span> globalidxpart (b) <span class="keyword">global</span>;</span><br><span class="line">ERROR:  could not <span class="keyword">create</span> <span class="keyword">unique</span> <span class="keyword">index</span> <span class="string">"globalidxpart1_b_idx"</span></span><br><span class="line">DETAIL:  <span class="keyword">Key</span> (b)=(<span class="number">572814</span>) <span class="keyword">is</span> duplicated.</span><br><span class="line"></span><br><span class="line"><span class="keyword">delete</span> <span class="keyword">from</span> globalidxpart <span class="keyword">where</span> a = <span class="number">42</span> <span class="keyword">and</span> b = <span class="number">572814</span>;</span><br><span class="line"><span class="keyword">DELETE</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">create</span> <span class="keyword">unique</span> <span class="keyword">index</span> <span class="keyword">on</span> globalidxpart (b) <span class="keyword">global</span>; </span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">INDEX</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="Some-Considerations"><a href="#Some-Considerations" class="headerlink" title="Some Considerations"></a>Some Considerations</h4><p>How many index tuples can this new global BTSpool hold? Since it needs to hold tuples from all partitions, does it need a lot of memory space allocated? </p>
+<p>It uses <code>maintenance_work_mem</code> from <code>postgresql.conf</code>, same as BTSpool1. When it is near capacity, it will start to write tuples on disk as temporary files (also refer to as logical tapes within PostgreSQL, more on this later) instead of in the memory. So the spool can actually hold much more tuples than we thought. Before the final sorting, we will have to do a final <code>merge</code> of all the logical tapes that PG has written out on disk if memory is not enough to hold all tuples, then do a final <code>merge sort</code> to determine uniqueness. </p>
+<h3 id="3-0-Cross-Partition-Uniqueness-Check-in-Parallel-Global-Unique-Index-Build"><a href="#3-0-Cross-Partition-Uniqueness-Check-in-Parallel-Global-Unique-Index-Build" class="headerlink" title="3.0 Cross-Partition Uniqueness Check in Parallel Global Unique Index Build"></a>3.0 Cross-Partition Uniqueness Check in Parallel Global Unique Index Build</h3><p>Cross-partition uniqueness check using a global-scale spool is very straight forward in serial index build case. </p>
+<p>PG’s current parallel sorting is much more complex as it uses <code>logical tapes</code> to share and merge intermediate sorted results written on disk as temporary files by each workers. At the final sorting, the leader process take over all logical tapes written out by workers and perform final merge sort to determine uniqueness. </p>
+<p>For example, if 3 workers (one of them being the leader) are requested to build a single partition’s index, there will be 3 logical tapes (or 3 temporary files) written out on disk (each being intermediately sorted by each worker before written). The workers use shared memory to coordiate with each other such that they do not write to the same tape files and overwrite each other. When all workers finish, the leader will “Take over all logical tapes”, merge the tapes and perform a final sort. When done, PG will destroy all the parallel workers, which in turn will destroy all logical tape files on disk before moving on to the next partition.</p>
+<p>So, to achieve cross-partition check in parallel, we have to retain those logical tape files when we finish sorting one partition. Currently PG will destroy them when a partition’s index build is finished in parallel. If number of worker spawned is X and number of partition is Y, at the last partition build finish, we should have X * Y logical tapes on disk that we need to do merge sort on. We still use a separate spool3 to manage the tapes and persist them until all partitions are finished.</p>
+<p>This diagram below illustrates the position of spool3 and how it can be used to determine cross-partition uniqueness in parallel.</p>
+<p><img src="/images/global-index-parallel-build.drawio.png" alt=""></p>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2022-09-30T17:10:45.000Z">2022-09-30</time>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    5 minutes read (About 778 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/">How Unique Index Works in PG</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-0-Introduction"><a href="#1-0-Introduction" class="headerlink" title="1.0 Introduction"></a>1.0 Introduction</h3><p>Recently I have been involved in creating a solution that guarantees cross-partition uniqueness within a partitioned table consisting multiple child tables. Some people refer to this feature as a global index and there has been some discussion about it in the email thread <a href="https://www.postgresql.org/message-id/flat/CALtqXTcurqy1PKXzP9XO%3DofLLA5wBSo77BnUnYVEZpmcA3V0ag%40mail.gmail.com">here</a>. Though the idea is good, the approach sparks a lot of controvercies as the approach changes how partitioned indexes are stored. It basically store all partitioned index together as one and uses TableOid as a key to reference internally. My team and I are experimenting an alternative approach that guarantees cross-partition uniqueness without changing the fundamentals, but before we can do that, we have to understand how uniqueness works in partitioned tables in PG.</p>
+<h3 id="2-0-CREATE-INDEX-Uniqueness-Guarantee"><a href="#2-0-CREATE-INDEX-Uniqueness-Guarantee" class="headerlink" title="2.0 CREATE INDEX Uniqueness Guarantee"></a>2.0 CREATE INDEX Uniqueness Guarantee</h3><p>PG follows this basic procedure to check uniqueness violations</p>
+<ol>
+<li><p>perform a heap scan on the target child partition table</p>
+</li>
+<li><p>store the visible tuples into a <code>BTSpool</code> structure (spool1) and dead tuples into another <code>BTSpool</code> structure (spool2), so there are 2 BTSpool structures used and spool2 can be NULL if a table has no dead tuples or uniqueness is not required. A spool structure can be understood as a collection of index tuples.</p>
+</li>
+<li><p>perform sort on spool1 and spool2 if available</p>
+</li>
+<li><p>the sorting algorithm is equipped with duplicate detection, if two of the same tuples are subsequently sorted together, a duplicate is found and will raise Error here if uniqueness is required.</p>
+</li>
+<li><p>if no duplicate is found from sorting, PG will build the index tree based on spool1 and spool2</p>
+</li>
+<li><p>Destroy all the spools when index creation is done</p>
+</li>
+<li><p>This logic is located in btbuild() function within <code>src/backend/access/nbtree/nbtsort.c</code> and is invoked from DefineIndex function in indexcmds.c. btbuild will be called multiple times from DefineIndex depending on the number of active child partition tables.</p>
+</li>
+</ol>
+<h3 id="3-0-INSERT-And-UPDATE-Uniqueness-Guarantee"><a href="#3-0-INSERT-And-UPDATE-Uniqueness-Guarantee" class="headerlink" title="3.0 INSERT And UPDATE Uniqueness Guarantee"></a>3.0 INSERT And UPDATE Uniqueness Guarantee</h3><p>At planner and optimizer stage, PG already know which child partition table the new data should be inserted or updated to</p>
+<ol>
+<li><p>PG will first inserts the heap tuple in target heap relation.</p>
+</li>
+<li><p>then it will attempt to insert new index tuples associated with the heap tuple by calling <code>_bt_doinsert()</code> in src/backend/access/nbtree/nbtinsert.c</p>
+</li>
+<li><p>when uniqueness check is required by the index, PG will construct a scan key from the new heap tuple and try to fetch an existing matching tuple from the heap partition table by calling <code>_bt_check_unique()</code></p>
+</li>
+<li><p>if no matching heap tuple is found from the current child partition, then there is no conflict</p>
+</li>
+<li><p>if a matching heap tuple is found from the current child partition, additional checks will be done in below:</p>
+</li>
+<li><p>if the found tuple is not yet committed, (for example, another backend is still working on this tuple and has not yet committed), the process will wait here until the other process commits or aborts.</p>
+</li>
+<li><p>when the other process commits or aborts, the process will re-fetch the same tuple again. </p>
+</li>
+<li><p>if the other backend aborts, the duplicate tuple should fail to be fetched, and therefore no conflicts</p>
+</li>
+<li><p>if the other backend commits, the duplicate tuple can still be fetched, and therefore a potential conflict.</p>
+</li>
+<li><p>before raising error, PG will do one more checking, which is to fetch the visibility status of the heap tuple that PG is currently inserting. This is to cover a case where another backend is currently doing CREATE UNIQUE INDEX CONCURRENTLY while the current backend is trying to insert or update the data. </p>
+</li>
+<li><p>check if the current tuple to be inserted can be fetched from the heap relation</p>
+</li>
+<li><p>if yes, then the current tuple is still visible and there is definitely a conflict</p>
+</li>
+<li><p>if no, then the current tuple has become invisible and is not considered a conflict</p>
+</li>
+<li><p>continue with index tree creation if no conflict is found</p>
+</li>
+</ol>
+<p>This logic above is mostly located in <code>_bt_doinsert()</code> and <code>_bt_check_unique()</code> functions within <code>src/backend/access/nbtree/nbtinsert.c</code>.</p>
+<h3 id="4-0-ATTACH-Uniqueness-Guarantee"><a href="#4-0-ATTACH-Uniqueness-Guarantee" class="headerlink" title="4.0 ATTACH Uniqueness Guarantee"></a>4.0 ATTACH Uniqueness Guarantee</h3><p>The table to be attached can either have unique (or not unique) index already defined or have no index at all. There are 2 potential cases during ATTACH:</p>
+<ul>
+<li><p>Attaching a table with no index to a partition table, PG will automatically create a new index for the attached table following similar index parameters as the original partition table. But currently. This index creation follows the same procedures defined in <code>2.0</code></p>
+</li>
+<li><p>Attaching a table with a unique index defined using the same index key as partition table’s global unique index, PG will not create a new index for the attached table, and will simply attach the table. </p>
+</li>
+</ul>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/" class="image is-7by1">
             <img class="thumbnail" src="/images/nfs.png" alt="How to Set Up NFS and Run PG on it">
         </a>
@@ -786,175 +946,6 @@
 
 
 
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2021/10/29/The-PostgreSQL-Timeline-Concept/" class="image is-7by1">
-            <img class="thumbnail" src="/images/timeline.png" alt="The PostgreSQL Timeline Concept">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2021-10-29T16:46:01.000Z">2021-10-29</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    4 minutes read (About 659 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2021/10/29/The-PostgreSQL-Timeline-Concept/">The PostgreSQL Timeline Concept</a>
-            
-        </h1>
-        <div class="content">
-            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>In my previous blog <a href="https://www.highgo.ca/2021/10/01/postgresql-14-continuous-archiving-and-point-in-time-recovery/">here</a>, I discussed about PostgreSQL’s point in time recovery where PostgreSQL supports an ability to recover your database to a specific time, recovery point or transaction ID in the past but I did not discuss in detail the concept of <code>timeline id</code>, which is also important in database recovery.</p>
-<h3 id="2-What-is-timeline-ID-and-Why-it-is-important"><a href="#2-What-is-timeline-ID-and-Why-it-is-important" class="headerlink" title="2. What is timeline ID and Why it is important?"></a>2. What is timeline ID and Why it is important?</h3><p>A timeline ID is basically a point of divergence in WAL. It represents a point, of to be exact, the LSN of the WAL in which the database starts to diverge. Divergence happens when an user performs a point in time recovery or when the standby server is promoted. The timeline ID is included in the first 8 bytes of WAL segment files under pg_wal/ directory.</p>
-<p>For example:<br>pg_wal/000000010000000000000001, indicates that this WAL segment belongs to timeline ID = 1</p>
-<p>and</p>
-<p>pg_wal/000000020000000000000001, indicates that this WAL segment belongs to timeline ID = 2</p>
-<p>Timeline ID behaves somewhat like <code>git branch</code> function without the ability to move forward in parallel and to merge back to the master branch. Your development starts from a <code>master branch</code>, and you are able to create a new branch (A) from the master branch to continue a specific feature development. Let’s say the feature also involves several implementation approaches and you are able to create additional branches (B, C and D) to implement each approach.</p>
-<p>This is a simple illustration of git branch:</p>
-<p><img src="/images/timeline-gitbranch.drawio.png" alt=""></p>
-<p>With timeline ID, your database starts from timeline ID 1 and it will stay at 1 for all subsequent database operations. Timeline ID 2 will be created when the user performs a point in time recovery on timeline 1 and all of the subsequnt database operations at this point belong to timeline ID 2. While at 2, the user could perform more PITR to create timeline 3, 4 and 5 respectively. </p>
-<p>In the previous PITR blog, I mentioned that you could do PITR based on time, a recovery point, a LSN or a transaction ID but all these can only apply to one particular timeline. In postgresql.conf, you can select a desired recovery timeline by the <code>recovery_target_timeline</code> parameter. This parameter can be <code>&#39;latest&#39;</code>, <code>&#39;current&#39;</code>, or <code>&#39;a particular timeline ID value&#39;</code>. </p>
-<p>With this configuration, an user is able to recovery the database to a particular point of a particular timeline in the past </p>
-<p>This is a simple illustration of timeline ID:</p>
-<p><img src="/images/timeline.drawio.png" alt=""></p>
-<h3 id="3-The-History-File-Associated-with-a-Timeline-ID"><a href="#3-The-History-File-Associated-with-a-Timeline-ID" class="headerlink" title="3. The History File Associated with a Timeline ID"></a>3. The History File Associated with a Timeline ID</h3><p>The history files are created under pg_wal/ directory with a <code>.history</code> postfix when a new timeline Id is created. This file describes all the past divergence points that have to be replayed in order to reach the current timeline. Without this file, it is impossible to tell where a timeline comes from, thus not being able to do PITR.</p>
-<p>For example, a history file <code>00000003.history</code> may contain the following contents</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">cat pg_wal&#x2F;00000003.history</span><br><span class="line">1       0&#x2F;30000D8       no recovery target specified</span><br><span class="line"></span><br><span class="line">2       0&#x2F;3002B08       no recovery target specified</span><br></pre></td></tr></table></figure>
-
-<p>which means that timeline 3 comes from LSN(0/3002B08) of timeline 2, which comes from LSN(0/30000D8) of timeline 1. </p>
-<h3 id="4-Importance-of-Continuous-Archiving"><a href="#4-Importance-of-Continuous-Archiving" class="headerlink" title="4. Importance of Continuous Archiving"></a>4. Importance of Continuous Archiving</h3><p>With the concept of timeline ID, it is possible that the same LSN or the same WAL segments exist in multiple timelines. </p>
-<p>For example: the WAL segments, 3, 4, 5, 6 exist in both timeline 1 and timeline 2 but with different contents. Since the current timeline is 2, so the ones in timeline 2 will continue to grow forward. </p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">000000010000000000000001</span><br><span class="line">000000010000000000000002</span><br><span class="line">000000010000000000000003</span><br><span class="line">000000010000000000000004</span><br><span class="line">000000010000000000000005</span><br><span class="line">000000010000000000000006</span><br><span class="line">000000020000000000000003</span><br><span class="line">000000020000000000000004</span><br><span class="line">000000020000000000000005</span><br><span class="line">000000020000000000000006</span><br><span class="line">000000020000000000000007</span><br><span class="line">000000020000000000000008</span><br></pre></td></tr></table></figure>
-
-<p>With more timelines created, the number of WAL segments files may also increase. Sine PG keeps a certain amount of WAL segment files before deleting them, it is super important to archive all the WAL segments to a separate location either by enabling continuous archiving function or using pg_receivewal tool. With all WAL segment files archived in a separate location, the user is able to perform successful point in time recovery to any timeline and any LSN.</p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
-    
-<div class="card">
-    
-    <div class="card-image">
-        <a href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/" class="image is-7by1">
-            <img class="thumbnail" src="/images/title-conference-en.jpg" alt="PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!">
-        </a>
-    </div>
-    
-    <div class="card-content article ">
-        
-        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
-            <div class="level-left">
-                <time class="level-item has-text-grey" datetime="2021-10-25T17:25:12.000Z">2021-10-25</time>
-                
-                <div class="level-item">
-                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
-                </div>
-                
-                
-                <span class="level-item has-text-grey">
-                    
-                    
-                    4 minutes read (About 544 words)
-                </span>
-                
-                
-            </div>
-        </div>
-        
-        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
-            
-                <a class="has-link-black-ter" href="/2021/10/25/PostgresConf-CN-and-PGConf-Asia-2021-China-Branch-Join-Forces-Again-to-Bring-You-the-Best/">PostgresConf.CN and PGConf.Asia 2021 (China Branch) Join Forces Again to Bring You the Best!</a>
-            
-        </h1>
-        <div class="content">
-            <p><img src="/images/top-graph-subpage.jpg" alt=""></p>
-<h3 id="About-the-Event"><a href="#About-the-Event" class="headerlink" title="About the Event"></a>About the Event</h3><p>In November, 2020, PostgresConf.CN and PGconf.Asia2020 cooperatively organized <code>2020 PG Asia Conference</code> online for the very first time! This conference attracted over 100 participating experts, scholars and speakers around the world to deliver a grand technical feast for all the participants. The event was broadcast exclusively via the Modb Technology Community platform in China with a record-high number of viewers streaming the conference channels. Each channel on average accumulated over 30,000+ active LIVE streams, the official conference blog views accumulated over 50,000+ views, and the news reports and articles from media exceeded over 3,000+ entries.</p>
-<p>This year, both PostgresConf.CN and PGConf.Asia 2021 (China Branch) will join forces again to bring you the best PostgreSQL conference in Asia!</p>
-<p><a href="https://2021.postgresconf.cn/en">Official Event Website - 2021</a></p>
-<h3 id="Time-and-Rough-Agenda"><a href="#Time-and-Rough-Agenda" class="headerlink" title="Time and Rough Agenda"></a>Time and Rough Agenda</h3><p>The 2021 PG Asia Conference will be a 4-day event from December 14 to 17, 2021.</p>
-<p>Rough schedule is as below. Please note that the final schedule is subject to the date of the meeting. The agenda time is Beijing Time(GMT+8)</p>
-<ul>
-<li>December 14 - Day 1<ul>
-<li>09:00-18:00    Main Conference</li>
-</ul>
-</li>
-<li>December 15 - Day 2<ul>
-<li>09:00-17:00    Mandarin sub-Comprehensive forum</li>
-<li>09:00-17:00    Indonesia sub</li>
-<li>09:00-17:00    Korean Sub</li>
-<li>09:00-17:00    English sub</li>
-<li>09:00-12:00    Special Training A</li>
-<li>14:00-16:30    Special Training B</li>
-</ul>
-</li>
-<li>December 16 - Day 3<ul>
-<li>09:00-17:00    Mandarin sub-Application Forum</li>
-<li>09:00-17:00    Japanese Sub</li>
-<li>09:00-17:00    Thai Sub</li>
-<li>09:00-12:00    Special Training C</li>
-<li>10:00-11:30    Developer Unconference</li>
-<li>14:00-16:30    Special Training D</li>
-</ul>
-</li>
-<li>December 17 - Day 4<ul>
-<li>09:00-12:00    Special Training E</li>
-<li>14:00-16:30    Special Training F</li>
-</ul>
-</li>
-</ul>
-<h3 id="About-PostgresConf-CN"><a href="#About-PostgresConf-CN" class="headerlink" title="About PostgresConf.CN"></a>About PostgresConf.CN</h3><p>PostgresConf.CN is an annual event held by the China PostgreSQL Association for PostgreSQL users and developers, PostgreSQL is a leading open-source relational database with an active and vibrant community. PostgreConf.CN 2020 took place as an online conference for the very first time; it was very well attended by PostgreSQL users and community members across the globe. It is also one of the conference series held by PostgresConf Organization.</p>
-<p><a href="https://2020.postgresconf.cn/en">Official Event Website - 2020</a></p>
-<h3 id="About-PGConf-Asia"><a href="#About-PGConf-Asia" class="headerlink" title="About PGConf.Asia"></a>About PGConf.Asia</h3><p>PGCONF.Asia is a shorthand of the Asian PostgreSQL Conference which has been hosted in Tokyo from 2016 until 2018. The conference was held in Bali for the first time in Sep 2019 and it is intended as the Asian level of PostgreSQL International Conference. It co-hosted the 2020 PG Asia Conference together with PostgresConf.CN as an online event and accumulated unprecedented number of participants worldwide. The organization is often regarded as the HUB and the Summit of the PostgreSQL Community throughout Asian Countries.</p>
-<h3 id="Call-for-Paper"><a href="#Call-for-Paper" class="headerlink" title="Call for Paper"></a>Call for Paper</h3><p>Each speaker is given a 30-minute session (25 minutes of speech + 5 minutes of Q&amp;A).The direction of the speech can be: kernel development, application practice, operation and maintenance management, data migration, distributed, high availability, security control, optimization, cloud database, open source upstream and downstream ecology, etc.</p>
-<p>Please submit your speech topic first. The deadline for topic submission is <code>October 31, 2021</code>. The organizing committee will complete topic review before <code>November 15, 2021</code>. You will be notified the result of your topic selection at that time, please start preparing the speech content. The deadline for PPT submission is <code>November 30, 2021</code>.</p>
-<p>Please download the PPT template <a href="https://2021.postgresconf.cn/assets/PPT%20Template-PGConf.CN&PGConf.Asia2021.pptx">here</a>.</p>
-<p>You will have to create a free Postgres Conference account in order to submit your topic.</p>
-<p>Access the account registration <a href="https://2021.postgresconf.cn/login_en?type=%2Ftheme_en">here</a></p>
-<h3 id="Contacts"><a href="#Contacts" class="headerlink" title="Contacts"></a>Contacts</h3><p>Global Sponsor Interface:    <a href="mailto:grantzhou@postgresconf.org">grantzhou@postgresconf.org</a><br>About Speech submission and other inquiries:    <a href="mailto:meeting@postgresqlchina.com">meeting@postgresqlchina.com</a></p>
-
-        </div>
-        
-        
-        
-    </div>
-</div>
-
-
-
-
-
-
-
-
 
     
 <div class="card card-transparent">
@@ -1023,7 +1014,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            35
+                            37
                         </p>
                     </a>
                 </div>
@@ -1199,6 +1190,44 @@
         
         <article class="media">
             
+            <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/gunique.png" alt="Cross-partition uniqueness guarantee with global unique index">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-10-28T18:18:03.000Z">2022-10-28</time></div>
+                    <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Cross-partition uniqueness guarantee with global unique index</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="How Unique Index Works in PG">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-09-30T17:10:45.000Z">2022-09-30</time></div>
+                    <a href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How Unique Index Works in PG</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
             <a href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/" class="media-left">
                 <p class="image is-64x64">
                     <img class="thumbnail" src="/images/nfs.png" alt="How to Set Up NFS and Run PG on it">
@@ -1254,44 +1283,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2022/05/06/Ensure-Atomic-Commit-with-2-Phase-Commit-in-FDW-Distributed-Setup/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/2pc2.png" alt="Atomic Commit with 2 Phase Commit in FDW Distributed Setup">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-05-06T18:51:12.000Z">2022-05-06</time></div>
-                    <a href="/2022/05/06/Ensure-Atomic-Commit-with-2-Phase-Commit-in-FDW-Distributed-Setup/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Atomic Commit with 2 Phase Commit in FDW Distributed Setup</a>
-                    <p class="is-size-7 is-uppercase">
-                        
-                    </p>
-                </div>
-            </div>
-        </article>
-        
-        <article class="media">
-            
-            <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/2pc.png" alt="Distributed Database With PostgreSQL - Atomic Commit Problems">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-03-18T20:26:14.000Z">2022-03-18</time></div>
-                    <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Distributed Database With PostgreSQL - Atomic Commit Problems</a>
-                    <p class="is-size-7 is-uppercase">
-                        
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -1302,6 +1293,28 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/08/">
@@ -1847,7 +1860,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">15</span>
+                        <span class="tag is-grey">16</span>
                     </a>
                 </div>
                 

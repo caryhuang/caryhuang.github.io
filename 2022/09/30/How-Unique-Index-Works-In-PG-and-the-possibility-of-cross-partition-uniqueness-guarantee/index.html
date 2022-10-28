@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html  lang="en">
+<head>
+    <meta charset="utf-8" />
+
+<meta name="generator" content="Hexo 4.2.0" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+
+<title>How Unique Index Works in PG - Cary&#39;s Blog</title>
+
+
+    <meta name="description" content="1.0 IntroductionRecently I have been involved in creating a solution that guarantees cross-partition uniqueness within a partitioned table consisting multiple child tables. Some people refer to this f">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How Unique Index Works in PG">
+<meta property="og:url" content="http://caryhuang.github.io/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/index.html">
+<meta property="og:site_name" content="Cary&#39;s Blog">
+<meta property="og:description" content="1.0 IntroductionRecently I have been involved in creating a solution that guarantees cross-partition uniqueness within a partitioned table consisting multiple child tables. Some people refer to this f">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://caryhuang.github.io/images/og_image.png">
+<meta property="article:published_time" content="2022-09-30T17:10:45.000Z">
+<meta property="article:modified_time" content="2022-09-30T18:07:32.883Z">
+<meta property="article:author" content="Cary Huang">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://caryhuang.github.io/images/og_image.png">
+
+
+
+
+
+
+
+<link rel="icon" href="/images/favicon.svg">
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.7.2/css/bulma.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.4.1/css/all.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu:400,600|Source+Code+Pro">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@9.12.0/styles/atom-one-light.css">
+
+
+    
+    
+<style>body>.footer,body>.navbar,body>.section{opacity:0}</style>
+
+    
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/css/lightgallery.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/css/justifiedGallery.min.css">
+
+    
+    
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.css">
+
+    
+    
+    
+    
+<link rel="stylesheet" href="/css/back-to-top.css">
+
+    
+    
+    
+    
+    
+    
+    
+    <link rel="stylesheet" href="/css/progressbar.css">
+<script src="https://cdn.jsdelivr.net/npm/pace-js@1.0.2/pace.min.js"></script>
+    
+    
+    
+
+
+<link rel="stylesheet" href="/css/style.css">
+<link rel="alternate" href="/atom.xml" title="Cary's Blog" type="application/atom+xml">
+</head>
+<body class="is-2-column">
+    <nav class="navbar navbar-main">
+    <div class="container">
+        <div class="navbar-brand is-flex-center">
+            <a class="navbar-item navbar-logo" href="/">
+            
+                <img src="/images/Simplicity-design-logo.jpg" alt="How Unique Index Works in PG" height="28">
+            
+            </a>
+        </div>
+        <div class="navbar-menu">
+            
+            <div class="navbar-start">
+                
+                <a class="navbar-item"
+                href="/">Home</a>
+                
+                <a class="navbar-item"
+                href="/archives">Archives</a>
+                
+                <a class="navbar-item"
+                href="/categories">Categories</a>
+                
+                <a class="navbar-item"
+                href="/tags">Tags</a>
+                
+                <a class="navbar-item"
+                href="/about/me.html">About</a>
+                
+            </div>
+            
+            <div class="navbar-end">
+                
+                    
+                    <a class="navbar-item" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                    
+                
+                
+                
+                <a class="navbar-item search" title="Search" href="javascript:;">
+                    <i class="fas fa-search"></i>
+                </a>
+                
+            </div>
+        </div>
+    </div>
+</nav>
+    
+    <section class="section">
+        <div class="container">
+            <div class="columns">
+                <div class="column is-8-tablet is-8-desktop is-8-widescreen has-order-2 column-main">
+<div class="card">
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2022-09-30T17:10:45.000Z">2022-09-30</time>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    5 minutes read (About 778 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                How Unique Index Works in PG
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-0-Introduction"><a href="#1-0-Introduction" class="headerlink" title="1.0 Introduction"></a>1.0 Introduction</h3><p>Recently I have been involved in creating a solution that guarantees cross-partition uniqueness within a partitioned table consisting multiple child tables. Some people refer to this feature as a global index and there has been some discussion about it in the email thread <a href="https://www.postgresql.org/message-id/flat/CALtqXTcurqy1PKXzP9XO%3DofLLA5wBSo77BnUnYVEZpmcA3V0ag%40mail.gmail.com">here</a>. Though the idea is good, the approach sparks a lot of controvercies as the approach changes how partitioned indexes are stored. It basically store all partitioned index together as one and uses TableOid as a key to reference internally. My team and I are experimenting an alternative approach that guarantees cross-partition uniqueness without changing the fundamentals, but before we can do that, we have to understand how uniqueness works in partitioned tables in PG.</p>
+<h3 id="2-0-CREATE-INDEX-Uniqueness-Guarantee"><a href="#2-0-CREATE-INDEX-Uniqueness-Guarantee" class="headerlink" title="2.0 CREATE INDEX Uniqueness Guarantee"></a>2.0 CREATE INDEX Uniqueness Guarantee</h3><p>PG follows this basic procedure to check uniqueness violations</p>
+<ol>
+<li><p>perform a heap scan on the target child partition table</p>
+</li>
+<li><p>store the visible tuples into a <code>BTSpool</code> structure (spool1) and dead tuples into another <code>BTSpool</code> structure (spool2), so there are 2 BTSpool structures used and spool2 can be NULL if a table has no dead tuples or uniqueness is not required. A spool structure can be understood as a collection of index tuples.</p>
+</li>
+<li><p>perform sort on spool1 and spool2 if available</p>
+</li>
+<li><p>the sorting algorithm is equipped with duplicate detection, if two of the same tuples are subsequently sorted together, a duplicate is found and will raise Error here if uniqueness is required.</p>
+</li>
+<li><p>if no duplicate is found from sorting, PG will build the index tree based on spool1 and spool2</p>
+</li>
+<li><p>Destroy all the spools when index creation is done</p>
+</li>
+<li><p>This logic is located in btbuild() function within <code>src/backend/access/nbtree/nbtsort.c</code> and is invoked from DefineIndex function in indexcmds.c. btbuild will be called multiple times from DefineIndex depending on the number of active child partition tables.</p>
+</li>
+</ol>
+<h3 id="3-0-INSERT-And-UPDATE-Uniqueness-Guarantee"><a href="#3-0-INSERT-And-UPDATE-Uniqueness-Guarantee" class="headerlink" title="3.0 INSERT And UPDATE Uniqueness Guarantee"></a>3.0 INSERT And UPDATE Uniqueness Guarantee</h3><p>At planner and optimizer stage, PG already know which child partition table the new data should be inserted or updated to</p>
+<ol>
+<li><p>PG will first inserts the heap tuple in target heap relation.</p>
+</li>
+<li><p>then it will attempt to insert new index tuples associated with the heap tuple by calling <code>_bt_doinsert()</code> in src/backend/access/nbtree/nbtinsert.c</p>
+</li>
+<li><p>when uniqueness check is required by the index, PG will construct a scan key from the new heap tuple and try to fetch an existing matching tuple from the heap partition table by calling <code>_bt_check_unique()</code></p>
+</li>
+<li><p>if no matching heap tuple is found from the current child partition, then there is no conflict</p>
+</li>
+<li><p>if a matching heap tuple is found from the current child partition, additional checks will be done in below:</p>
+</li>
+<li><p>if the found tuple is not yet committed, (for example, another backend is still working on this tuple and has not yet committed), the process will wait here until the other process commits or aborts.</p>
+</li>
+<li><p>when the other process commits or aborts, the process will re-fetch the same tuple again. </p>
+</li>
+<li><p>if the other backend aborts, the duplicate tuple should fail to be fetched, and therefore no conflicts</p>
+</li>
+<li><p>if the other backend commits, the duplicate tuple can still be fetched, and therefore a potential conflict.</p>
+</li>
+<li><p>before raising error, PG will do one more checking, which is to fetch the visibility status of the heap tuple that PG is currently inserting. This is to cover a case where another backend is currently doing CREATE UNIQUE INDEX CONCURRENTLY while the current backend is trying to insert or update the data. </p>
+</li>
+<li><p>check if the current tuple to be inserted can be fetched from the heap relation</p>
+</li>
+<li><p>if yes, then the current tuple is still visible and there is definitely a conflict</p>
+</li>
+<li><p>if no, then the current tuple has become invisible and is not considered a conflict</p>
+</li>
+<li><p>continue with index tree creation if no conflict is found</p>
+</li>
+</ol>
+<p>This logic above is mostly located in <code>_bt_doinsert()</code> and <code>_bt_check_unique()</code> functions within <code>src/backend/access/nbtree/nbtinsert.c</code>.</p>
+<h3 id="4-0-ATTACH-Uniqueness-Guarantee"><a href="#4-0-ATTACH-Uniqueness-Guarantee" class="headerlink" title="4.0 ATTACH Uniqueness Guarantee"></a>4.0 ATTACH Uniqueness Guarantee</h3><p>The table to be attached can either have unique (or not unique) index already defined or have no index at all. There are 2 potential cases during ATTACH:</p>
+<ul>
+<li><p>Attaching a table with no index to a partition table, PG will automatically create a new index for the attached table following similar index parameters as the original partition table. But currently. This index creation follows the same procedures defined in <code>2.0</code></p>
+</li>
+<li><p>Attaching a table with a unique index defined using the same index key as partition table’s global unique index, PG will not create a new index for the attached table, and will simply attach the table. </p>
+</li>
+</ul>
+
+        </div>
+        
+        
+        
+    </div>
+</div>
+
+
+
+
+
+<div class="card card-transparent">
+    <div class="level post-navigation is-flex-wrap is-mobile">
+        
+        <div class="level-start">
+            <a class="level level-item has-link-grey  article-nav-prev" href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/">
+                <i class="level-item fas fa-chevron-left"></i>
+                <span class="level-item">Cross-partition uniqueness guarantee with global unique index</span>
+            </a>
+        </div>
+        
+        
+        <div class="level-end">
+            <a class="level level-item has-link-grey  article-nav-next" href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/">
+                <span class="level-item">How to Set Up NFS and Run PG on it</span>
+                <i class="level-item fas fa-chevron-right"></i>
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+
+
+<div class="card">
+    <div class="card-content">
+        <h3 class="title is-5 has-text-weight-normal">Comments</h3>
+        <script>(function(d, s, id) {
+    var js, fjs = d.getElementsByTagName(s)[0];
+    if (d.getElementById(id)) return;
+    js = d.createElement(s); js.id = id;
+    js.src = "//connect.facebook.net/en/sdk.js#xfbml=1&version=v2.8";
+    fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+<div class="fb-comments" data-width="100%" data-href="http://caryhuang.github.io/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" data-num-posts="5"></div>
+
+    </div>
+</div>
+</div>
+                
+
+
+
+
+<div class="column is-4-tablet is-4-desktop is-4-widescreen  has-order-1 column-left ">
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <nav class="level">
+            <div class="level-item has-text-centered" style="flex-shrink: 1">
+                <div>
+                    
+                    <figure class="image is-128x128 has-mb-6">
+                        <img class="" src="/images/prof-img.jpg" alt="Cary Huang">
+                    </figure>
+                    
+                    <p class="is-size-4 is-block">
+                        Cary Huang
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-block">
+                        Multi-Displined Software Developer
+                    </p>
+                    
+                    
+                    <p class="is-size-6 is-flex is-flex-center has-text-grey">
+                        <i class="fas fa-map-marker-alt has-mr-7"></i>
+                        <span>Vancouver</span>
+                    </p>
+                    
+                </div>
+            </div>
+        </nav>
+        <nav class="level is-mobile">
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Posts
+                    </p>
+                    <a href="/archives">
+                        <p class="title has-text-weight-normal">
+                            37
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Categories
+                    </p>
+                    <a href="/categories">
+                        <p class="title has-text-weight-normal">
+                            2
+                        </p>
+                    </a>
+                </div>
+            </div>
+            <div class="level-item has-text-centered is-marginless">
+                <div>
+                    <p class="heading">
+                        Tags
+                    </p>
+                    <a href="/tags">
+                        <p class="title has-text-weight-normal">
+                            55
+                        </p>
+                    </a>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="level">
+            <a class="level-item button is-link is-rounded" href="https://github.com/caryhuang" target="_blank" rel="noopener">
+                Follow</a>
+        </div>
+        
+        
+        
+        <div class="level is-mobile">
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Github" href="https://github.com/caryhuang">
+                
+                <i class="fab fa-github"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Facebook" href="https://www.facebook.com/cary.huang.35">
+                
+                <i class="fab fa-facebook"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Twitter" href="https://twitter.com">
+                
+                <i class="fab fa-twitter"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="Dribbble" href="https://dribbble.com">
+                
+                <i class="fab fa-dribbble"></i>
+                
+            </a>
+            
+            <a class="level-item button is-white is-marginless" target="_blank" rel="noopener"
+                title="RSS" href="/atom.xml">
+                
+                <i class="fas fa-rss"></i>
+                
+            </a>
+            
+        </div>
+        
+    </div>
+</div>
+    
+        
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Links
+        </h3>
+        <ul class="menu-list">
+        
+            <li>
+                <a class="level is-mobile" href="https://hexo.io" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Hexo</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">hexo.io</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://www.etsy.com/ca/shop/ShokuninDesignCo" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">Etsy Shop</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.etsy.com</span>
+                    </span>
+                </a>
+            </li>
+        
+            <li>
+                <a class="level is-mobile" href="https://www.highgo.ca/" target="_blank" rel="noopener">
+                    <span class="level-left">
+                        <span class="level-item">HighGo Software Canada</span>
+                    </span>
+                    <span class="level-right">
+                        <span class="level-item tag">www.highgo.ca</span>
+                    </span>
+                </a>
+            </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+
+    
+        
+<div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Categories
+            </h3>
+            <ul class="menu-list">
+            <li>
+        <a class="level is-marginless" href="/categories/Netsnmp/">
+            <span class="level-start">
+                <span class="level-item">Netsnmp</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">1</span>
+            </span>
+        </a></li><li>
+        <a class="level is-marginless" href="/categories/PostgreSQL/">
+            <span class="level-start">
+                <span class="level-item">PostgreSQL</span>
+            </span>
+            <span class="level-end">
+                <span class="level-item tag">26</span>
+            </span>
+        </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Tag Cloud
+        </h3>
+        <a href="/tags/2021-PG-Asia-Conference/" style="font-size: 12px;">2021 PG Asia Conference</a> <a href="/tags/Postgresql/" style="font-size: 18px;">Postgresql</a> <a href="/tags/architecture/" style="font-size: 10px;">architecture</a> <a href="/tags/atomic-commit/" style="font-size: 12px;">atomic commit</a> <a href="/tags/backend/" style="font-size: 10px;">backend</a> <a href="/tags/buffer-manager/" style="font-size: 10px;">buffer manager</a> <a href="/tags/copy/" style="font-size: 10px;">copy</a> <a href="/tags/extended-query/" style="font-size: 10px;">extended query</a> <a href="/tags/extension/" style="font-size: 10px;">extension</a> <a href="/tags/external-key-management-system/" style="font-size: 10px;">external key management system</a> <a href="/tags/failover/" style="font-size: 10px;">failover</a> <a href="/tags/fdw/" style="font-size: 12px;">fdw</a> <a href="/tags/gdb/" style="font-size: 14px;">gdb</a> <a href="/tags/in-memory/" style="font-size: 10px;">in-memory</a> <a href="/tags/in-memory-table/" style="font-size: 10px;">in-memory table</a> <a href="/tags/key-management-system/" style="font-size: 10px;">key management system</a> <a href="/tags/libpq/" style="font-size: 10px;">libpq</a> <a href="/tags/logical-decoding/" style="font-size: 10px;">logical decoding</a> <a href="/tags/logical-replication/" style="font-size: 10px;">logical replication</a> <a href="/tags/lsn/" style="font-size: 10px;">lsn</a> <a href="/tags/mongodb/" style="font-size: 10px;">mongodb</a> <a href="/tags/mvcc/" style="font-size: 10px;">mvcc</a> <a href="/tags/networking/" style="font-size: 16px;">networking</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/oid/" style="font-size: 10px;">oid</a> <a href="/tags/parallel-worker/" style="font-size: 10px;">parallel worker</a> <a href="/tags/partition/" style="font-size: 10px;">partition</a> <a href="/tags/pg13/" style="font-size: 10px;">pg13</a> <a href="/tags/pg-rewind/" style="font-size: 10px;">pg_rewind</a> <a href="/tags/pitr/" style="font-size: 10px;">pitr</a> <a href="/tags/pluggable-api/" style="font-size: 10px;">pluggable api</a> <a href="/tags/pluggable-storage/" style="font-size: 14px;">pluggable storage</a> <a href="/tags/postgres/" style="font-size: 10px;">postgres</a> <a href="/tags/postgresql/" style="font-size: 20px;">postgresql</a> <a href="/tags/postmaster/" style="font-size: 12px;">postmaster</a> <a href="/tags/query-processing/" style="font-size: 10px;">query processing</a> <a href="/tags/recovery/" style="font-size: 12px;">recovery</a> <a href="/tags/redo/" style="font-size: 10px;">redo</a> <a href="/tags/replication/" style="font-size: 14px;">replication</a> <a href="/tags/savepoint/" style="font-size: 10px;">savepoint</a> <a href="/tags/security/" style="font-size: 16px;">security</a> <a href="/tags/sequence/" style="font-size: 10px;">sequence</a> <a href="/tags/snmp/" style="font-size: 10px;">snmp</a> <a href="/tags/streaming-replication/" style="font-size: 10px;">streaming replication</a> <a href="/tags/subtransaction/" style="font-size: 10px;">subtransaction</a> <a href="/tags/table-access-method/" style="font-size: 12px;">table access method</a> <a href="/tags/tde/" style="font-size: 10px;">tde</a> <a href="/tags/timeline-id/" style="font-size: 10px;">timeline id</a> <a href="/tags/tls/" style="font-size: 10px;">tls</a> <a href="/tags/trace/" style="font-size: 10px;">trace</a> <a href="/tags/trigger/" style="font-size: 10px;">trigger</a> <a href="/tags/visibility/" style="font-size: 10px;">visibility</a> <a href="/tags/visibility-check/" style="font-size: 10px;">visibility check</a> <a href="/tags/wal2mongo/" style="font-size: 10px;">wal2mongo</a> <a href="/tags/wire-protocol/" style="font-size: 10px;">wire protocol</a>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <h3 class="menu-label">
+            Recent
+        </h3>
+        
+        <article class="media">
+            
+            <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/gunique.png" alt="Cross-partition uniqueness guarantee with global unique index">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-10-28T18:18:03.000Z">2022-10-28</time></div>
+                    <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Cross-partition uniqueness guarantee with global unique index</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="How Unique Index Works in PG">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-09-30T17:10:45.000Z">2022-09-30</time></div>
+                    <a href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How Unique Index Works in PG</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/nfs.png" alt="How to Set Up NFS and Run PG on it">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-08-05T18:07:43.000Z">2022-08-05</time></div>
+                    <a href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How to Set Up NFS and Run PG on it</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/07/08/Maintain-a-custom-PG-to-PG-Connection-With-libpq-s-COPY-protocol/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/copy.png" alt="Maintain a custom PG to PG Connection With libpq&#39;s COPY protocol">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-07-08T16:45:40.000Z">2022-07-08</time></div>
+                    <a href="/2022/07/08/Maintain-a-custom-PG-to-PG-Connection-With-libpq-s-COPY-protocol/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Maintain a custom PG to PG Connection With libpq&#39;s COPY protocol</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/visicheck.png" alt="Understand PG&#39;s MVCC Visibility Check Rules">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-06-10T18:13:40.000Z">2022-06-10</time></div>
+                    <a href="/2022/06/10/Understand-PG-s-MVCC-Visibility-Check-Rules/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Understand PG&#39;s MVCC Visibility Check Rules</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+        <h3 class="menu-label">
+            Archives
+        </h3>
+        <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/05/">
+                <span class="level-start">
+                    <span class="level-item">May 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/02/">
+                <span class="level-start">
+                    <span class="level-item">February 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/12/">
+                <span class="level-start">
+                    <span class="level-item">December 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">3</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/02/">
+                <span class="level-start">
+                    <span class="level-item">February 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2021/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2021</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/11/">
+                <span class="level-start">
+                    <span class="level-item">November 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">2</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/08/">
+                <span class="level-start">
+                    <span class="level-item">August 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/06/">
+                <span class="level-start">
+                    <span class="level-item">June 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/05/">
+                <span class="level-start">
+                    <span class="level-item">May 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/04/">
+                <span class="level-start">
+                    <span class="level-item">April 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/03/">
+                <span class="level-start">
+                    <span class="level-item">March 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2020/01/">
+                <span class="level-start">
+                    <span class="level-item">January 2020</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">3</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">4</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2019/07/">
+                <span class="level-start">
+                    <span class="level-item">July 2019</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        </ul>
+        </div>
+    </div>
+</div>
+    
+        <div class="card widget">
+    <div class="card-content">
+        <div class="menu">
+            <h3 class="menu-label">
+                Tags
+            </h3>
+            <div class="field is-grouped is-grouped-multiline">
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/2021-PG-Asia-Conference/">
+                        <span class="tag">2021 PG Asia Conference</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/Postgresql/">
+                        <span class="tag">Postgresql</span>
+                        <span class="tag is-grey">5</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/architecture/">
+                        <span class="tag">architecture</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/atomic-commit/">
+                        <span class="tag">atomic commit</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/backend/">
+                        <span class="tag">backend</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/buffer-manager/">
+                        <span class="tag">buffer manager</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/copy/">
+                        <span class="tag">copy</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/extended-query/">
+                        <span class="tag">extended query</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/extension/">
+                        <span class="tag">extension</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/external-key-management-system/">
+                        <span class="tag">external key management system</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/failover/">
+                        <span class="tag">failover</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/fdw/">
+                        <span class="tag">fdw</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/gdb/">
+                        <span class="tag">gdb</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/in-memory/">
+                        <span class="tag">in-memory</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/in-memory-table/">
+                        <span class="tag">in-memory table</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/key-management-system/">
+                        <span class="tag">key management system</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/libpq/">
+                        <span class="tag">libpq</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/logical-decoding/">
+                        <span class="tag">logical decoding</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/logical-replication/">
+                        <span class="tag">logical replication</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/lsn/">
+                        <span class="tag">lsn</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/mongodb/">
+                        <span class="tag">mongodb</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/mvcc/">
+                        <span class="tag">mvcc</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/networking/">
+                        <span class="tag">networking</span>
+                        <span class="tag is-grey">4</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/nfs/">
+                        <span class="tag">nfs</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/oid/">
+                        <span class="tag">oid</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/parallel-worker/">
+                        <span class="tag">parallel worker</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/partition/">
+                        <span class="tag">partition</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pg13/">
+                        <span class="tag">pg13</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pg-rewind/">
+                        <span class="tag">pg_rewind</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pitr/">
+                        <span class="tag">pitr</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pluggable-api/">
+                        <span class="tag">pluggable api</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/pluggable-storage/">
+                        <span class="tag">pluggable storage</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgres/">
+                        <span class="tag">postgres</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postgresql/">
+                        <span class="tag">postgresql</span>
+                        <span class="tag is-grey">16</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/postmaster/">
+                        <span class="tag">postmaster</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/query-processing/">
+                        <span class="tag">query processing</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/recovery/">
+                        <span class="tag">recovery</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/redo/">
+                        <span class="tag">redo</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/replication/">
+                        <span class="tag">replication</span>
+                        <span class="tag is-grey">3</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/savepoint/">
+                        <span class="tag">savepoint</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/security/">
+                        <span class="tag">security</span>
+                        <span class="tag is-grey">4</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/sequence/">
+                        <span class="tag">sequence</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/snmp/">
+                        <span class="tag">snmp</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/streaming-replication/">
+                        <span class="tag">streaming replication</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/subtransaction/">
+                        <span class="tag">subtransaction</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/table-access-method/">
+                        <span class="tag">table access method</span>
+                        <span class="tag is-grey">2</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/tde/">
+                        <span class="tag">tde</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/timeline-id/">
+                        <span class="tag">timeline id</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/tls/">
+                        <span class="tag">tls</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/trace/">
+                        <span class="tag">trace</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/trigger/">
+                        <span class="tag">trigger</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility/">
+                        <span class="tag">visibility</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/visibility-check/">
+                        <span class="tag">visibility check</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/wal2mongo/">
+                        <span class="tag">wal2mongo</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+                <div class="control">
+                    <a class="tags has-addons" href="/tags/wire-protocol/">
+                        <span class="tag">wire protocol</span>
+                        <span class="tag is-grey">1</span>
+                    </a>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+    
+    
+        <div class="column-right-shadow is-hidden-widescreen ">
+        
+        </div>
+    
+</div>
+
+                
+            </div>
+        </div>
+    </section>
+    <footer class="footer">
+    <div class="container">
+        <div class="level">
+            <div class="level-start has-text-centered-mobile">
+                <a class="footer-logo is-block has-mb-6" href="/">
+                
+                    <img src="/images/Simplicity-design-logo.jpg" alt="How Unique Index Works in PG" height="28">
+                
+                </a>
+                <p class="is-size-7">
+                &copy; 2022 Cary Huang&nbsp;
+                Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> & <a
+                        href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a>
+                
+                </p>
+            </div>
+            <div class="level-end">
+            
+                <div class="field has-addons is-flex-center-mobile has-mt-5-mobile is-flex-wrap is-flex-middle">
+                
+                <p class="control">
+                    <a class="button is-white is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus">
+                        
+                        <i class="fab fa-github"></i>
+                        
+                    </a>
+                </p>
+                
+                </div>
+            
+            </div>
+        </div>
+    </div>
+</footer>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script>
+<script>moment.locale("en");</script>
+
+
+<script>
+var IcarusThemeSettings = {
+    site: {
+        url: 'http://caryhuang.github.io',
+        external_link: {"enable":true,"exclude":[]}
+    },
+    article: {
+        highlight: {
+            clipboard: true,
+            fold: 'unfolded'
+        }
+    }
+};
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script>
+
+
+
+
+
+<script src="/js/animation.js"></script>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/lightgallery@1.6.8/dist/js/lightgallery.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.7.0/dist/js/jquery.justifiedGallery.min.js" defer></script>
+<script src="/js/gallery.js" defer></script>
+
+
+
+<div id="outdated">
+    <h6>Your browser is out-of-date!</h6>
+    <p>Update your browser to view this website correctly. <a id="btnUpdateBrowser" href="http://outdatedbrowser.com/">Update
+            my browser now </a></p>
+    <p class="last"><a href="#" id="btnCloseUpdateBrowser" title="Close">&times;</a></p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/outdatedbrowser@1.1.5/outdatedbrowser/outdatedbrowser.min.js" defer></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        outdatedBrowser({
+            bgColor: '#f25648',
+            color: '#ffffff',
+            lowerThan: 'flex'
+        });
+    });
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/mathjax@2.7.5/unpacked/MathJax.js?config=TeX-MML-AM_CHTML" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    MathJax.Hub.Config({
+        'HTML-CSS': {
+            matchFontHeight: false
+        },
+        SVG: {
+            matchFontHeight: false
+        },
+        CommonHTML: {
+            matchFontHeight: false
+        },
+        tex2jax: {
+            inlineMath: [
+                ['$','$'],
+                ['\\(','\\)']
+            ]
+        }
+    });
+});
+</script>
+
+
+<a id="back-to-top" title="Back to Top" href="javascript:;">
+    <i class="fas fa-chevron-up"></i>
+</a>
+<script src="/js/back-to-top.js" defer></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="/js/main.js" defer></script>
+
+    
+    <div class="searchbox ins-search">
+    <div class="searchbox-container ins-search-container">
+        <div class="searchbox-input-wrapper">
+            <input type="text" class="searchbox-input ins-search-input" placeholder="Type something..." />
+            <span class="searchbox-close ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="searchbox-result-wrapper ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+    (function (window) {
+        var INSIGHT_CONFIG = {
+            TRANSLATION: {
+                POSTS: 'Posts',
+                PAGES: 'Pages',
+                CATEGORIES: 'Categories',
+                TAGS: 'Tags',
+                UNTITLED: '(Untitled)',
+            },
+            CONTENT_URL: '/content.json',
+        };
+        window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+    })(window);
+</script>
+<script src="/js/insight.js" defer></script>
+<link rel="stylesheet" href="/css/search.css">
+<link rel="stylesheet" href="/css/insight.css">
+    
+</body>
+</html>

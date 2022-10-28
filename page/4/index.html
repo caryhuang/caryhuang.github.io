@@ -131,6 +131,129 @@
 <div class="card">
     
     <div class="card-image">
+        <a href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/" class="image is-7by1">
+            <img class="thumbnail" src="/images/view2.jpg" alt="Understanding Security Features in PostgreSQL - Part 1">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2020-01-10T22:02:06.000Z">2020-01-10</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    19 minutes read (About 2857 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/">Understanding Security Features in PostgreSQL - Part 1</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Introduction"><a href="#1-Introduction" class="headerlink" title="1. Introduction"></a>1. Introduction</h3><p>PostgreSQL is packed with several security features for a database administrator to utilize according to his or her organizational security needs. The word <code>Security</code> is a very broad concept and could refer to completely different procedures and methodology to achieve in different PostgreSQL components. This blog is divided into part 1, 2 and 3 and I will explain the word <code>Security</code> with regards to PostgreSQL version 12.1 and how it is practiced in different areas within the system. </p>
+<p>In Part 1 of the blog, I will be discussing the basic security features that exist in PostgreSQL with emphasis on Host-based authentication methods as well as user-based access control with the concept of roles. If done right, we could have a much more robust database server and potentially reduce the attack surface on the server, protecting it from attacks like SQL injections. I will also briefly discuss a few of the advanced authentication methods such as LDAP and PAM authentication. There are many more advanced authentication methods supported and we will be producing more articles in the near future to cover more of these methods.</p>
+<p>In Part 2 of the blog, I will be discussing TLS in greater detail, which I believe is crucial for a database administrator to understand first before enabling TLS in the PostgreSQL server. TLS is a fairly large and one of the least understood protocol today, which contains a lot of security components and methodology related to cryptography that could be quite confusing. </p>
+<p>In Part 3 of the blog, I will be discussing how to apply TLS configurations to both PostgreSQL server and client following the TLS principles that have been discussed in Part 2. I will also briefly discuss Transparent Data Encryption (TDE) that the PG community is currently working on that introduces another layer of secured database environment.</p>
+        </div>
+        
+        
+        <div class="level is-mobile">
+            <div class="level-start">
+                <div class="level-item">
+                <a class="button is-size-7 is-light" href="/2020/01/10/Understanding-Security-Features-in-PostgreSQL-Part1/#more">Read More</a>
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
+        <a href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/" class="image is-7by1">
+            <img class="thumbnail" src="/images/view3.jpg" alt="Steaming-Replication-Setup-in-PG12-How-to-do-it-right">
+        </a>
+    </div>
+    
+    <div class="card-content article ">
+        
+        <div class="level article-meta is-size-7 is-uppercase is-mobile is-overflow-x-auto">
+            <div class="level-left">
+                <time class="level-item has-text-grey" datetime="2019-10-30T06:36:39.000Z">2019-10-29</time>
+                
+                <div class="level-item">
+                <a class="has-link-grey -link" href="/categories/PostgreSQL/">PostgreSQL</a>
+                </div>
+                
+                
+                <span class="level-item has-text-grey">
+                    
+                    
+                    13 minutes read (About 1990 words)
+                </span>
+                
+                
+            </div>
+        </div>
+        
+        <h1 class="title is-size-3 is-size-4-mobile has-text-weight-normal">
+            
+                <a class="has-link-black-ter" href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/">Steaming-Replication-Setup-in-PG12-How-to-do-it-right</a>
+            
+        </h1>
+        <div class="content">
+            <h3 id="1-Overview"><a href="#1-Overview" class="headerlink" title="1. Overview"></a>1. Overview</h3><p>PostgreSQL 12 has been considered as a major update consisting of major performance boost with partitioning enhancements, indexing improvements, optimized planner logics and several others. One of the major changes is noticeably the removal of <code>recovery.conf</code> in a standby cluster. For this reason, the procedure to set up a streaming replication clusters has changed, and in this blog, I will demonstrate how to properly setup a streaming replication setup in PG12.</p>
+<p>Streaming replication setup requires a master cluster and one or more slave clusters that will replicate the data inserted to the master by streaming the archived WAL files generated by master. The master and slaves can reside on different machines connected via network but in this blog, we will use one master and one slave setup and both will be run on the same machine with different port number.</p>
+<p>The procedures illustrated in this blog is based on Postgres version 12 built from source running on Ubuntu 18.04</p>
+        </div>
+        
+        
+        <div class="level is-mobile">
+            <div class="level-start">
+                <div class="level-item">
+                <a class="button is-size-7 is-light" href="/2019/10/29/Steaming-Replication-Setup-in-PG12-How-to-do-it-right/#more">Read More</a>
+                </div>
+            </div>
+        </div>
+        
+        
+    </div>
+</div>
+
+
+
+
+
+
+
+
+    
+<div class="card">
+    
+    <div class="card-image">
         <a href="/2019/09/27/Replication-Failover-with-pg-rewind-in-PG12/" class="image is-7by1">
             <img class="thumbnail" src="/images/view1.jpg" alt="Replication-Failover-with-pg_rewind-in-PG12">
         </a>
@@ -507,7 +630,7 @@
                     </p>
                     <a href="/archives">
                         <p class="title has-text-weight-normal">
-                            35
+                            37
                         </p>
                     </a>
                 </div>
@@ -683,6 +806,44 @@
         
         <article class="media">
             
+            <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/gunique.png" alt="Cross-partition uniqueness guarantee with global unique index">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-10-28T18:18:03.000Z">2022-10-28</time></div>
+                    <a href="/2022/10/28/Cross-partition-uniqueness-guarantee-with-global-unique-index/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Cross-partition uniqueness guarantee with global unique index</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
+            <a href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" class="media-left">
+                <p class="image is-64x64">
+                    <img class="thumbnail" src="/images/thumbnail.svg" alt="How Unique Index Works in PG">
+                </p>
+            </a>
+            
+            <div class="media-content">
+                <div class="content">
+                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-09-30T17:10:45.000Z">2022-09-30</time></div>
+                    <a href="/2022/09/30/How-Unique-Index-Works-In-PG-and-the-possibility-of-cross-partition-uniqueness-guarantee/" class="title has-link-black-ter is-size-6 has-text-weight-normal">How Unique Index Works in PG</a>
+                    <p class="is-size-7 is-uppercase">
+                        
+                    </p>
+                </div>
+            </div>
+        </article>
+        
+        <article class="media">
+            
             <a href="/2022/08/05/How-to-Set-Up-NFS-and-Run-PG-on-it/" class="media-left">
                 <p class="image is-64x64">
                     <img class="thumbnail" src="/images/nfs.png" alt="How to Set Up NFS and Run PG on it">
@@ -738,44 +899,6 @@
             </div>
         </article>
         
-        <article class="media">
-            
-            <a href="/2022/05/06/Ensure-Atomic-Commit-with-2-Phase-Commit-in-FDW-Distributed-Setup/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/2pc2.png" alt="Atomic Commit with 2 Phase Commit in FDW Distributed Setup">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-05-06T18:51:12.000Z">2022-05-06</time></div>
-                    <a href="/2022/05/06/Ensure-Atomic-Commit-with-2-Phase-Commit-in-FDW-Distributed-Setup/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Atomic Commit with 2 Phase Commit in FDW Distributed Setup</a>
-                    <p class="is-size-7 is-uppercase">
-                        
-                    </p>
-                </div>
-            </div>
-        </article>
-        
-        <article class="media">
-            
-            <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="media-left">
-                <p class="image is-64x64">
-                    <img class="thumbnail" src="/images/2pc.png" alt="Distributed Database With PostgreSQL - Atomic Commit Problems">
-                </p>
-            </a>
-            
-            <div class="media-content">
-                <div class="content">
-                    <div><time class="has-text-grey is-size-7 is-uppercase" datetime="2022-03-18T20:26:14.000Z">2022-03-18</time></div>
-                    <a href="/2022/03/18/Distributed-Database-With-PostgreSQL-Atomic-Commit-Problems/" class="title has-link-black-ter is-size-6 has-text-weight-normal">Distributed Database With PostgreSQL - Atomic Commit Problems</a>
-                    <p class="is-size-7 is-uppercase">
-                        
-                    </p>
-                </div>
-            </div>
-        </article>
-        
     </div>
 </div>
     
@@ -786,6 +909,28 @@
             Archives
         </h3>
         <ul class="menu-list">
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/10/">
+                <span class="level-start">
+                    <span class="level-item">October 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
+        
+        <li>
+            <a class="level is-marginless" href="/archives/2022/09/">
+                <span class="level-start">
+                    <span class="level-item">September 2022</span>
+                </span>
+                <span class="level-end">
+                    <span class="level-item tag">1</span>
+                </span>
+            </a>
+        </li>
         
         <li>
             <a class="level is-marginless" href="/archives/2022/08/">
@@ -1331,7 +1476,7 @@
                 <div class="control">
                     <a class="tags has-addons" href="/tags/postgresql/">
                         <span class="tag">postgresql</span>
-                        <span class="tag is-grey">15</span>
+                        <span class="tag is-grey">16</span>
                     </a>
                 </div>
                 
